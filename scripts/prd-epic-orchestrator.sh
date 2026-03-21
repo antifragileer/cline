@@ -6,11 +6,15 @@
 # 1. Generate an epic manifest from the PRD
 # 2. Execute cline sessions for each epic in the correct order
 # 3. Validate epic outputs and retry if files are missing
+# 4. Update manifest with output file paths
 #
 # Usage: ./prd-epic-orchestrator.sh [OPTIONS] <path/to/prd.md>
 #
 
 set -euo pipefail
+
+# Track background processes for cleanup
+declare -a BACKGROUND_PIDS=()
 
 # Script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -330,6 +334,73 @@ validate_epic_output() {
     fi
 }
 
+# Get list of all files in epic directory
+get_epic_files() {
+    local epic_dir="$1"
+    
+    if [[ ! -d "$epic_dir" ]]; then
+        echo "[]"
+        return
+    fi
+    
+    # Find all files and convert to JSON array
+    find "$epic_dir" -type f | sed 's|^'"$epic_dir"'/||' | jq -R . | jq -s .
+}
+
+# Update manifest with output file paths for an epic
+update_manifest_with_files() {
+    local manifest_file="$1"
+    local epic_id="$2"
+    local epic_dir="$3"
+    
+    log_info "Updating manifest with file paths for $epic_id"
+    
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would update manifest with files from: $epic_dir"
+        return 0
+    fi
+    
+    if [[ ! -f "$manifest_file" ]]; then
+        log_warn "Manifest file not found, cannot update: $manifest_file"
+        return 1
+    fi
+    
+    # Get list of files in epic directory
+    local files_json
+    files_json=$(get_epic_files "$epic_dir")
+    
+    # Update the epic entry with output_files field
+    local temp_manifest
+    temp_manifest=$(mktemp)
+    
+    jq --arg epic_id "$epic_id" \
+       --arg epic_dir "$epic_dir" \
+       --argjson files "$files_json" \
+       '
+       .epics = [
+           (.epics[] | 
+            if .id == $epic_id then
+                . + {
+                    "output_directory": $epic_dir,
+                    "output_files": $files
+                }
+            else
+                .
+            end
+           )
+       ]
+       ' "$manifest_file" > "$temp_manifest"
+    
+    if [[ $? -eq 0 ]]; then
+        mv "$temp_manifest" "$manifest_file"
+        log_success "Updated manifest with output paths for $epic_id"
+    else
+        log_error "Failed to update manifest for $epic_id"
+        rm -f "$temp_manifest"
+        return 1
+    fi
+}
+
 # Clean epic directory for retry
 clean_epic_directory() {
     local epic_dir="$1"
@@ -352,7 +423,8 @@ execute_epic() {
     local epic_id="$1"
     local epic_name="$2"
     local prd_file="$3"
-    local attempt="${4:-1}"
+    local manifest_file="$4"
+    local attempt="${5:-1}"
     
     log_info "Executing epic: $epic_id ($epic_name) - Attempt $attempt/$MAX_RETRIES"
     
@@ -375,14 +447,28 @@ execute_epic() {
     
     # Execute cline in yolo mode with JSON output
     local output_file="/tmp/epic_${epic_id}_output.json"
-    if ! $CLINE_BIN -y --json "$prompt" > "$output_file" 2>&1; then
+    
+    # Run cline in background so we can track its PID
+    $CLINE_BIN -y --json "$prompt" > "$output_file" 2>&1 &
+    local cline_pid=$!
+    BACKGROUND_PIDS+=($cline_pid)
+    
+    # Wait for cline to complete
+    if ! wait "$cline_pid"; then
         log_error "Cline execution failed for $epic_id"
         cat "$output_file" >&2
+        # Remove from tracking
+        BACKGROUND_PIDS=(${BACKGROUND_PIDS[@]/$cline_pid})
         return 1
     fi
     
+    # Remove from tracking since it completed successfully
+    BACKGROUND_PIDS=(${BACKGROUND_PIDS[@]/$cline_pid})
+    
     # Validate output
     if validate_epic_output "$epic_id" "$epic_dir"; then
+        # Update manifest with file paths
+        update_manifest_with_files "$manifest_file" "$epic_id" "$epic_dir"
         log_success "Epic $epic_id completed successfully"
         return 0
     else
@@ -391,7 +477,7 @@ execute_epic() {
             log_warn "Retrying $epic_id after $RETRY_DELAY seconds..."
             sleep "$RETRY_DELAY"
             clean_epic_directory "$epic_dir"
-            execute_epic "$epic_id" "$epic_name" "$prd_file" $((attempt + 1))
+            execute_epic "$epic_id" "$epic_name" "$prd_file" "$manifest_file" $((attempt + 1))
             return $?
         else
             log_error "Max retries reached for $epic_id"
@@ -462,8 +548,9 @@ process_epics() {
                 epic_name=$(jq -r ".epics[] | select(.id == \"$epic_id\") | .name" "$manifest_file")
                 
                 # Run in background
-                execute_epic "$epic_id" "$epic_name" "$prd_file" 1 &
+                execute_epic "$epic_id" "$epic_name" "$prd_file" "$manifest_file" 1 &
                 pids+=($!)
+                BACKGROUND_PIDS+=($!)
             done
             
             # Wait for all parallel jobs to complete
@@ -472,6 +559,8 @@ process_epics() {
                 if ! wait "$pid"; then
                     failed=$((failed + 1))
                 fi
+                # Remove from tracking
+                BACKGROUND_PIDS=(${BACKGROUND_PIDS[@]/$pid})
             done
             
             if [[ $failed -gt 0 ]]; then
@@ -491,7 +580,7 @@ process_epics() {
             epic_id=$(echo "$epic_json" | jq -r '.id')
             epic_name=$(echo "$epic_json" | jq -r '.name')
             
-            if ! execute_epic "$epic_id" "$epic_name" "$prd_file"; then
+            if ! execute_epic "$epic_id" "$epic_name" "$prd_file" "$manifest_file"; then
                 log_error "Failed to process epic: $epic_id"
                 # Continue with next epic
             fi
@@ -565,6 +654,34 @@ main() {
     
     log_success "Epic orchestration complete!"
 }
+
+# Cleanup function for signal handling
+cleanup() {
+    local signal=$1
+    log_warn "Received signal $signal! Cleaning up..."
+    
+    # Kill any running cline processes
+    for pid in "${BACKGROUND_PIDS[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            log_info "Terminating cline process: $pid"
+            kill -TERM "$pid" 2>/dev/null || true
+            sleep 1
+            kill -KILL "$pid" 2>/dev/null || true
+        fi
+    done
+    
+    # Kill any cline processes started by this script
+    pkill -f "cline.*prd-epic-extract" 2>/dev/null || true
+    pkill -f "cline.*manifest" 2>/dev/null || true
+    
+    log_info "Cleanup complete"
+    # Exit with error code for interruption
+    exit 130
+}
+
+# Set up signal handlers (only for SIGINT and SIGTERM, not EXIT)
+trap 'cleanup SIGINT' SIGINT
+trap 'cleanup SIGTERM' SIGTERM
 
 # Run main function
 main "$@"
