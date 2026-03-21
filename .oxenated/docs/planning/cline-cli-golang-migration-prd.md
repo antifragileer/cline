@@ -4,6 +4,19 @@
 
 This PRD defines the complete migration of the Cline CLI from TypeScript/React Ink to GoLang, achieving full feature parity while leveraging Go's advantages: single binary distribution, faster startup, smaller footprint, and better cross-platform support. The migrated CLI will maintain full compatibility with existing state storage (~/.cline/data/) and the existing Cline core extension via gRPC/protobuf.
 
+### Critical Independence Requirements
+
+**The GoLang CLI MUST be a complete, standalone implementation with ZERO dependencies on the existing TypeScript CLI code:**
+
+1. **No Code Import/Transpilation**: The GoLang CLI MUST NOT import, transpile, bundle, or execute any TypeScript/JavaScript code from `cli/src/` or any other existing CLI source directories
+2. **No Package Dependencies**: The GoLang CLI MUST NOT depend on `cli/package.json` or any npm packages used by the existing CLI (React, Ink, Commander, etc.)
+3. **No Build System Dependencies**: The GoLang CLI MUST NOT use the existing CLI's esbuild configuration, build scripts, or compilation pipeline
+4. **No Runtime Dependencies on Node.js**: The GoLang CLI MUST NOT require Node.js, npm, or any Node.js runtime to execute
+5. **Pure Go Implementation**: All functionality MUST be implemented in pure Go using Go-native libraries and dependencies only
+6. **gRPC Integration Only**: The ONLY permitted connection to existing Cline code is via gRPC/protobuf communication with the core extension (which remains TypeScript)
+
+**Dual Testing Mandate**: All functionality MUST be tested in BOTH the existing Cline CLI AND the new GoLang CLI to ensure exact functional parity before the GoLang CLI can be considered production-ready.
+
 ---
 
 ## System Overview
@@ -1406,6 +1419,39 @@ Scenario: Support AWS Bedrock
 - **Outcomes:** Easy installation across all platforms
 - **Impacts:** User adoption, distribution reach, professional appearance
 
+#### Independence Verification for Distribution
+
+**ID:** EPIC-INFRA-DIST-014-INDEPENDENCE-001
+
+**Feature IAOOI:**
+- **Inputs:** Go binary, existing CLI comparison requirements
+- **Activities:** Verify binary contains no embedded JavaScript/TypeScript, validate no Node.js dependencies, confirm single static binary output
+- **Outputs:** Independence verification report
+- **Outcomes:** Confidence that GoLang CLI is truly standalone
+- **Impacts:** Prevents hidden dependencies on existing code
+
+**Gherkin BDD Scenarios:**
+
+```gherkin
+Scenario: Verify no JavaScript code in binary
+  Given the GoLang CLI binary is built
+  When scanning for embedded JS/TS code
+  Then no JavaScript or TypeScript code should be found
+  And no Node.js runtime references should exist
+
+Scenario: Verify no npm dependencies
+  Given the GoLang CLI project
+  When examining go.mod and imports
+  Then no npm packages should be referenced
+  And no Node.js modules should be required
+
+Scenario: Verify standalone execution
+  Given a clean environment without Node.js
+  When running the GoLang CLI binary
+  Then it should execute successfully
+  And all features should work without Node.js
+```
+
 **Requirements Coverage:** REQ-014, REQ-015
 
 #### Feature 1: Cross-platform Build Scripts
@@ -1529,6 +1575,14 @@ Scenario: Platform detection in npm install
 | EPIC-INFRA-DIST-014-BUILD-001 | REQ-014 |
 | EPIC-INFRA-DIST-014-HOMEBREW-002 | REQ-015 |
 | EPIC-INFRA-DIST-014-NPM-003 | REQ-015 |
+| EPIC-INFRA-DIST-014-INDEPENDENCE-001 | REQ-014 (independence verification) |
+
+**Additional Requirements (Dual Testing & Independence):**
+- REQ-019: No dependencies on existing TypeScript CLI code
+- REQ-020: Dual testing framework for functional parity
+- REQ-021: Automated output comparison between CLIs
+- REQ-022: Performance benchmarking against existing CLI
+- REQ-023: Regression test suite passing
 
 **Original Requirements:**
 1. REQ-001: Execute AI coding tasks from terminal with interactive UI
@@ -1552,7 +1606,85 @@ Scenario: Platform detection in npm install
 
 ---
 
+## Dual Testing Strategy
+
+### Testing Philosophy
+
+To ensure the GoLang CLI achieves **exact functional parity** with the existing TypeScript CLI, a comprehensive dual testing approach is mandatory. Every feature must pass identical test scenarios in both CLI implementations.
+
+### Test Categories
+
+#### 1. Functional Parity Tests
+For every feature in the PRD, create test cases that:
+- Execute identical commands in both CLIs
+- Compare outputs byte-for-byte where applicable
+- Verify identical exit codes
+- Confirm identical behavior for all flag combinations
+- Test identical edge cases and error conditions
+
+#### 2. Side-by-Side Integration Tests
+- Run both CLIs simultaneously against the same core extension
+- Verify they can resume each other's tasks
+- Confirm state file compatibility
+- Test concurrent execution scenarios
+
+#### 3. Output Format Verification
+- Compare plain text output formatting
+- Compare JSON output structure (field names, types, ordering)
+- Verify identical ANSI color codes and styling
+- Confirm identical progress indicator behavior
+
+#### 4. Performance Benchmarking
+- Measure and compare startup times
+- Compare memory usage under load
+- Benchmark task execution speed
+- Verify binary size requirements
+
+#### 5. Cross-Platform Consistency
+- Test both CLIs on Linux, macOS, and Windows
+- Verify identical behavior across platforms
+- Confirm packaging and installation equivalence
+
+### Acceptance Criteria
+
+The GoLang CLI is considered feature-complete ONLY when:
+
+- [ ] **100% Command Coverage**: All commands from `cline --help` work identically
+- [ ] **Flag Parity**: All flags produce identical behavior
+- [ ] **Output Matching**: All output formats (plain, JSON, TUI) are byte-for-byte identical (except timestamps/IDs)
+- [ ] **State Compatibility**: Tasks created in one CLI can be resumed in the other
+- [ ] **Error Handling**: Error messages and exit codes match exactly
+- [ ] **Performance**: GoLang CLI is faster or equal in all benchmarks
+- [ ] **No Regressions**: All existing CLI tests pass with GoLang CLI
+
+### Test Execution Requirements
+
+1. **Parallel Testing**: Run test suites against both CLIs in CI/CD
+2. **Automated Comparison**: Use automated diff tools to compare outputs
+3. **Manual Verification**: Key workflows must be manually tested in both
+4. **Regression Suite**: Existing CLI test suite must pass with GoLang CLI
+
+---
+
 ## AI Execution Plan
+
+### Phase 0: Dual Testing Framework Setup
+
+**0.1. Test Harness Development**
+- Create test harness that can execute commands against both CLIs
+- Build output comparison and diff reporting tools
+- Setup automated regression detection
+- **Action:** AI Agent 0 creates testing infrastructure
+
+**0.2. Baseline Capture**
+- Document all existing CLI behavior as test cases
+- Capture expected outputs for all commands and flags
+- Create reference test suite from existing CLI
+- **Action:** AI Agent 0 establishes baseline
+
+**Deliverable:** Automated dual-testing framework with baseline expectations
+
+---
 
 ### Phase 1: Foundational Setup (Prerequisites and Core Infrastructure)
 
@@ -1701,30 +1833,78 @@ Scenario: Platform detection in npm install
 
 | Phase | Coordination Activity |
 |-------|----------------------|
+| After Phase 0 | Dual testing framework ready, baseline established |
 | After Phase 1 | All agents align on storage interfaces, proto definitions |
-| After Phase 2 | CLI commands can be tested individually |
-| After Phase 4 | Core functionality works end-to-end with core extension |
-| After Phase 6 | Enterprise features ready for security review |
-| After Phase 8 | Full release with distribution |
+| After Phase 2 | CLI commands can be tested individually; begin dual testing |
+| After Phase 4 | Core functionality works end-to-end; full dual test suite runs |
+| After Phase 6 | Enterprise features ready for security review; parity tests pass |
+| After Phase 8 | Full release with distribution; 100% test parity achieved |
+
+### Dual Testing Checkpoints
+
+| Checkpoint | Requirement |
+|------------|-------------|
+| Phase 2 Exit | All commands exist and pass basic dual tests |
+| Phase 4 Exit | Task execution matches existing CLI exactly |
+| Phase 6 Exit | All security features pass dual tests |
+| Phase 8 Exit | 100% feature parity, all dual tests pass |
+
+### Independence Verification Checklist
+
+Before each phase completes, verify:
+
+- [ ] No imports from `cli/src/` or `cli/package.json`
+- [ ] No Node.js runtime dependencies
+- [ ] No TypeScript/JavaScript code bundled in binary
+- [ ] All dependencies are pure Go modules
+- [ ] Build produces single static binary
 
 ### Testing Strategy
 
 **Unit Tests:**
 - All packages with >80% coverage
 - Storage operations, command parsing, validation logic
+- Must pass in BOTH GoLang CLI and existing CLI environments
 
 **Integration Tests:**
 - gRPC communication with mock core
 - Storage with temporary directories
 - Provider API clients with mocked responses
+- Dual-CLI state sharing verification
+
+**Functional Parity Tests (NEW):**
+- Side-by-side command execution comparison
+- Output format verification (plain text, JSON, TUI)
+- Flag behavior equivalence testing
+- Exit code matching
+- Error message comparison
 
 **E2E Tests:**
 - Full CLI commands with test core extension
 - Cross-platform binary execution
 - Installation verification
+- **Dual CLI E2E**: Execute same scenarios in both CLIs, compare results
+
+**Regression Tests:**
+- Existing CLI test suite must pass with GoLang CLI
+- No degradation in functionality
+- No breaking changes to user experience
+
+**Performance Tests:**
+- Startup time benchmarking (GoLang CLI must be faster)
+- Memory usage comparison
+- Binary size verification
+- Execution speed under load
 
 ---
 
 ## End User Summary
 
 This GoLang migration delivers a completely rewritten Cline CLI that maintains full feature parity with the existing TypeScript implementation while providing significant advantages. Users will experience faster startup times, smaller installation footprint, and true single-binary distribution without Node.js dependencies. The CLI supports all existing workflows: interactive chat with rich terminal UI, automated scripting with JSON output and yolo mode, and enterprise security with command permissions and audit logging. State storage remains compatible with existing `~/.cline/data/` directories, ensuring seamless migration. The gRPC integration with the existing Cline core extension means all AI capabilities work identically to the current implementation. Distribution through Homebrew and npm provides familiar installation paths, while the underlying Go binaries offer superior cross-platform compatibility. Whether you're a developer using interactive mode for coding assistance, a DevOps engineer automating CI/CD pipelines, or an enterprise user requiring policy compliance, this migrated CLI delivers the same powerful Cline experience with improved performance and reliability.
+
+### Key Commitments
+
+1. **Zero Dependencies**: The GoLang CLI is a pure Go implementation with no dependencies on the existing TypeScript CLI code
+2. **Exact Parity**: Every feature, flag, and behavior matches the existing CLI exactly (verified through dual testing)
+3. **Seamless Migration**: Users can switch between CLIs without data loss or behavior changes
+4. **Better Performance**: Faster startup, smaller footprint, and improved resource usage
