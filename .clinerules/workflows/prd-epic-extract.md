@@ -6,7 +6,7 @@ priority: high
 
 # PRD Epic Extraction Workflow
 
-Extract a specific epic from the PRD for the Stabl Pay MVP, creating a complete documentation structure with all necessary context for future development.
+Use subagents to Extract all epics or a specific epic from the PRD, creating a complete documentation structure with all necessary context for future development.
 
 ## Usage
 
