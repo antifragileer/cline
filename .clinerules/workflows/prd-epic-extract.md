@@ -112,12 +112,14 @@ Launch one subagent per epic to extract in parallel. Each subagent receives:
 **Subagent Instructions (provided to each subagent):**
 
 ```
-You are an epic extraction specialist. Your task is to extract ONE specific epic from the PRD and create comprehensive documentation.
+You are an epic extraction specialist. Your task is to extract ONE specific epic from the PRD and create comprehensive documentation by ACTUALLY WRITING THE FILES.
 
 EPIC TO EXTRACT: [EPIC-ID]
 TARGET PERSONA: [Persona Name]
 OUTPUT DIRECTORY: [path]
 PRD LOCATION: .oxenated/docs/planning/product_requirements.md
+
+YOU MUST USE THE write_to_file TOOL TO CREATE FILES. Do not output content for the caller to write - you must write the files yourself.
 
 Follow these steps:
 
@@ -136,10 +138,11 @@ Follow these steps:
    - Dependencies on other epics
    - Integration points with other personas
 
-3. Create the epic directory if it doesn't exist:
-   mkdir -p [OUTPUT DIRECTORY]/features
+3. Create the epic directory structure by using the write_to_file tool:
+   - The write_to_file tool automatically creates parent directories
+   - Create [OUTPUT DIRECTORY]/features by writing a placeholder file, then delete it
 
-4. Create the epic.md file using this EXACT template. DO NOT deviate from this structure:
+4. Use the write_to_file tool to create the epic.md file with this EXACT template structure. DO NOT deviate from this structure:
 
 ---
 
@@ -237,13 +240,22 @@ IMPORTANT CITATION RULES:
 - New functionality (to be created): Mark as "Proposed:" or "To be implemented" - no citation needed
 - If any reference cannot be verified, mark as [UNVERIFIED - requires confirmation]
 
-5. Report back with:
+5. After writing the file, use list_files to verify the epic.md file exists at [OUTPUT DIRECTORY]/epic.md
+
+6. Report back with:
    - Confirmation of successful extraction
    - Path to created epic.md file
    - Count of features extracted
    - Any issues or missing content noted
 
+CRITICAL INSTRUCTIONS:
+- You MUST use the write_to_file tool to create the epic.md file
+- You MUST NOT tell the caller to write the file - do it yourself
+- You MUST create the features/ subdirectory (write a temp file then remove it, or ensure directory exists)
+- Verify your work by listing the created files
+
 DO NOT:
+- Do NOT output file content and tell the caller to write it
 - Do NOT invent features not in the PRD
 - Do NOT modify feature IDs or naming conventions
 - Do NOT skip IAOOI components even if they seem obvious
