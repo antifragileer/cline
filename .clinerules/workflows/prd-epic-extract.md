@@ -1,73 +1,76 @@
 ---
-description: Extract a specific epic from the Product Requirements Document (PRD) and create comprehensive documentation structure for MVP development
+description: Extract ALL epics from the Product Requirements Document (PRD) using subagents, creating comprehensive documentation structure for MVP development
 applies_to: [".oxenated/docs/planning/**/*.md", "docs/_product_management_work_folder/**/*.md"]
 priority: high
 ---
 
 # PRD Epic Extraction Workflow
 
-Use subagents to Extract all epics or a specific epic from the PRD, creating a complete documentation structure with all necessary context for future development.
+Use subagents to extract ALL epics from the PRD in parallel, creating complete documentation structures with all necessary context for future development. By default, extracts all epics found in the PRD. Can optionally filter to specific epics.
 
 ## Usage
 
 ### When to Use This Workflow
 
 Use this workflow when:
-- You need to extract a single epic from the Product Requirements Document
+- You need to extract all epics from the Product Requirements Document
 - You are preparing epic documentation for the development planning phase
-- You want to create a self-contained epic file that AI can use for feature extraction
+- You want to create self-contained epic files that AI can use for feature extraction
 - The PRD has been finalized and epics are ready for breakdown
+- You want to extract multiple or all epics in parallel for efficiency
 
 ### Prerequisites
 
 - The PRD file exists at `.oxenated/docs/planning/product_requirements.md`
-- The target epic ID is known (e.g., EPIC-ADMIN-SCHED-01)
-- The epic exists in the PRD with documented features and IAOOI framework
+- The PRD contains epics with documented features and IAOOI framework
 
 ### Expected Outcomes
 
-- Epic directory created in the correct persona location
-- Comprehensive `epic.md` file containing all PRD context
-- Empty `features/` subdirectory ready for Step 2 workflow
+- All epic directories created in the correct persona locations
+- Comprehensive `epic.md` files containing all PRD context for each epic
+- Empty `features/` subdirectories ready for Step 2 workflow
+- Summary report of all extracted epics
 - User confirmation of successful extraction
 
 ### Example Usage
 
 ```
-Extract epic EPIC-ADMIN-SCHED-01 (Scheduling Analytics & Predictability) from the PRD
+Extract all epics from the PRD
+```
+
+```
+Extract epics from the PRD for the Admin persona only
+```
+
+```
+Extract only EPIC-ADMIN-SCHED-01 and EPIC-Guard-TA-01 from the PRD
 ```
 
 ## Parameters
 
-- **epic_id** (required): The unique identifier for the epic in format `EPIC-[PERSONA]-[DOMAIN]-[NUMBER]`
-  - Valid personas: `ADMIN`, `OpsManager`, `Guard`
-  - Valid domains: `SCHED`, `TA`, `OPS`
-  - Examples: `EPIC-ADMIN-SCHED-01`, `EPIC-Guard-TA-01`, `EPIC-OpsManager-OPS-02`
+- **filter** (optional): Filter criteria for which epics to extract. If not provided, extracts ALL epics.
+  - **epic_ids** (optional): Array of specific epic IDs to extract (e.g., `["EPIC-ADMIN-SCHED-01", "EPIC-Guard-TA-01"]`)
+  - **persona** (optional): Filter by persona - `ADMIN`, `OpsManager`, `Guard`
+  - **domain** (optional): Filter by domain - `SCHED`, `TA`, `OPS`
 
-- **epic_name** (optional): Human-readable epic name. If not provided, will be extracted from PRD.
-  - Example: "Scheduling Analytics & Predictability"
+- **epic_id** (legacy, optional): Single epic ID for backward compatibility (e.g., `EPIC-ADMIN-SCHED-01`)
 
 ## Overview
 
-This workflow performs a single-purpose task: extracting one epic from the PRD and creating its documentation structure. The workflow reads the PRD, locates the specified epic, extracts all relevant information (description, IAOOI framework, features, BDD scenarios, requirements mapping), and creates a self-contained epic.md file that can be used independently for feature extraction in subsequent workflows.
+This workflow extracts epics from the PRD and creates their documentation structures. By default, it extracts ALL epics found in the PRD using parallel subagents for efficiency. Each subagent handles one epic extraction, following the detailed template to create a self-contained epic.md file.
+
+The workflow:
+1. Reads the PRD and identifies all epics matching the filter criteria
+2. Launches subagents in parallel (one per epic)
+3. Each subagent extracts one epic with complete IAOOI framework, features, BDD scenarios, and requirements mapping
+4. Validates all extractions completed successfully
+5. Reports summary to user
 
 ## Detailed Sequence of Steps
 
-### Step 1: Parse Epic ID from User Request
+### Step 1: Read PRD and Identify All Epics
 
-Identify from the user's request:
-- The epic ID (e.g., `EPIC-ADMIN-SCHED-01`)
-- The epic name if provided (e.g., "Scheduling Analytics & Predictability")
-- The target persona derived from epic ID prefix:
-  - `EPIC-ADMIN-*` → Admin Persona
-  - `EPIC-OpsManager-*` → Operations Manager Persona
-  - `EPIC-Guard-*` → Guard Persona
-
-**Validation:** Confirm epic ID follows the naming convention `EPIC-[PERSONA]-[DOMAIN]-[NUMBER]`.
-
-### Step 2: Read the PRD Document
-
-Read the Product Requirements Document to access epic content:
+Read the Product Requirements Document to access all epic content:
 
 ```xml
 <read_file>
@@ -75,63 +78,75 @@ Read the Product Requirements Document to access epic content:
 </read_file>
 ```
 
-**Expected outcome:** Full PRD content loaded for epic extraction.
+Parse the PRD to identify all epics:
+- Search for all epic IDs matching pattern `EPIC-[PERSONA]-[DOMAIN]-[NUMBER]`
+- Extract epic names/titles
+- Determine target persona for each epic
+- Apply filters if specified (by epic_id, persona, or domain)
 
-### Step 3: Locate and Extract Epic Content
+**Validation:** Confirm at least one epic is found. If filtering, confirm matching epics exist.
 
-Search for the specified epic in the PRD and extract:
+**Expected outcome:** List of all epics to extract with their IDs, names, and target personas.
 
-- Epic description and overview
-- Complete IAOOI framework (Inputs → Activities → Outputs → Outcomes → Impacts)
-- All features listed under the epic with their IDs
-- Feature descriptions and specifications
-- BDD scenarios for the target persona (Gherkin format)
-- Requirements mapping (which R*.* requirements this addresses)
-- User journeys relevant to the persona
-- Technical considerations
-- Success metrics
-- Dependencies on other epics
-- Integration points with other personas
+### Step 2: Prepare Epic Extraction Tasks
 
-**Validation:** Confirm all IAOOI components are present and complete.
+For each identified epic, prepare the extraction context:
 
-### Step 4: Determine Output Directory
+| Epic ID | Persona | Target Directory |
+|---------|---------|------------------|
+| `EPIC-ADMIN-*` | Admin | `.oxenated/docs/planning/admin/epics/[epic-id]/` |
+| `EPIC-OpsManager-*` | Operations Manager | `.oxenated/docs/planning/operations/epics/[epic-id]/` |
+| `EPIC-Guard-*` | Guard | `.oxenated/docs/planning/guard/epics/[epic-id]/` |
 
-Based on epic ID prefix, determine the target directory:
+Create the base directory structure for each persona if it doesn't exist.
 
-| Epic Prefix | Persona Directory |
-|-------------|------------------|
-| `EPIC-ADMIN-*` | `.oxenated/docs/planning/admin/epics/` |
-| `EPIC-OpsManager-*` | `.oxenated/docs/planning/operations/epics/` |
-| `EPIC-Guard-*` | `.oxenated/docs/planning/guard/epics/` |
+### Step 3: Launch Subagents for Parallel Extraction
 
-**Expected structure:**
+Launch one subagent per epic to extract in parallel. Each subagent receives:
+
+- The epic ID to extract
+- The target persona
+- The output directory path
+- The PRD file path for citation references
+
+**Subagent Instructions (provided to each subagent):**
+
 ```
-.oxenated/docs/planning/[persona]/epics/[epic-id]/
-├── epic.md                    # Epic definition with full context
-└── features/                  # Empty, populated by prd-feature-extract workflow
-```
+You are an epic extraction specialist. Your task is to extract ONE specific epic from the PRD and create comprehensive documentation.
 
-### Step 5: Create Epic Documentation
+EPIC TO EXTRACT: [EPIC-ID]
+TARGET PERSONA: [Persona Name]
+OUTPUT DIRECTORY: [path]
+PRD LOCATION: .oxenated/docs/planning/product_requirements.md
 
-Create the epic directory and `epic.md` file using the Epic Template.
+Follow these steps:
 
-**IMPORTANT - Citation Requirements:**
-Per `.clinerules/cline_ai_citation_traceability_requirements.md`, the generated `epic.md` file must follow citation rules:
-- Content extracted from PRD: Use `[Source: .oxenated/docs/planning/product_requirements.md:L##-L##]` to cite the specific PRD sections
-- References to existing code/APIs: Use `[Source: path/to/file.ext:L##]` format - verify existence first with read_file
-- References to existing database models: Use `[Source: prisma/schema.prisma:L## - ModelName]`
-- New functionality (to be created): Mark as "Proposed:" or "To be implemented" - no citation needed
-- If any reference cannot be verified, mark as `[UNVERIFIED - requires confirmation]`
+1. Read the PRD file at .oxenated/docs/planning/product_requirements.md
 
-```xml
-<write_to_file>
-<path>.oxenated/docs/planning/[persona]/epics/[epic-id]/epic.md</path>
-<content>
-# [Epic Name]
+2. Locate the specific epic [EPIC-ID] and extract ALL of the following:
+   - Epic description and overview
+   - Complete IAOOI framework (Inputs → Activities → Outputs → Outcomes → Impacts)
+   - All features listed under this epic with their exact IDs
+   - Feature descriptions and specifications
+   - BDD scenarios for the target persona (Gherkin format)
+   - Requirements mapping (which R*.* requirements this addresses)
+   - User journeys relevant to the persona
+   - Technical considerations
+   - Success metrics
+   - Dependencies on other epics
+   - Integration points with other personas
+
+3. Create the epic directory if it doesn't exist:
+   mkdir -p [OUTPUT DIRECTORY]/features
+
+4. Create the epic.md file using this EXACT template. DO NOT deviate from this structure:
+
+---
+
+# [Epic Name - extract from PRD]
 
 ## Epic ID
-[EPIC-XXX-XX]
+[EPIC-ID]
 
 ## Source Reference
 [Source: .oxenated/docs/planning/product_requirements.md:L##-L## - Epic Section]
@@ -170,7 +185,7 @@ Per `.clinerules/cline_ai_citation_traceability_requirements.md`, the generated 
 [Source: .oxenated/docs/planning/product_requirements.md:L##-L##]
 
 ## Key Features
-[List of features from PRD with their IDs]
+[List of features from PRD with their exact IDs - preserve PRD format exactly]
 - FEAT-[PERSONA]-[DOMAIN]-[NN]-[CODE]-[NN]: [Feature Name]
 [Source: .oxenated/docs/planning/product_requirements.md:L##-L##]
 
@@ -183,7 +198,7 @@ Per `.clinerules/cline_ai_citation_traceability_requirements.md`, the generated 
 [Source: .oxenated/docs/planning/product_requirements.md:L##-L##]
 
 ## BDD Scenarios
-[Include Gherkin scenarios from PRD if provided]
+[Include Gherkin scenarios from PRD if provided - exact copy]
 [Source: .oxenated/docs/planning/product_requirements.md:L##-L##]
 
 ## Technical Considerations
@@ -212,41 +227,96 @@ Per `.clinerules/cline_ai_citation_traceability_requirements.md`, the generated 
 ## Integration Points
 [How this epic integrates with other personas/epics]
 [Source: .oxenated/docs/planning/product_requirements.md:L##-L##]
-</content>
-</write_to_file>
+
+---
+
+IMPORTANT CITATION RULES:
+- Content extracted from PRD: Use [Source: .oxenated/docs/planning/product_requirements.md:L##-L##] to cite the specific PRD sections
+- References to existing code/APIs: Use [Source: path/to/file.ext:L##] format - verify existence first with read_file
+- References to existing database models: Use [Source: prisma/schema.prisma:L## - ModelName]
+- New functionality (to be created): Mark as "Proposed:" or "To be implemented" - no citation needed
+- If any reference cannot be verified, mark as [UNVERIFIED - requires confirmation]
+
+5. Report back with:
+   - Confirmation of successful extraction
+   - Path to created epic.md file
+   - Count of features extracted
+   - Any issues or missing content noted
+
+DO NOT:
+- Do NOT invent features not in the PRD
+- Do NOT modify feature IDs or naming conventions
+- Do NOT skip IAOOI components even if they seem obvious
+- Do NOT omit BDD scenarios if they exist in PRD
+- Do NOT create epic documentation for features outside MVP scope
+- Do NOT include Client Persona epics (excluded from MVP)
 ```
 
-### Step 6: Create Features Directory
-
-Create the empty features subdirectory for subsequent feature extraction:
+Launch subagents using the use_subagents tool:
 
 ```xml
-<execute_command>
-<command>mkdir -p .oxenated/docs/planning/[persona]/epics/[epic-id]/features</command>
-</execute_command>
+<use_subagents>
+<prompt_1>[Subagent instructions for EPIC-ADMIN-SCHED-01]</prompt_1>
+<prompt_2>[Subagent instructions for EPIC-ADMIN-TA-01]</prompt_2>
+<prompt_3>[Subagent instructions for next epic...]</prompt_3>
+...
+</use_subagents>
 ```
 
-### Step 7: Validate and Confirm with User
+**Note:** Launch up to 5 subagents at a time. If more than 5 epics, process in batches.
 
-After creating the epic documentation, present a summary and request confirmation:
+### Step 4: Validate Extractions
+
+After all subagents complete:
+
+1. Verify each epic.md file was created successfully
+2. Check that all features/ subdirectories exist
+3. Validate citation format consistency
+4. Confirm no epics were missed
+
+List all created epic directories to verify:
+
+```xml
+<list_files>
+<path>.oxenated/docs/planning</path>
+<recursive>true</recursive>
+</list_files>
+```
+
+### Step 5: Report Results and Confirm with User
+
+Present a summary of all extracted epics:
 
 ```xml
 <ask_followup_question>
-<question>I've extracted epic [EPIC-ID] ([Epic Name]) from the PRD and created the documentation structure.
+<question>I've extracted [N] epics from the PRD using parallel subagents.
 
-**Summary:**
-- **Epic Location:** .oxenated/docs/planning/[persona]/epics/[epic-id]/epic.md
-- **Target Persona:** [Admin/Operations Manager/Guard]
-- **Features Identified:** [Count] features
-- **IAOOI Framework:** Complete
-- **BDD Scenarios:** [Present/Not found in PRD]
-- **Dependencies:** [List key dependencies]
+**Extraction Summary:**
+
+| Epic ID | Persona | Features | Location |
+|---------|---------|----------|----------|
+| [EPIC-ID-1] | [Persona] | [Count] | `.oxenated/docs/planning/[persona]/epics/[epic-id]/` |
+| [EPIC-ID-2] | [Persona] | [Count] | `.oxenated/docs/planning/[persona]/epics/[epic-id]/` |
+| ... | ... | ... | ... |
+
+**By Persona:**
+- **Admin:** [N] epics, [N] total features
+- **Operations Manager:** [N] epics, [N] total features  
+- **Guard:** [N] epics, [N] total features
+
+**All epic directories include:**
+- Complete IAOOI framework documentation
+- All features with exact PRD IDs
+- BDD scenarios (where provided)
+- Requirements mapping (R*.*)
+- Integration points with other personas
+- Empty `features/` subdirectory for next workflow step
 
 Would you like me to:
-1. Proceed to extract features for this epic using /prd-feature-extract.md
-2. Extract a different epic from the PRD
-3. Review the epic documentation first</question>
-<options>["Proceed to extract features", "Extract a different epic", "Let me review first"]</options>
+1. Proceed to extract features for all epics using /prd-feature-extract.md
+2. Extract features for a specific epic only
+3. Review a specific epic documentation first</question>
+<options>["Extract features for all epics", "Extract features for specific epic", "Let me review first"]</options>
 </ask_followup_question>
 ```
 
@@ -254,19 +324,23 @@ Would you like me to:
 
 ### DO
 
-- Extract ALL content from PRD - do not summarize or abbreviate
-- Include complete IAOOI framework with all five components
+- Extract ALL epics by default unless filtered
+- Use subagents to process epics in parallel for efficiency
+- Ensure each subagent follows the exact epic.md template provided
+- Extract ALL content from PRD for each epic - do not summarize or abbreviate
+- Include complete IAOOI framework with all five components for each epic
 - Preserve exact feature IDs from PRD (e.g., FEAT-ADMIN-SCHED-01-ANA-01)
 - Include BDD scenarios exactly as written in PRD
 - Document all integration points with other personas
-- Verify epic ID follows naming convention before proceeding
 - Create self-contained documentation that AI can use without reading full PRD
 - Add `[Source: .oxenated/docs/planning/product_requirements.md:L##-L##]` citations for all PRD-extracted content
 - Verify any referenced existing code/APIs/models with read_file before citing
 - Mark unverified references as `[UNVERIFIED - requires confirmation]`
+- Process up to 5 epics in parallel per batch
 
 ### DO NOT
 
+- Do NOT extract epics sequentially - always use subagents for parallel processing
 - Do NOT invent features not in the PRD
 - Do NOT modify feature IDs or naming conventions
 - Do NOT skip IAOOI components even if they seem obvious
@@ -277,82 +351,91 @@ Would you like me to:
 
 ## Example Invocations
 
-### Example 1: Admin Persona Scheduling Epic
+### Example 1: Extract All Epics (Default)
 
 ```
-Extract epic EPIC-ADMIN-SCHED-01 (Scheduling Analytics & Predictability) from the PRD
+Extract all epics from the PRD
 ```
 
-This extracts the admin scheduling analytics epic and creates documentation at `.oxenated/docs/planning/admin/epics/EPIC-ADMIN-SCHED-01/`.
+This extracts ALL epics found in the PRD and creates documentation for each in parallel using subagents.
 
-### Example 2: Guard Persona Time & Attendance Epic
-
-```
-Extract the Guard Mobile Time & Attendance epic (EPIC-Guard-TA-01) from the PRD
-```
-
-This extracts the guard time & attendance epic with all mobile-first features and creates documentation at `.oxenated/docs/planning/guard/epics/EPIC-Guard-TA-01/`.
-
-### Example 3: Operations Manager Scheduling Epic
+### Example 2: Filter by Persona
 
 ```
-Extract epic EPIC-OpsManager-SCHED-01 from the PRD for feature breakdown
+Extract all Admin persona epics from the PRD
 ```
 
-This extracts the operations manager scheduling epic with all scheduling management features and creates documentation at `.oxenated/docs/planning/operations/epics/EPIC-OpsManager-SCHED-01/`.
+This extracts only epics with IDs matching `EPIC-ADMIN-*`.
 
-### Example 4: Operations Manager Guard Operations Epic
+### Example 3: Filter by Specific Epics
 
 ```
-Extract EPIC-OpsManager-OPS-02 (Incident & Exception Management) from the product requirements
+Extract only EPIC-ADMIN-SCHED-01 and EPIC-Guard-TA-01 from the PRD
 ```
 
-This extracts the incident management epic for operations managers and creates documentation at `.oxenated/docs/planning/operations/epics/EPIC-OpsManager-OPS-02/`.
+This extracts only the two specified epics.
+
+### Example 4: Extract All Operations Manager Epics
+
+```
+Extract all Operations Manager epics from the PRD
+```
+
+This extracts all `EPIC-OpsManager-*` epics in parallel.
 
 ## Success Criteria
 
-- [ ] Epic ID correctly parsed and validated against naming convention
-- [ ] PRD successfully read and epic content located
-- [ ] Epic directory created in correct persona location (admin/operations/guard)
-- [ ] `epic.md` file created with all required sections
-- [ ] Complete IAOOI framework included (all 5 components)
+- [ ] PRD successfully read and all epics identified
+- [ ] Filters applied correctly (if specified)
+- [ ] Subagents launched in parallel for each epic (up to 5 at a time)
+- [ ] Each subagent created epic.md following the exact template structure
+- [ ] All epic directories created in correct persona locations (admin/operations/guard)
+- [ ] Complete IAOOI framework included for each epic (all 5 components)
 - [ ] All features listed with exact PRD feature IDs
 - [ ] BDD scenarios included where provided in PRD
-- [ ] Requirements mapping (R*.*) documented
+- [ ] Requirements mapping (R*.*) documented for each epic
 - [ ] Integration points with other personas identified
 - [ ] Dependencies on other epics documented
 - [ ] All PRD-extracted content has `[Source: .oxenated/docs/planning/product_requirements.md:L##-L##]` citations
 - [ ] Any existing code references verified and cited with line numbers
-- [ ] Empty `features/` directory created for next workflow step
-- [ ] User confirmation received with clear next step options
+- [ ] Empty `features/` directory created for each epic
+- [ ] Summary report presented to user with clear next step options
 
 ## Error Handling
 
-### Epic Not Found in PRD
+### No Epics Found in PRD
 
-If the specified epic ID is not found in the PRD:
-1. Search for similar epic IDs using partial matching
-2. Report available epics matching the persona and domain
-3. Ask user to verify the correct epic ID
+If no epics are found in the PRD:
+1. Report that no epics matching the pattern were found
+2. Show a sample of what epic IDs should look like
+3. Ask user to verify the PRD contains properly formatted epics
+
+### Filter Returns No Matches
+
+If filters are specified but no epics match:
+1. Report available epics in the PRD
+2. Show which filters were applied
+3. Ask user to adjust filters or extract all epics
+
+### Subagent Failure
+
+If a subagent fails to extract an epic:
+1. Report which epic failed
+2. Capture the error message
+3. Retry the failed epic extraction with a new subagent
+4. If repeated failures, report to user and suggest manual review
 
 ### Incomplete IAOOI Framework
 
-If any IAOOI component is missing from PRD:
-1. Document what was found
+If any IAOOI component is missing from PRD for a specific epic:
+1. Subagent should document what was found
 2. Mark missing components as "[Not documented in PRD]"
-3. Notify user of incomplete extraction
+3. Notify user in the final summary of any incomplete extractions
 4. Proceed with available content
-
-### Invalid Epic ID Format
-
-If epic ID doesn't match `EPIC-[PERSONA]-[DOMAIN]-[NUMBER]`:
-1. Report the format error
-2. Show valid format examples
-3. Ask user to provide corrected epic ID
 
 ## Related Workflows
 
-- **Next Step:** `/prd-feature-extract.md` - Extract features from the epic
+- **Next Step:** `/prd-feature-extract.md` - Extract features from the epics
 - **Validation:** `/prd-epic-peer-review.md` - Review epic documentation quality
 - **Prerequisite:** `/prd-create-or-update.md` - Create or update the PRD
 
@@ -377,17 +460,36 @@ If epic ID doesn't match `EPIC-[PERSONA]-[DOMAIN]-[NUMBER]`:
 ├── admin/
 │   └── epics/
 │       ├── EPIC-ADMIN-SCHED-01/
+│       │   ├── epic.md
+│       │   └── features/
 │       ├── EPIC-ADMIN-TA-01/
+│       │   ├── epic.md
+│       │   └── features/
 │       └── EPIC-ADMIN-OPS-01/
+│           ├── epic.md
+│           └── features/
 ├── operations/
 │   └── epics/
 │       ├── EPIC-OpsManager-SCHED-01/
+│       │   ├── epic.md
+│       │   └── features/
 │       ├── EPIC-OpsManager-SCHED-02/
+│       │   ├── epic.md
+│       │   └── features/
 │       ├── EPIC-OpsManager-TA-01/
+│       │   ├── epic.md
+│       │   └── features/
 │       └── EPIC-OpsManager-OPS-01/
+│           ├── epic.md
+│           └── features/
 └── guard/
     └── epics/
         ├── EPIC-Guard-TA-01/
+        │   ├── epic.md
+        │   └── features/
         ├── EPIC-Guard-SCHED-01/
+        │   ├── epic.md
+        │   └── features/
         └── EPIC-Guard-OPS-01/
-```
+            ├── epic.md
+            └── features/
