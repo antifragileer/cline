@@ -1,0 +1,1511 @@
+{
+  "features": [
+    {
+      "id": "FEAT-INFRA-STORAGE-012-FILE-001",
+      "name": "File-based JSON Storage",
+      "description": "Atomic file operations for global state, workspace state, task history, and secrets with file locking for concurrent access",
+      "parent_epic": "EPIC-INFRA-STORAGE-012",
+      "parent_epic_name": "State & Storage Layer",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-STORAGE-012/features/FEAT-INFRA-STORAGE-012-FILE-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-STORAGE-012-SECRET-002",
+      "name": "Secrets Encryption",
+      "description": "Encrypt secrets using OS keyring integration before storage in secrets.json, decrypt on read",
+      "parent_epic": "EPIC-INFRA-STORAGE-012",
+      "parent_epic_name": "State & Storage Layer",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-STORAGE-012/features/FEAT-INFRA-STORAGE-012-SECRET-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-STORAGE-012-MIGRATE-003",
+      "name": "State Migration",
+      "description": "Automatic migration from legacy state formats with version tracking and backward compatibility",
+      "parent_epic": "EPIC-INFRA-STORAGE-012",
+      "parent_epic_name": "State & Storage Layer",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-STORAGE-012/features/FEAT-INFRA-STORAGE-012-MIGRATE-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-CORE-011-GRPC-001",
+      "name": "gRPC Client Implementation",
+      "description": "Generate Go code from proto definitions and implement gRPC client for core extension communication",
+      "parent_epic": "EPIC-INFRA-CORE-011",
+      "parent_epic_name": "Core Extension Integration",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-CORE-011/features/FEAT-INFRA-CORE-011-GRPC-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-CORE-011-STREAM-002",
+      "name": "Bidirectional Streaming",
+      "description": "Handle bidirectional message streaming between CLI and core extension with flow control and reconnection",
+      "parent_epic": "EPIC-INFRA-CORE-011",
+      "parent_epic_name": "Core Extension Integration",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-CORE-011-GRPC-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-CORE-011/features/FEAT-INFRA-CORE-011-STREAM-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-CORE-011-STATE-003",
+      "name": "State Synchronization",
+      "description": "Synchronize state bidirectionally between CLI and core extension with conflict resolution",
+      "parent_epic": "EPIC-INFRA-CORE-011",
+      "parent_epic_name": "Core Extension Integration",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-CORE-011-STREAM-002"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-CORE-011/features/FEAT-INFRA-CORE-011-STATE-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-001",
+      "name": "Root Command with Default Task Mode",
+      "description": "Cobra root command that detects if prompt is provided and routes to interactive or task mode",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-CLI-001/features/FEAT-DEV-CLI-001-CMD-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-002",
+      "name": "Task Subcommand with Flags",
+      "description": "Task subcommand with all flags: mode (-a, -p), yolo (-y), timeout (-t), model (-m), images (-i), verbose (-v), cwd (-c), config (--config), thinking (--thinking), json (--json), taskId (-T)",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-CLI-001/features/FEAT-DEV-CLI-001-CMD-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-003",
+      "name": "History Subcommand with Pagination",
+      "description": "History subcommand with limit (-n) and page (-p) flags for browsing task history",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-CLI-001/features/FEAT-DEV-CLI-001-CMD-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-004",
+      "name": "Config, Auth, Update, Version, Dev Subcommands",
+      "description": "Additional subcommands: config (display settings), auth (authentication wizard), update (check for updates), version (show version), dev (debug logs)",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-CLI-001/features/FEAT-DEV-CLI-001-CMD-004",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-API-013-OPENAI-001",
+      "name": "OpenAI Provider",
+      "description": "OpenAI API integration with streaming response handling and token usage tracking",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-API-013/features/FEAT-INFRA-API-013-OPENAI-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-API-013-ANTHROPIC-002",
+      "name": "Anthropic Provider",
+      "description": "Anthropic Claude API integration with streaming response handling",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-API-013/features/FEAT-INFRA-API-013-ANTHROPIC-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-API-013-ROUTER-003",
+      "name": "OpenRouter Provider",
+      "description": "OpenRouter multi-provider routing with unified response format handling",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-API-013/features/FEAT-INFRA-API-013-ROUTER-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-API-013-OTHER-004",
+      "name": "Other Providers (Gemini, Bedrock, etc.)",
+      "description": "Additional provider implementations: Google Gemini, AWS Bedrock, and other supported providers with unified interface",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-API-013-OPENAI-001",
+          "FEAT-INFRA-API-013-ANTHROPIC-002"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-API-013/features/FEAT-INFRA-API-013-OTHER-004",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-AUTH-004-OAUTH-001",
+      "name": "OAuth Authentication Flows",
+      "description": "OAuth flow implementation with local callback server for providers supporting OAuth (browser open, token capture, secure storage)",
+      "parent_epic": "EPIC-DEV-AUTH-004",
+      "parent_epic_name": "Authentication & Provider Configuration",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-API-013"
+        ],
+        "features": []
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-AUTH-004/features/FEAT-DEV-AUTH-004-OAUTH-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-AUTH-004-KEY-002",
+      "name": "API Key Management",
+      "description": "API key validation, testing, and secure storage with interactive and flag-based input",
+      "parent_epic": "EPIC-DEV-AUTH-004",
+      "parent_epic_name": "Authentication & Provider Configuration",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-API-013"
+        ],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-SECRET-002"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-AUTH-004/features/FEAT-DEV-AUTH-004-KEY-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-AUTH-004-PROV-003",
+      "name": "Provider Configuration Wizard",
+      "description": "Interactive wizard for provider selection, model selection, and configuration validation",
+      "parent_epic": "EPIC-DEV-AUTH-004",
+      "parent_epic_name": "Authentication & Provider Configuration",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-API-013"
+        ],
+        "features": [
+          "FEAT-DEV-AUTH-004-OAUTH-001",
+          "FEAT-DEV-AUTH-004-KEY-002"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-AUTH-004/features/FEAT-DEV-AUTH-004-PROV-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-ENT-CONFIG-009-LAYER-001",
+      "name": "Configuration Layering",
+      "description": "Tiered configuration loading: global state, workspace state, environment variables with proper precedence",
+      "parent_epic": "EPIC-ENT-CONFIG-009",
+      "parent_epic_name": "Enterprise Configuration Management",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-DEV-CLI-001"
+        ],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-CONFIG-009/features/FEAT-ENT-CONFIG-009-LAYER-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-ENT-CONFIG-009-POLICY-002",
+      "name": "Policy Enforcement",
+      "description": "Enterprise policy definitions and enforcement for allowed models, API key rotation, and usage restrictions",
+      "parent_epic": "EPIC-ENT-CONFIG-009",
+      "parent_epic_name": "Enterprise Configuration Management",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-DEV-CLI-001"
+        ],
+        "features": [
+          "FEAT-ENT-CONFIG-009-LAYER-001"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-CONFIG-009/features/FEAT-ENT-CONFIG-009-POLICY-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-UI-002-BUBBLE-001",
+      "name": "Bubble Tea TUI Framework Setup",
+      "description": "Initialize Bubble Tea program with Model-Update-View loop, terminal dimension handling, and keyboard event processing",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-UI-002/features/FEAT-DEV-UI-002-BUBBLE-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-UI-002-CHAT-002",
+      "name": "Chat Message Rendering Components",
+      "description": "Message bubble rendering with markdown formatting, syntax highlighting, and streaming message display",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-BUBBLE-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-UI-002/features/FEAT-DEV-UI-002-CHAT-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-UI-002-INPUT-003",
+      "name": "User Input Handling and Prompts",
+      "description": "User input capture, text input fields, approval/rejection prompts, and keyboard shortcuts",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-BUBBLE-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-UI-002/features/FEAT-DEV-UI-002-INPUT-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-UI-002-WELCOME-004",
+      "name": "Welcome Screen and Onboarding",
+      "description": "First-time user detection, welcome screen rendering, quick start hints, and recent task display",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-BUBBLE-001",
+          "FEAT-DEV-UI-002-CHAT-002"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "low",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-UI-002/features/FEAT-DEV-UI-002-WELCOME-004",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-AUTO-MODE-005-DETECT-001",
+      "name": "TTY/Redirect Detection",
+      "description": "Automatic detection of interactive vs non-interactive mode using isatty checks on stdin and stdout",
+      "parent_epic": "EPIC-AUTO-MODE-005",
+      "parent_epic_name": "Plain Text & Scripting Modes",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-UI-002"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/automation/epics/EPIC-AUTO-MODE-005/features/FEAT-AUTO-MODE-005-DETECT-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-AUTO-MODE-005-SWITCH-002",
+      "name": "Mode Switching Logic",
+      "description": "Switch between interactive TUI and plain text output modes based on detection results and explicit flags",
+      "parent_epic": "EPIC-AUTO-MODE-005",
+      "parent_epic_name": "Plain Text & Scripting Modes",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-UI-002"
+        ],
+        "features": [
+          "FEAT-AUTO-MODE-005-DETECT-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/automation/epics/EPIC-AUTO-MODE-005/features/FEAT-AUTO-MODE-005-SWITCH-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-INIT-001",
+      "name": "New Task Initialization",
+      "description": "Initialize new tasks with prompt, images, mode selection, model preference, and working directory handling",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-002",
+          "FEAT-INFRA-STORAGE-012-FILE-001",
+          "FEAT-INFRA-CORE-011-STREAM-002",
+          "FEAT-DEV-UI-002-CHAT-002",
+          "FEAT-DEV-AUTH-004-KEY-002"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-TASK-003/features/FEAT-DEV-TASK-003-INIT-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-RESUME-002",
+      "name": "Task Resumption by ID",
+      "description": "Resume existing tasks by ID with conversation history loading and optional follow-up message",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-INIT-001",
+          "FEAT-DEV-CLI-001-CMD-003"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-TASK-003/features/FEAT-DEV-TASK-003-RESUME-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-CONV-003",
+      "name": "Conversation History Management",
+      "description": "Store and load conversation messages with pagination and large conversation handling",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001",
+          "FEAT-DEV-TASK-003-INIT-001"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-TASK-003/features/FEAT-DEV-TASK-003-CONV-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-TOOL-004",
+      "name": "Tool Approval Workflows",
+      "description": "Display tool requests, capture user approval/rejection, execute tools, and return results with yolo mode support",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-INPUT-003",
+          "FEAT-INFRA-CORE-011-STREAM-002",
+          "FEAT-DEV-TASK-003-INIT-001"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "high",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-TASK-003/features/FEAT-DEV-TASK-003-TOOL-004",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-AUTO-EXEC-006-YOLO-001",
+      "name": "Yolo Mode Implementation",
+      "description": "Auto-approve all tool executions, suppress confirmation prompts, and run tasks to completion without user intervention",
+      "parent_epic": "EPIC-AUTO-EXEC-006",
+      "parent_epic_name": "Automated Execution & Yolo Mode",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-AUTO-MODE-005"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004",
+          "FEAT-AUTO-MODE-005-SWITCH-002"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/automation/epics/EPIC-AUTO-EXEC-006/features/FEAT-AUTO-EXEC-006-YOLO-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-AUTO-EXEC-006-PERMS-002",
+      "name": "Command Permission Validation",
+      "description": "Validate commands against CLINE_COMMAND_PERMISSIONS allow/deny lists with glob pattern matching",
+      "parent_epic": "EPIC-AUTO-EXEC-006",
+      "parent_epic_name": "Automated Execution & Yolo Mode",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-AUTO-MODE-005"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/automation/epics/EPIC-AUTO-EXEC-006/features/FEAT-AUTO-EXEC-006-PERMS-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-AUTO-OUT-007-JSON-001",
+      "name": "JSON Output Formatting",
+      "description": "Serialize messages to JSON format with required and optional fields for machine-readable output",
+      "parent_epic": "EPIC-AUTO-OUT-007",
+      "parent_epic_name": "Structured Output (JSON)",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-AUTO-MODE-005",
+          "EPIC-DEV-TASK-003"
+        ],
+        "features": [
+          "FEAT-AUTO-MODE-005-SWITCH-002",
+          "FEAT-DEV-TASK-003-CONV-003"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/automation/epics/EPIC-AUTO-OUT-007/features/FEAT-AUTO-OUT-007-JSON-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-AUTO-OUT-007-STREAM-002",
+      "name": "JSON Streaming for Long Tasks",
+      "description": "Stream JSON lines in real-time as messages arrive with partial message handling",
+      "parent_epic": "EPIC-AUTO-OUT-007",
+      "parent_epic_name": "Structured Output (JSON)",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-AUTO-MODE-005",
+          "EPIC-DEV-TASK-003"
+        ],
+        "features": [
+          "FEAT-AUTO-OUT-007-JSON-001",
+          "FEAT-INFRA-CORE-011-STREAM-002"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/automation/epics/EPIC-AUTO-OUT-007/features/FEAT-AUTO-OUT-007-STREAM-002"
+    },
+    {
+      "id": "FEAT-ENT-SEC-008-PARSE-001",
+      "name": "Permission Rule Parsing",
+      "description": "Parse CLINE_COMMAND_PERMISSIONS JSON environment variable with allow, deny, and allowRedirects rules",
+      "parent_epic": "EPIC-ENT-SEC-008",
+      "parent_epic_name": "Security & Permissions",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004",
+          "FEAT-ENT-CONFIG-009-LAYER-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "low",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-SEC-008/features/FEAT-ENT-SEC-008-PARSE-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-ENT-SEC-008-VALID-002",
+      "name": "Command Validation Engine",
+      "description": "Validate commands against permission rules with deny precedence and segment validation",
+      "parent_epic": "EPIC-ENT-SEC-008",
+      "parent_epic_name": "Security & Permissions",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009"
+        ],
+        "features": [
+          "FEAT-ENT-SEC-008-PARSE-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-SEC-008/features/FEAT-ENT-SEC-008-VALID-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-ENT-SEC-008-DANGER-003",
+      "name": "Dangerous Character Detection",
+      "description": "Detect dangerous characters in commands: backticks outside quotes, unquoted newlines, subshells",
+      "parent_epic": "EPIC-ENT-SEC-008",
+      "parent_epic_name": "Security & Permissions",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009"
+        ],
+        "features": [
+          "FEAT-ENT-SEC-008-VALID-002"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-SEC-008/features/FEAT-ENT-SEC-008-DANGER-003",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-ENT-AUDIT-010-LOG-001",
+      "name": "Audit Logging",
+      "description": "Log all actions (command execution, file edits, API calls) with timestamps and user context",
+      "parent_epic": "EPIC-ENT-AUDIT-010",
+      "parent_epic_name": "Audit & Compliance",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009",
+          "EPIC-INFRA-STORAGE-012"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004",
+          "FEAT-ENT-CONFIG-009-LAYER-001",
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-AUDIT-010/features/FEAT-ENT-AUDIT-010-LOG-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-ENT-AUDIT-010-EXPORT-002",
+      "name": "Compliance Report Generation",
+      "description": "Generate compliance reports from audit logs with date range filtering and export formatting",
+      "parent_epic": "EPIC-ENT-AUDIT-010",
+      "parent_epic_name": "Audit & Compliance",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009",
+          "EPIC-INFRA-STORAGE-012"
+        ],
+        "features": [
+          "FEAT-ENT-AUDIT-010-LOG-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "low",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-AUDIT-010/features/FEAT-ENT-AUDIT-010-EXPORT-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+      "name": "Independence Verification",
+      "description": "Verify GoLang CLI contains no embedded JavaScript/TypeScript, no Node.js dependencies, and produces single static binary",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": []
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-DIST-014/features/FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-BUILD-001",
+      "name": "Cross-platform Build Scripts",
+      "description": "Cross-compilation for Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64) with binary signing",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": []
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "medium",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-DIST-014/features/FEAT-INFRA-DIST-014-BUILD-001",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-HOMEBREW-002",
+      "name": "Homebrew Formula",
+      "description": "Generate and publish Homebrew formula for macOS/Linux installation via brew install cline",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": [
+          "FEAT-INFRA-DIST-014-BUILD-001"
+        ]
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "low",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-DIST-014/features/FEAT-INFRA-DIST-014-HOMEBREW-002",
+      "output_files": [
+        "feature.md"
+      ]
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-NPM-003",
+      "name": "NPM Wrapper Package",
+      "description": "Create npm package that downloads correct platform binary with postinstall script for npm install -g cline",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": [
+          "FEAT-INFRA-DIST-014-BUILD-001"
+        ]
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "low",
+      "required_files": [
+        "feature.md"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-DIST-014/features/FEAT-INFRA-DIST-014-NPM-003",
+      "output_files": [
+        "feature.md"
+      ]
+    }
+  ],
+  "execution_plan": {
+    "phases": [
+      {
+        "phase": 1,
+        "parallel_features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001",
+          "FEAT-INFRA-STORAGE-012-SECRET-002",
+          "FEAT-INFRA-STORAGE-012-MIGRATE-003",
+          "FEAT-INFRA-CORE-011-GRPC-001",
+          "FEAT-INFRA-CORE-011-STREAM-002",
+          "FEAT-INFRA-CORE-011-STATE-003",
+          "FEAT-DEV-CLI-001-CMD-001",
+          "FEAT-DEV-CLI-001-CMD-002",
+          "FEAT-DEV-CLI-001-CMD-003",
+          "FEAT-DEV-CLI-001-CMD-004",
+          "FEAT-INFRA-API-013-OPENAI-001",
+          "FEAT-INFRA-API-013-ANTHROPIC-002",
+          "FEAT-INFRA-API-013-ROUTER-003",
+          "FEAT-INFRA-API-013-OTHER-004"
+        ],
+        "description": "Foundation phase: All storage, gRPC, CLI commands, and API providers can be developed in parallel as they have no cross-epic dependencies."
+      },
+      {
+        "phase": 2,
+        "parallel_features": [
+          "FEAT-DEV-AUTH-004-OAUTH-001",
+          "FEAT-DEV-AUTH-004-KEY-002",
+          "FEAT-DEV-AUTH-004-PROV-003",
+          "FEAT-ENT-CONFIG-009-LAYER-001",
+          "FEAT-ENT-CONFIG-009-POLICY-002"
+        ],
+        "description": "Configuration phase: Authentication and enterprise configuration depend on storage layer and CLI foundation. These can be developed in parallel."
+      },
+      {
+        "phase": 3,
+        "parallel_features": [
+          "FEAT-DEV-UI-002-BUBBLE-001",
+          "FEAT-DEV-UI-002-CHAT-002",
+          "FEAT-DEV-UI-002-INPUT-003",
+          "FEAT-DEV-UI-002-WELCOME-004",
+          "FEAT-AUTO-MODE-005-DETECT-001",
+          "FEAT-AUTO-MODE-005-SWITCH-002"
+        ],
+        "description": "UI phase: Interactive TUI and mode detection depend on CLI foundation. These can be developed in parallel as they share common CLI dependencies."
+      },
+      {
+        "phase": 4,
+        "parallel_features": [
+          "FEAT-DEV-TASK-003-INIT-001",
+          "FEAT-DEV-TASK-003-RESUME-002",
+          "FEAT-DEV-TASK-003-CONV-003",
+          "FEAT-DEV-TASK-003-TOOL-004"
+        ],
+        "description": "Core task phase: Task management is the central feature that integrates CLI, storage, gRPC, UI, and authentication. Must be complete before automation features."
+      },
+      {
+        "phase": 5,
+        "parallel_features": [
+          "FEAT-AUTO-EXEC-006-YOLO-001",
+          "FEAT-AUTO-EXEC-006-PERMS-002",
+          "FEAT-AUTO-OUT-007-JSON-001",
+          "FEAT-AUTO-OUT-007-STREAM-002"
+        ],
+        "description": "Automation phase: Yolo mode and JSON output build on task management and mode detection. These can be developed in parallel."
+      },
+      {
+        "phase": 6,
+        "parallel_features": [
+          "FEAT-ENT-SEC-008-PARSE-001",
+          "FEAT-ENT-SEC-008-VALID-002",
+          "FEAT-ENT-SEC-008-DANGER-003",
+          "FEAT-ENT-AUDIT-010-LOG-001",
+          "FEAT-ENT-AUDIT-010-EXPORT-002"
+        ],
+        "description": "Enterprise phase: Security permissions and audit logging depend on task management and configuration. These can be developed in parallel."
+      },
+      {
+        "phase": 7,
+        "parallel_features": [
+          "FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+          "FEAT-INFRA-DIST-014-BUILD-001",
+          "FEAT-INFRA-DIST-014-HOMEBREW-002",
+          "FEAT-INFRA-DIST-014-NPM-003"
+        ],
+        "description": "Distribution phase: Packaging and distribution must wait for all functional features to be complete, including independence verification."
+      }
+    ],
+    "critical_path": [
+      "FEAT-INFRA-STORAGE-012-FILE-001",
+      "FEAT-INFRA-CORE-011-GRPC-001",
+      "FEAT-INFRA-CORE-011-STREAM-002",
+      "FEAT-DEV-CLI-001-CMD-001",
+      "FEAT-DEV-CLI-001-CMD-002",
+      "FEAT-DEV-AUTH-004-KEY-002",
+      "FEAT-DEV-UI-002-BUBBLE-001",
+      "FEAT-DEV-UI-002-CHAT-002",
+      "FEAT-DEV-UI-002-INPUT-003",
+      "FEAT-DEV-TASK-003-INIT-001",
+      "FEAT-DEV-TASK-003-TOOL-004",
+      "FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+      "FEAT-INFRA-DIST-014-BUILD-001"
+    ],
+    "dependency_graph": {
+      "FEAT-INFRA-STORAGE-012-FILE-001": [],
+      "FEAT-INFRA-STORAGE-012-SECRET-002": [
+        "FEAT-INFRA-STORAGE-012-FILE-001"
+      ],
+      "FEAT-INFRA-STORAGE-012-MIGRATE-003": [
+        "FEAT-INFRA-STORAGE-012-FILE-001"
+      ],
+      "FEAT-INFRA-CORE-011-GRPC-001": [],
+      "FEAT-INFRA-CORE-011-STREAM-002": [
+        "FEAT-INFRA-CORE-011-GRPC-001"
+      ],
+      "FEAT-INFRA-CORE-011-STATE-003": [
+        "FEAT-INFRA-CORE-011-STREAM-002"
+      ],
+      "FEAT-DEV-CLI-001-CMD-001": [],
+      "FEAT-DEV-CLI-001-CMD-002": [
+        "FEAT-DEV-CLI-001-CMD-001"
+      ],
+      "FEAT-DEV-CLI-001-CMD-003": [
+        "FEAT-DEV-CLI-001-CMD-001",
+        "FEAT-INFRA-STORAGE-012-FILE-001"
+      ],
+      "FEAT-DEV-CLI-001-CMD-004": [
+        "FEAT-DEV-CLI-001-CMD-001"
+      ],
+      "FEAT-INFRA-API-013-OPENAI-001": [],
+      "FEAT-INFRA-API-013-ANTHROPIC-002": [],
+      "FEAT-INFRA-API-013-ROUTER-003": [],
+      "FEAT-INFRA-API-013-OTHER-004": [
+        "FEAT-INFRA-API-013-OPENAI-001",
+        "FEAT-INFRA-API-013-ANTHROPIC-002"
+      ],
+      "FEAT-DEV-AUTH-004-OAUTH-001": [],
+      "FEAT-DEV-AUTH-004-KEY-002": [
+        "FEAT-INFRA-STORAGE-012-SECRET-002"
+      ],
+      "FEAT-DEV-AUTH-004-PROV-003": [
+        "FEAT-DEV-AUTH-004-OAUTH-001",
+        "FEAT-DEV-AUTH-004-KEY-002"
+      ],
+      "FEAT-ENT-CONFIG-009-LAYER-001": [
+        "FEAT-INFRA-STORAGE-012-FILE-001"
+      ],
+      "FEAT-ENT-CONFIG-009-POLICY-002": [
+        "FEAT-ENT-CONFIG-009-LAYER-001"
+      ],
+      "FEAT-DEV-UI-002-BUBBLE-001": [
+        "FEAT-DEV-CLI-001-CMD-001"
+      ],
+      "FEAT-DEV-UI-002-CHAT-002": [
+        "FEAT-DEV-UI-002-BUBBLE-001"
+      ],
+      "FEAT-DEV-UI-002-INPUT-003": [
+        "FEAT-DEV-UI-002-BUBBLE-001"
+      ],
+      "FEAT-DEV-UI-002-WELCOME-004": [
+        "FEAT-DEV-UI-002-BUBBLE-001",
+        "FEAT-DEV-UI-002-CHAT-002"
+      ],
+      "FEAT-AUTO-MODE-005-DETECT-001": [
+        "FEAT-DEV-CLI-001-CMD-001"
+      ],
+      "FEAT-AUTO-MODE-005-SWITCH-002": [
+        "FEAT-AUTO-MODE-005-DETECT-001"
+      ],
+      "FEAT-DEV-TASK-003-INIT-001": [
+        "FEAT-DEV-CLI-001-CMD-002",
+        "FEAT-INFRA-STORAGE-012-FILE-001",
+        "FEAT-INFRA-CORE-011-STREAM-002",
+        "FEAT-DEV-UI-002-CHAT-002",
+        "FEAT-DEV-AUTH-004-KEY-002"
+      ],
+      "FEAT-DEV-TASK-003-RESUME-002": [
+        "FEAT-DEV-TASK-003-INIT-001",
+        "FEAT-DEV-CLI-001-CMD-003"
+      ],
+      "FEAT-DEV-TASK-003-CONV-003": [
+        "FEAT-INFRA-STORAGE-012-FILE-001",
+        "FEAT-DEV-TASK-003-INIT-001"
+      ],
+      "FEAT-DEV-TASK-003-TOOL-004": [
+        "FEAT-DEV-UI-002-INPUT-003",
+        "FEAT-INFRA-CORE-011-STREAM-002",
+        "FEAT-DEV-TASK-003-INIT-001"
+      ],
+      "FEAT-AUTO-EXEC-006-YOLO-001": [
+        "FEAT-DEV-TASK-003-TOOL-004",
+        "FEAT-AUTO-MODE-005-SWITCH-002"
+      ],
+      "FEAT-AUTO-EXEC-006-PERMS-002": [
+        "FEAT-DEV-TASK-003-TOOL-004"
+      ],
+      "FEAT-AUTO-OUT-007-JSON-001": [
+        "FEAT-AUTO-MODE-005-SWITCH-002",
+        "FEAT-DEV-TASK-003-CONV-003"
+      ],
+      "FEAT-AUTO-OUT-007-STREAM-002": [
+        "FEAT-AUTO-OUT-007-JSON-001",
+        "FEAT-INFRA-CORE-011-STREAM-002"
+      ],
+      "FEAT-ENT-SEC-008-PARSE-001": [
+        "FEAT-DEV-TASK-003-TOOL-004",
+        "FEAT-ENT-CONFIG-009-LAYER-001"
+      ],
+      "FEAT-ENT-SEC-008-VALID-002": [
+        "FEAT-ENT-SEC-008-PARSE-001"
+      ],
+      "FEAT-ENT-SEC-008-DANGER-003": [
+        "FEAT-ENT-SEC-008-VALID-002"
+      ],
+      "FEAT-ENT-AUDIT-010-LOG-001": [
+        "FEAT-DEV-TASK-003-TOOL-004",
+        "FEAT-ENT-CONFIG-009-LAYER-001",
+        "FEAT-INFRA-STORAGE-012-FILE-001"
+      ],
+      "FEAT-ENT-AUDIT-010-EXPORT-002": [
+        "FEAT-ENT-AUDIT-010-LOG-001"
+      ],
+      "FEAT-INFRA-DIST-014-INDEPENDENCE-001": [],
+      "FEAT-INFRA-DIST-014-BUILD-001": [],
+      "FEAT-INFRA-DIST-014-HOMEBREW-002": [
+        "FEAT-INFRA-DIST-014-BUILD-001"
+      ],
+      "FEAT-INFRA-DIST-014-NPM-003": [
+        "FEAT-INFRA-DIST-014-BUILD-001"
+      ]
+    },
+    "parallel_groups": {
+      "1": {
+        "description": "Foundation infrastructure - no dependencies",
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001",
+          "FEAT-INFRA-STORAGE-012-SECRET-002",
+          "FEAT-INFRA-STORAGE-012-MIGRATE-003",
+          "FEAT-INFRA-CORE-011-GRPC-001",
+          "FEAT-INFRA-CORE-011-STREAM-002",
+          "FEAT-INFRA-CORE-011-STATE-003",
+          "FEAT-DEV-CLI-001-CMD-001",
+          "FEAT-DEV-CLI-001-CMD-002",
+          "FEAT-DEV-CLI-001-CMD-003",
+          "FEAT-DEV-CLI-001-CMD-004",
+          "FEAT-INFRA-API-013-OPENAI-001",
+          "FEAT-INFRA-API-013-ANTHROPIC-002",
+          "FEAT-INFRA-API-013-ROUTER-003",
+          "FEAT-INFRA-API-013-OTHER-004"
+        ]
+      },
+      "2": {
+        "description": "Configuration layer - depends on storage",
+        "features": [
+          "FEAT-DEV-AUTH-004-OAUTH-001",
+          "FEAT-DEV-AUTH-004-KEY-002",
+          "FEAT-DEV-AUTH-004-PROV-003",
+          "FEAT-ENT-CONFIG-009-LAYER-001",
+          "FEAT-ENT-CONFIG-009-POLICY-002"
+        ]
+      },
+      "3": {
+        "description": "UI and mode detection - depends on CLI",
+        "features": [
+          "FEAT-DEV-UI-002-BUBBLE-001",
+          "FEAT-DEV-UI-002-CHAT-002",
+          "FEAT-DEV-UI-002-INPUT-003",
+          "FEAT-DEV-UI-002-WELCOME-004",
+          "FEAT-AUTO-MODE-005-DETECT-001",
+          "FEAT-AUTO-MODE-005-SWITCH-002"
+        ]
+      },
+      "4": {
+        "description": "Core task management - central integration point",
+        "features": [
+          "FEAT-DEV-TASK-003-INIT-001",
+          "FEAT-DEV-TASK-003-RESUME-002",
+          "FEAT-DEV-TASK-003-CONV-003",
+          "FEAT-DEV-TASK-003-TOOL-004"
+        ]
+      },
+      "5": {
+        "description": "Automation features - depends on tasks",
+        "features": [
+          "FEAT-AUTO-EXEC-006-YOLO-001",
+          "FEAT-AUTO-EXEC-006-PERMS-002",
+          "FEAT-AUTO-OUT-007-JSON-001",
+          "FEAT-AUTO-OUT-007-STREAM-002"
+        ]
+      },
+      "6": {
+        "description": "Enterprise security - depends on tasks and config",
+        "features": [
+          "FEAT-ENT-SEC-008-PARSE-001",
+          "FEAT-ENT-SEC-008-VALID-002",
+          "FEAT-ENT-SEC-008-DANGER-003",
+          "FEAT-ENT-AUDIT-010-LOG-001",
+          "FEAT-ENT-AUDIT-010-EXPORT-002"
+        ]
+      },
+      "7": {
+        "description": "Distribution - final phase",
+        "features": [
+          "FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+          "FEAT-INFRA-DIST-014-BUILD-001",
+          "FEAT-INFRA-DIST-014-HOMEBREW-002",
+          "FEAT-INFRA-DIST-014-NPM-003"
+        ]
+      }
+    }
+  },
+  "metadata": {
+    "source_epic_manifest": ".oxenated/docs/planning/cline-cli-golang-migration-prd-epic-manifest.json",
+    "source_prd": ".oxenated/docs/planning/cline-cli-golang-migration-prd.md",
+    "total_features": 45,
+    "total_phases": 7,
+    "total_epics": 14,
+    "personas": {
+      "Developer User": 14,
+      "DevOps/Automation User": 6,
+      "Enterprise User": 7,
+      "Infrastructure (Internal)": 18
+    },
+    "domains": {
+      "CLI": 6,
+      "UI": 4,
+      "Task": 4,
+      "Automation": 6,
+      "Enterprise": 7,
+      "Infrastructure": 18
+    },
+    "complexity_distribution": {
+      "low": 5,
+      "medium": 25,
+      "high": 15
+    },
+    "generated": "2026-03-21T19:41:00Z"
+  }
+}
