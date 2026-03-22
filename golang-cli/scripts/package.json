@@ -1,0 +1,50 @@
+{
+	"name": "@cline/golang-cli",
+	"version": "0.1.0",
+	"description": "Cline Go CLI - Autonomous coding agent CLI distributed as platform-specific binaries",
+	"main": "index.js",
+	"bin": {
+		"cline-go": "./bin/cline"
+	},
+	"scripts": {
+		"postinstall": "node install.js"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"os": [
+		"darwin",
+		"linux",
+		"win32"
+	],
+	"cpu": [
+		"x64",
+		"arm64"
+	],
+	"keywords": [
+		"cline",
+		"ai",
+		"cli",
+		"coding-agent",
+		"autonomous"
+	],
+	"author": {
+		"name": "Cline Bot Inc."
+	},
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/cline/cline"
+	},
+	"homepage": "https://cline.bot",
+	"bugs": {
+		"url": "https://github.com/cline/cline/issues"
+	},
+	"files": [
+		"install.js",
+		"index.js",
+		"bin/",
+		"README.md",
+		"LICENSE"
+	]
+}

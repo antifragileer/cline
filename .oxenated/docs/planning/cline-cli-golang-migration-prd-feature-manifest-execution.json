@@ -1,0 +1,2615 @@
+{
+  "execution_plan": {
+    "phases": [
+      {
+        "phase": 1,
+        "description": "Foundation Phase - Core infrastructure with no cross-epic dependencies",
+        "parallel_groups": [
+          {
+            "group": 1,
+            "features": [
+              "FEAT-INFRA-STORAGE-012-FILE-001",
+              "FEAT-INFRA-STORAGE-012-SECRET-002",
+              "FEAT-INFRA-STORAGE-012-MIGRATE-003",
+              "FEAT-INFRA-CORE-011-GRPC-001",
+              "FEAT-INFRA-CORE-011-STREAM-002",
+              "FEAT-INFRA-CORE-011-STATE-003",
+              "FEAT-DEV-CLI-001-CMD-001",
+              "FEAT-DEV-CLI-001-CMD-002",
+              "FEAT-DEV-CLI-001-CMD-003",
+              "FEAT-DEV-CLI-001-CMD-004",
+              "FEAT-INFRA-API-013-OPENAI-001",
+              "FEAT-INFRA-API-013-ANTHROPIC-002",
+              "FEAT-INFRA-API-013-ROUTER-003",
+              "FEAT-INFRA-API-013-OTHER-004"
+            ],
+            "can_execute_in_parallel": true
+          }
+        ]
+      },
+      {
+        "phase": 2,
+        "description": "Configuration Phase - Authentication and enterprise config",
+        "parallel_groups": [
+          {
+            "group": 2,
+            "features": [
+              "FEAT-DEV-AUTH-004-OAUTH-001",
+              "FEAT-DEV-AUTH-004-KEY-002",
+              "FEAT-DEV-AUTH-004-PROV-003",
+              "FEAT-ENT-CONFIG-009-LAYER-001",
+              "FEAT-ENT-CONFIG-009-POLICY-002"
+            ],
+            "can_execute_in_parallel": true
+          }
+        ]
+      },
+      {
+        "phase": 3,
+        "description": "UI Phase - Interactive TUI and mode detection",
+        "parallel_groups": [
+          {
+            "group": 3,
+            "features": [
+              "FEAT-DEV-UI-002-BUBBLE-001",
+              "FEAT-DEV-UI-002-CHAT-002",
+              "FEAT-DEV-UI-002-INPUT-003",
+              "FEAT-DEV-UI-002-WELCOME-004",
+              "FEAT-AUTO-MODE-005-DETECT-001",
+              "FEAT-AUTO-MODE-005-SWITCH-002"
+            ],
+            "can_execute_in_parallel": true
+          }
+        ]
+      },
+      {
+        "phase": 4,
+        "description": "Core Task Phase - Central task management",
+        "parallel_groups": [
+          {
+            "group": 4,
+            "features": [
+              "FEAT-DEV-TASK-003-INIT-001",
+              "FEAT-DEV-TASK-003-RESUME-002",
+              "FEAT-DEV-TASK-003-CONV-003",
+              "FEAT-DEV-TASK-003-TOOL-004"
+            ],
+            "can_execute_in_parallel": true
+          }
+        ]
+      },
+      {
+        "phase": 5,
+        "description": "Automation Phase - Yolo mode and JSON output",
+        "parallel_groups": [
+          {
+            "group": 5,
+            "features": [
+              "FEAT-AUTO-EXEC-006-YOLO-001",
+              "FEAT-AUTO-EXEC-006-PERMS-002",
+              "FEAT-AUTO-OUT-007-JSON-001",
+              "FEAT-AUTO-OUT-007-STREAM-002"
+            ],
+            "can_execute_in_parallel": true
+          }
+        ]
+      },
+      {
+        "phase": 6,
+        "description": "Enterprise Phase - Security and audit",
+        "parallel_groups": [
+          {
+            "group": 6,
+            "features": [
+              "FEAT-ENT-SEC-008-PARSE-001",
+              "FEAT-ENT-SEC-008-VALID-002",
+              "FEAT-ENT-SEC-008-DANGER-003",
+              "FEAT-ENT-AUDIT-010-LOG-001",
+              "FEAT-ENT-AUDIT-010-EXPORT-002"
+            ],
+            "can_execute_in_parallel": true
+          }
+        ]
+      },
+      {
+        "phase": 7,
+        "description": "Distribution Phase - Packaging and distribution",
+        "parallel_groups": [
+          {
+            "group": 7,
+            "features": [
+              "FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+              "FEAT-INFRA-DIST-014-BUILD-001",
+              "FEAT-INFRA-DIST-014-HOMEBREW-002",
+              "FEAT-INFRA-DIST-014-NPM-003"
+            ],
+            "can_execute_in_parallel": false
+          }
+        ]
+      }
+    ],
+    "critical_path": [
+      "FEAT-INFRA-STORAGE-012-FILE-001",
+      "FEAT-INFRA-CORE-011-GRPC-001",
+      "FEAT-INFRA-CORE-011-STREAM-002",
+      "FEAT-DEV-CLI-001-CMD-001",
+      "FEAT-DEV-CLI-001-CMD-002",
+      "FEAT-DEV-AUTH-004-KEY-002",
+      "FEAT-DEV-UI-002-BUBBLE-001",
+      "FEAT-DEV-UI-002-CHAT-002",
+      "FEAT-DEV-UI-002-INPUT-003",
+      "FEAT-DEV-TASK-003-INIT-001",
+      "FEAT-DEV-TASK-003-TOOL-004",
+      "FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+      "FEAT-INFRA-DIST-014-BUILD-001"
+    ],
+    "total_features": 45,
+    "estimated_duration_hours": 480
+  },
+  "features": [
+    {
+      "id": "FEAT-INFRA-STORAGE-012-FILE-001",
+      "name": "File-based JSON Storage",
+      "description": "Atomic file operations for global state, workspace state, task history, and secrets with file locking for concurrent access",
+      "parent_epic": "EPIC-INFRA-STORAGE-012",
+      "parent_epic_name": "State & Storage Layer",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/storage",
+      "required_files": [
+        "storage.go",
+        "storage_test.go",
+        "file_storage.go",
+        "file_storage_test.go"
+      ],
+      "prompt": "Implement the foundational file-based JSON storage system for the Cline CLI GoLang migration. Create ClineFileStorage struct with atomic file operations using file locking (flock). Support paths: ~/.cline/data/globalState.json, ~/.cline/data/secrets.json, ~/.cline/data/workspaces/{hash}/workspaceState.json. Implement thread-safe read/write with sync.RWMutex and atomic writes (temp file + rename). Handle permissions (0600 for secrets, 0644 for state). Files: internal/storage/storage.go, file_storage.go, storage_test.go, file_storage_test.go.",
+      "test_requirements": [
+        "Unit tests >80% coverage",
+        "Concurrent access tests",
+        "Atomic write verification",
+        "Error handling tests"
+      ],
+      "success_criteria": [
+        "Atomic thread-safe operations",
+        "File locking prevents corruption",
+        "Data integrity maintained",
+        "Correct file permissions"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Concurrent tests pass",
+        "Permissions correct"
+      ],
+      "output_files": [
+        "keyring_common.go",
+        "keyring_windows.go",
+        "keyring_darwin.go",
+        "file_storage_test.go",
+        "migration_test.go",
+        "storage_test.go",
+        "storage.go",
+        "file_storage.go",
+        "keyring_factory_windows.go",
+        "keyring_factory.go",
+        "keyring.go",
+        "secrets.go",
+        "secrets_test.go",
+        "keyring_linux.go",
+        "keyring_factory_stub.go",
+        "keyring_stub.go",
+        "keyring_factory_linux.go",
+        "migration.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T19:47:44Z"
+    },
+    {
+      "id": "FEAT-INFRA-STORAGE-012-SECRET-002",
+      "name": "Secrets Encryption",
+      "description": "Encrypt secrets using OS keyring integration before storage in secrets.json, decrypt on read",
+      "parent_epic": "EPIC-INFRA-STORAGE-012",
+      "parent_epic_name": "State & Storage Layer",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/storage",
+      "required_files": [
+        "secrets.go",
+        "secrets_test.go"
+      ],
+      "prompt": "Implement secrets encryption using OS keyring. Integrate with macOS Keychain (github.com/keybase/go-keychain), Linux Secret Service (github.com/zalando/go-keyring), Windows Credential Manager (github.com/danieljoos/wincred). Use AES-256-GCM encryption. Implement fallback to file-based encryption with warning. Files: internal/storage/secrets.go, secrets_test.go.",
+      "test_requirements": [
+        "Encryption/decryption tests",
+        "Cross-platform keyring tests",
+        "Fallback tests",
+        "Key rotation tests"
+      ],
+      "success_criteria": [
+        "AES-256-GCM encryption",
+        "OS keyring integration",
+        "Fallback mechanism",
+        "Never store plaintext"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Roundtrip works",
+        "Keyring integrates"
+      ],
+      "output_files": [
+        "keyring_common.go",
+        "keyring_windows.go",
+        "keyring_darwin.go",
+        "file_storage_test.go",
+        "migration_test.go",
+        "storage_test.go",
+        "storage.go",
+        "file_storage.go",
+        "keyring_factory_windows.go",
+        "keyring_factory.go",
+        "keyring.go",
+        "secrets.go",
+        "secrets_test.go",
+        "keyring_linux.go",
+        "keyring_factory_stub.go",
+        "keyring_stub.go",
+        "keyring_factory_linux.go",
+        "migration.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T19:45:07Z"
+    },
+    {
+      "id": "FEAT-INFRA-STORAGE-012-MIGRATE-003",
+      "name": "State Migration",
+      "description": "Automatic migration from legacy state formats with version tracking and backward compatibility",
+      "parent_epic": "EPIC-INFRA-STORAGE-012",
+      "parent_epic_name": "State & Storage Layer",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/storage",
+      "required_files": [
+        "migration.go",
+        "migration_test.go"
+      ],
+      "prompt": "Implement state migration system with version tracking. Create migration registry with version-to-function mapping. Implement migrations from TypeScript CLI formats. Support atomic migration with backup/restore. Use __storageVersion field. Files: internal/storage/migration.go, migration_test.go.",
+      "test_requirements": [
+        "Migration tests per version",
+        "Failure/rollback tests",
+        "Version detection tests",
+        "Idempotency tests"
+      ],
+      "success_criteria": [
+        "TypeScript CLI state loads",
+        "Automatic atomic migration",
+        "Integrity maintained",
+        "Graceful failures"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Migration works",
+        "Version tracking works"
+      ],
+      "output_files": [
+        "keyring_common.go",
+        "keyring_windows.go",
+        "keyring_darwin.go",
+        "file_storage_test.go",
+        "migration_test.go",
+        "storage_test.go",
+        "storage.go",
+        "file_storage.go",
+        "keyring_factory_windows.go",
+        "keyring_factory.go",
+        "keyring.go",
+        "secrets.go",
+        "secrets_test.go",
+        "keyring_linux.go",
+        "keyring_factory_stub.go",
+        "keyring_stub.go",
+        "keyring_factory_linux.go",
+        "migration.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T19:47:52Z"
+    },
+    {
+      "id": "FEAT-INFRA-CORE-011-GRPC-001",
+      "name": "gRPC Client Implementation",
+      "description": "Generate Go code from proto definitions and implement gRPC client for core extension communication",
+      "parent_epic": "EPIC-INFRA-CORE-011",
+      "parent_epic_name": "Core Extension Integration",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/host",
+      "required_files": [
+        "client.go",
+        "client_test.go",
+        "generate.go"
+      ],
+      "prompt": "Implement gRPC client for Cline core extension. Generate Go code from proto/cline/*.proto using protoc-gen-go and protoc-gen-go-grpc. Implement connection management, pooling, reconnection logic. Support TLS. Use google.golang.org/grpc. Files: internal/grpc/client.go, client_test.go, generate.go.",
+      "test_requirements": [
+        "Unit tests with mocked server",
+        "Connection tests",
+        "Error handling tests",
+        "Timeout tests"
+      ],
+      "success_criteria": [
+        "Connects to core extension",
+        "All RPC methods implemented",
+        "Connection pooling works",
+        "Graceful error handling"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "Proto generates correctly",
+        "All tests pass",
+        "Integration works"
+      ],
+      "output_files": [
+        "generate.go",
+        "client.go",
+        "client_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T19:39:43Z"
+    },
+    {
+      "id": "FEAT-INFRA-CORE-011-STREAM-002",
+      "name": "Bidirectional Streaming",
+      "description": "Handle bidirectional message streaming between CLI and core extension with flow control and reconnection",
+      "parent_epic": "EPIC-INFRA-CORE-011",
+      "parent_epic_name": "Core Extension Integration",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-CORE-011-GRPC-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/host",
+      "required_files": [
+        "stream.go",
+        "stream_test.go"
+      ],
+      "prompt": "Implement bidirectional streaming for gRPC communication. Handle streaming message flow, flow control, backpressure. Support partial message streaming. Implement reconnection on failure. Use goroutines and channels. Files: internal/grpc/stream.go, stream_test.go.",
+      "test_requirements": [
+        "Streaming tests",
+        "Flow control tests",
+        "Reconnection tests",
+        "Message ordering tests"
+      ],
+      "success_criteria": [
+        "Bidirectional streaming works",
+        "Ordered delivery",
+        "Flow control prevents exhaustion",
+        "Reconnection on failure"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Streaming works",
+        "Reconnection works"
+      ],
+      "output_files": [
+        "generate.go",
+        "state_sync_test.go",
+        "stream.go",
+        "client.go",
+        "stream_test.go",
+        "state_sync.go",
+        "client_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:09:19Z"
+    },
+    {
+      "id": "FEAT-INFRA-CORE-011-STATE-003",
+      "name": "State Synchronization",
+      "description": "Synchronize state bidirectionally between CLI and core extension with conflict resolution",
+      "parent_epic": "EPIC-INFRA-CORE-011",
+      "parent_epic_name": "Core Extension Integration",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-CORE-011-STREAM-002"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/host",
+      "required_files": [
+        "state_sync.go",
+        "state_sync_test.go"
+      ],
+      "prompt": "Implement state synchronization between CLI and core. Support bidirectional sync with conflict resolution (last-write-wins). Implement optimistic updates with rollback. Use event-based sync with state versioning. Files: internal/grpc/state_sync.go, state_sync_test.go.",
+      "test_requirements": [
+        "Sync tests",
+        "Conflict resolution tests",
+        "Rollback tests",
+        "Concurrent update tests"
+      ],
+      "success_criteria": [
+        "Bidirectional sync works",
+        "Conflicts resolved",
+        "Integrity maintained",
+        "Real-time updates"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Sync works",
+        "Conflict resolution works"
+      ],
+      "output_files": [
+        "generate.go",
+        "state_sync_test.go",
+        "stream.go",
+        "client.go",
+        "stream_test.go",
+        "state_sync.go",
+        "client_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:01:14Z"
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-001",
+      "name": "Root Command with Default Task Mode",
+      "description": "Cobra root command that detects if prompt is provided and routes to interactive or task mode",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/cmd/cline",
+      "required_files": [
+        "main.go",
+        "root.go",
+        "root_test.go"
+      ],
+      "prompt": "Implement root command using Cobra. Detect prompt argument for routing to task or interactive mode. Support global flags: --config, --verbose, --version, --help. Initialize logging. Use github.com/spf13/cobra and viper. Files: cmd/cline/main.go, root.go, root_test.go.",
+      "test_requirements": [
+        "Command routing tests",
+        "Flag parsing tests",
+        "Error handling tests",
+        "Help text tests"
+      ],
+      "success_criteria": [
+        "Correct routing",
+        "Flags parsed",
+        "Proper exit codes",
+        "Help comprehensive"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Routing works",
+        "Help displays"
+      ],
+      "output_files": [
+        "root_test.go",
+        "task_test.go",
+        "main.go",
+        "root.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T19:56:57Z"
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-002",
+      "name": "Task Subcommand with Flags",
+      "description": "Task subcommand with all flags: mode (-a, -p), yolo (-y), timeout (-t), model (-m), images (-i), verbose (-v), cwd (-c), config (--config), thinking (--thinking), json (--json), taskId (-T)",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/cmd/cline",
+      "required_files": [
+        "task.go",
+        "task_test.go"
+      ],
+      "prompt": "Implement task subcommand with all flags: -a/--act, -p/--plan (mutually exclusive), -y/--yolo, -t/--timeout, -m/--model, -i/--image (multiple), -v/--verbose, -c/--cwd, --config, --thinking, --json, -T/--taskId. Validate flag combinations. Handle image attachments. Files: cmd/cline/task.go, task_test.go.",
+      "test_requirements": [
+        "Flag combination tests",
+        "Validation tests",
+        "Image handling tests",
+        "Timeout tests"
+      ],
+      "success_criteria": [
+        "All flags work",
+        "Validation prevents conflicts",
+        "Images handled",
+        "Timeout enforced"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Flags work",
+        "Validation works"
+      ],
+      "output_files": [
+        "task.go",
+        "root_test.go",
+        "task_test.go",
+        "main.go",
+        "root.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:06:34Z"
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-003",
+      "name": "History Subcommand with Pagination",
+      "description": "History subcommand with limit (-n) and page (-p) flags for browsing task history",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/cmd/cline",
+      "required_files": [
+        "history.go",
+        "history_test.go"
+      ],
+      "prompt": "Implement history subcommand with -n/--limit (default 10), -p/--page (default 1), --config flags. Load from ~/.cline/data/taskHistory.json. Implement pagination with offset/limit. Format as table or list. Support --json. Files: cmd/cline/history.go, history_test.go.",
+      "test_requirements": [
+        "Pagination tests",
+        "Formatting tests",
+        "Empty history tests",
+        "JSON output tests"
+      ],
+      "success_criteria": [
+        "History loads correctly",
+        "Pagination works",
+        "Formatted output",
+        "Valid JSON"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Pagination works",
+        "Output correct"
+      ],
+      "output_files": [
+        "config.go",
+        "version.go",
+        "task.go",
+        "auth.go",
+        "update.go",
+        "history_test.go",
+        "root_test.go",
+        "task_test.go",
+        "history.go",
+        "config_test.go",
+        "main.go",
+        "dev.go",
+        "root.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:20:10Z"
+    },
+    {
+      "id": "FEAT-DEV-CLI-001-CMD-004",
+      "name": "Config, Auth, Update, Version, Dev Subcommands",
+      "description": "Additional subcommands: config (display settings), auth (authentication wizard), update (check for updates), version (show version), dev (debug logs)",
+      "parent_epic": "EPIC-DEV-CLI-001",
+      "parent_epic_name": "Command Line Interface Foundation",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/cmd/cline",
+      "required_files": [
+        "config.go",
+        "auth.go",
+        "update.go",
+        "version.go",
+        "dev.go",
+        "config_test.go",
+        "auth_test.go",
+        "update_test.go",
+        "dev_test.go"
+      ],
+      "prompt": "Implement utility subcommands. Config: display global/workspace state, --json, --edit. Auth: interactive wizard with -p (provider), -k (key), -m (model), --test. Update: check npm registry, --check-only. Version: show version, build date, commit. Dev: log (show/tail), doctor (diagnostics). Files: cmd/cline/config.go, auth.go, update.go, version.go, dev.go with tests.",
+      "test_requirements": [
+        "Subcommand tests",
+        "Integration tests",
+        "Output formatting tests",
+        "Interactive flow tests"
+      ],
+      "success_criteria": [
+        "All subcommands work",
+        "Output formatted",
+        "JSON valid",
+        "Flows work"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Subcommands work",
+        "Output consistent"
+      ],
+      "output_files": [
+        "config.go",
+        "version.go",
+        "auth_test.go",
+        "task.go",
+        "auth.go",
+        "update.go",
+        "history_test.go",
+        "root_test.go",
+        "dev_test.go",
+        "update_test.go",
+        "version_test.go",
+        "task_test.go",
+        "history.go",
+        "config_test.go",
+        "main.go",
+        "dev.go",
+        "root.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:36:30Z"
+    },
+    {
+      "id": "FEAT-INFRA-API-013-OPENAI-001",
+      "name": "OpenAI Provider",
+      "description": "OpenAI API integration with streaming response handling and token usage tracking",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/api",
+      "required_files": [
+        "openai.go",
+        "openai_test.go"
+      ],
+      "prompt": "Implement OpenAI API provider. Support chat completions endpoint with streaming (SSE). Track token usage. Support GPT-4, GPT-3.5. Handle errors, rate limiting. Support Azure OpenAI custom base URL. Use net/http with bufio.Scanner for SSE. Files: internal/providers/openai.go, openai_test.go.",
+      "test_requirements": [
+        "Mock API tests",
+        "Streaming tests",
+        "Error handling tests",
+        "Token tracking tests"
+      ],
+      "success_criteria": [
+        "API integration works",
+        "Streaming handled",
+        "Token tracking accurate",
+        "Errors graceful"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Streaming works",
+        "Tracking accurate"
+      ],
+      "output_files": [
+        "openrouter.go",
+        "anthropic.go",
+        "openai_test.go",
+        "openai.go",
+        "openrouter_test.go",
+        "anthropic_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:30:40Z"
+    },
+    {
+      "id": "FEAT-INFRA-API-013-ANTHROPIC-002",
+      "name": "Anthropic Provider",
+      "description": "Anthropic Claude API integration with streaming response handling",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/api",
+      "required_files": [
+        "anthropic.go",
+        "anthropic_test.go"
+      ],
+      "prompt": "Implement Anthropic Claude API provider. Support messages endpoint with streaming. Track tokens. Support Claude 3, 3.5. Handle thinking blocks. Use net/http with SSE parsing. Files: internal/providers/anthropic.go, anthropic_test.go.",
+      "test_requirements": [
+        "Mock API tests",
+        "Streaming tests",
+        "Error handling tests",
+        "Token tracking tests"
+      ],
+      "success_criteria": [
+        "API integration works",
+        "Streaming handled",
+        "Token tracking accurate",
+        "Thinking blocks supported"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Streaming works",
+        "Features work"
+      ],
+      "output_files": [
+        "anthropic.go",
+        "anthropic_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:21:28Z"
+    },
+    {
+      "id": "FEAT-INFRA-API-013-ROUTER-003",
+      "name": "OpenRouter Provider",
+      "description": "OpenRouter multi-provider routing with unified response format handling",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": []
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/api",
+      "required_files": [
+        "openrouter.go",
+        "openrouter_test.go"
+      ],
+      "prompt": "Implement OpenRouter provider. Support unified API for multiple providers. Handle model routing (provider/model format). Implement fallback logic. Support custom headers. Files: internal/providers/openrouter.go, openrouter_test.go.",
+      "test_requirements": [
+        "Routing tests",
+        "Fallback tests",
+        "Error handling tests",
+        "Streaming tests"
+      ],
+      "success_criteria": [
+        "Multi-provider routing works",
+        "Unified interface",
+        "Fallback works",
+        "Streaming works"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Routing works",
+        "Fallback works"
+      ],
+      "output_files": [
+        "gemini.go",
+        "openrouter.go",
+        "anthropic.go",
+        "openai_test.go",
+        "openai.go",
+        "openrouter_test.go",
+        "anthropic_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T20:37:48Z"
+    },
+    {
+      "id": "FEAT-INFRA-API-013-OTHER-004",
+      "name": "Other Providers (Gemini, Bedrock, etc.)",
+      "description": "Additional provider implementations: Google Gemini, AWS Bedrock, and other supported providers with unified interface",
+      "parent_epic": "EPIC-INFRA-API-013",
+      "parent_epic_name": "API Provider Integrations",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [],
+        "features": [
+          "FEAT-INFRA-API-013-OPENAI-001",
+          "FEAT-INFRA-API-013-ANTHROPIC-002"
+        ]
+      },
+      "parallel_group": 1,
+      "execution_phase": 1,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/api",
+      "required_files": [
+        "gemini.go",
+        "bedrock.go",
+        "other_test.go"
+      ],
+      "prompt": "Implement additional providers: Google Gemini (AI Studio API), AWS Bedrock (AWS SDK), Ollama, LM Studio. Use unified provider interface. Support streaming where available. Handle provider-specific auth. Files: internal/providers/gemini.go, bedrock.go, other_test.go.",
+      "test_requirements": [
+        "Provider tests per implementation",
+        "Auth tests",
+        "Streaming tests"
+      ],
+      "success_criteria": [
+        "All providers work",
+        "Unified interface maintained",
+        "Provider-specific auth handled"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Providers work",
+        "Interface maintained"
+      ],
+      "output_files": [
+        "lmstudio.go",
+        "gemini.go",
+        "openrouter.go",
+        "anthropic.go",
+        "openai_test.go",
+        "openai.go",
+        "openrouter_test.go",
+        "bedrock.go",
+        "ollama.go",
+        "anthropic_test.go",
+        "other_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T21:03:33Z"
+    },
+    {
+      "id": "FEAT-DEV-AUTH-004-OAUTH-001",
+      "name": "OAuth Authentication Flows",
+      "description": "OAuth flow implementation with local callback server for providers supporting OAuth (browser open, token capture, secure storage)",
+      "parent_epic": "EPIC-DEV-AUTH-004",
+      "parent_epic_name": "Authentication & Provider Configuration",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-API-013"
+        ],
+        "features": []
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/auth",
+      "required_files": [
+        "oauth.go",
+        "oauth_test.go",
+        "server.go"
+      ],
+      "prompt": "Implement OAuth 2.0 authorization code flow with PKCE. Start local HTTP callback server. Open browser for authorization. Capture and exchange tokens. Securely store using secrets encryption. Handle errors gracefully. Support token refresh. Use golang.org/x/oauth2. Files: internal/auth/oauth.go, server.go, oauth_test.go.",
+      "test_requirements": [
+        "OAuth flow tests",
+        "Server tests",
+        "Token exchange tests",
+        "Error handling tests"
+      ],
+      "success_criteria": [
+        "OAuth flow completes",
+        "Tokens captured securely",
+        "Browser opens",
+        "Refresh supported"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Flow works",
+        "Server works"
+      ],
+      "output_files": [
+        "server.go",
+        "apikey_test.go",
+        "oauth_test.go",
+        "wizard.go",
+        "oauth.go",
+        "apikey.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T21:30:52Z"
+    },
+    {
+      "id": "FEAT-DEV-AUTH-004-KEY-002",
+      "name": "API Key Management",
+      "description": "API key validation, testing, and secure storage with interactive and flag-based input",
+      "parent_epic": "EPIC-DEV-AUTH-004",
+      "parent_epic_name": "Authentication & Provider Configuration",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-API-013"
+        ],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-SECRET-002"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/auth",
+      "required_files": [
+        "apikey.go",
+        "apikey_test.go"
+      ],
+      "prompt": "Implement API key management. Support interactive input with masking (golang.org/x/term) and flag-based input (-k). Validate key format per provider. Test with provider API. Store encrypted using secrets. Support key rotation. Files: internal/auth/apikey.go, apikey_test.go.",
+      "test_requirements": [
+        "Key validation tests",
+        "Storage tests",
+        "Provider test API tests",
+        "Secure input tests"
+      ],
+      "success_criteria": [
+        "Format validation works",
+        "Secure input works",
+        "Keys tested before storage",
+        "Encrypted storage"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Validation works",
+        "Storage works"
+      ],
+      "output_files": [
+        "server.go",
+        "apikey_test.go",
+        "oauth_test.go",
+        "wizard.go",
+        "oauth.go",
+        "apikey.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T21:31:05Z"
+    },
+    {
+      "id": "FEAT-DEV-AUTH-004-PROV-003",
+      "name": "Provider Configuration Wizard",
+      "description": "Interactive wizard for provider selection, model selection, and configuration validation",
+      "parent_epic": "EPIC-DEV-AUTH-004",
+      "parent_epic_name": "Authentication & Provider Configuration",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-API-013"
+        ],
+        "features": [
+          "FEAT-DEV-AUTH-004-OAUTH-001",
+          "FEAT-DEV-AUTH-004-KEY-002"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/auth",
+      "required_files": [
+        "wizard.go",
+        "wizard_test.go"
+      ],
+      "prompt": "Implement interactive configuration wizard. Step-by-step flow: provider selection, auth method selection, credentials input, model selection, validation, save confirmation. Support non-interactive mode with flags. Use github.com/AlecAivazis/survey or similar. Files: internal/auth/wizard.go, wizard_test.go.",
+      "test_requirements": [
+        "Wizard flow tests",
+        "Interactive input tests",
+        "Validation tests",
+        "Flag-based tests"
+      ],
+      "success_criteria": [
+        "Wizard guides setup",
+        "All providers supported",
+        "Configuration validated",
+        "Non-interactive works"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Wizard works",
+        "Modes work"
+      ],
+      "output_files": [
+        "server.go",
+        "apikey_test.go",
+        "wizard_test.go",
+        "oauth_test.go",
+        "wizard.go",
+        "oauth.go",
+        "apikey.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T21:35:31Z"
+    },
+    {
+      "id": "FEAT-ENT-CONFIG-009-LAYER-001",
+      "name": "Configuration Layering",
+      "description": "Tiered configuration loading: global state, workspace state, environment variables with proper precedence",
+      "parent_epic": "EPIC-ENT-CONFIG-009",
+      "parent_epic_name": "Enterprise Configuration Management",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-DEV-CLI-001"
+        ],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/config",
+      "required_files": [
+        "layer.go",
+        "layer_test.go"
+      ],
+      "prompt": "Implement configuration layering. Precedence: defaults < global state < workspace state < environment variables (CLINE_*) < CLI flags. Use github.com/spf13/viper. Support workspace-specific settings. Merge configurations. Files: internal/config/layer.go, layer_test.go.",
+      "test_requirements": [
+        "Configuration loading tests",
+        "Precedence tests",
+        "Merge tests",
+        "Environment variable tests"
+      ],
+      "success_criteria": [
+        "All sources loaded",
+        "Precedence respected",
+        "Environment overrides work",
+        "Workspace settings work"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Precedence works",
+        "Overrides work"
+      ],
+      "output_files": [
+        "layer.go",
+        "layer_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T21:15:11Z"
+    },
+    {
+      "id": "FEAT-ENT-CONFIG-009-POLICY-002",
+      "name": "Policy Enforcement",
+      "description": "Enterprise policy definitions and enforcement for allowed models, API key rotation, and usage restrictions",
+      "parent_epic": "EPIC-ENT-CONFIG-009",
+      "parent_epic_name": "Enterprise Configuration Management",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-DEV-CLI-001"
+        ],
+        "features": [
+          "FEAT-ENT-CONFIG-009-LAYER-001"
+        ]
+      },
+      "parallel_group": 2,
+      "execution_phase": 2,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/config",
+      "required_files": [
+        "policy.go",
+        "policy_test.go"
+      ],
+      "prompt": "Implement policy enforcement. Support allowed/denied models lists, API key age limits, usage quotas. Enforce during configuration. Log violations. Support policy inheritance and hot-reload. Files: internal/config/policy.go, policy_test.go.",
+      "test_requirements": [
+        "Policy enforcement tests",
+        "Validation tests",
+        "Violation logging tests",
+        "Update tests"
+      ],
+      "success_criteria": [
+        "Policies enforced",
+        "Violations logged",
+        "Updates applied",
+        "Good error messages"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Enforcement works",
+        "Logging works"
+      ],
+      "output_files": [
+        "policy_test.go",
+        "policy.go",
+        "layer.go",
+        "layer_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T21:48:16Z"
+    },
+    {
+      "id": "FEAT-DEV-UI-002-BUBBLE-001",
+      "name": "Bubble Tea TUI Framework Setup",
+      "description": "Initialize Bubble Tea program with Model-Update-View loop, terminal dimension handling, and keyboard event processing",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/tui",
+      "required_files": [
+        "tui.go",
+        "tui_test.go",
+        "model.go",
+        "update.go",
+        "view.go"
+      ],
+      "prompt": "Implement Bubble Tea TUI framework. Initialize program with Model-Update-View architecture using github.com/charmbracelet/bubbletea. Handle terminal dimensions, keyboard events, window resize (SIGWINCH). Support both TUI and plain modes. Implement graceful shutdown. Files: internal/ui/tui.go, model.go, update.go, view.go, tui_test.go.",
+      "test_requirements": [
+        "Model tests",
+        "Update handler tests",
+        "Keyboard tests",
+        "Resize tests"
+      ],
+      "success_criteria": [
+        "TUI initializes",
+        "Keyboard handled",
+        "Resizes handled",
+        "Mode switching works"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "TUI runs",
+        "Input works"
+      ],
+      "output_files": [
+        "update.go",
+        "tui_test.go",
+        "message.go",
+        "input_test.go",
+        "tui.go",
+        "input.go",
+        "markdown.go",
+        "view.go",
+        "chat_test.go",
+        "chat.go",
+        "model.go",
+        "history.go",
+        "welcome_test.go",
+        "welcome.go",
+        "prompt.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:04:34Z"
+    },
+    {
+      "id": "FEAT-DEV-UI-002-CHAT-002",
+      "name": "Chat Message Rendering Components",
+      "description": "Message bubble rendering with markdown formatting, syntax highlighting, and streaming message display",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-BUBBLE-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/tui",
+      "required_files": [
+        "chat.go",
+        "chat_test.go",
+        "message.go",
+        "markdown.go"
+      ],
+      "prompt": "Implement chat message rendering. Message bubbles with github.com/charmbracelet/lipgloss. Markdown formatting with glamour. Syntax highlighting with chroma. Streaming message display with partial updates. Support message types: say, ask, text, tool_use, tool_result, error. Files: internal/ui/chat.go, message.go, markdown.go, chat_test.go.",
+      "test_requirements": [
+        "Message rendering tests",
+        "Markdown tests",
+        "Syntax highlighting tests",
+        "Streaming tests"
+      ],
+      "success_criteria": [
+        "Messages render correctly",
+        "Markdown formatted",
+        "Code highlighted",
+        "Streaming smooth"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Rendering works",
+        "Formatting works"
+      ],
+      "output_files": [
+        "update.go",
+        "tui_test.go",
+        "message.go",
+        "input_test.go",
+        "tui.go",
+        "input.go",
+        "markdown.go",
+        "view.go",
+        "chat_test.go",
+        "chat.go",
+        "model.go",
+        "history.go",
+        "welcome_test.go",
+        "welcome.go",
+        "prompt.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:04:34Z"
+    },
+    {
+      "id": "FEAT-DEV-UI-002-INPUT-003",
+      "name": "User Input Handling and Prompts",
+      "description": "User input capture, text input fields, approval/rejection prompts, and keyboard shortcuts",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-BUBBLE-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/tui",
+      "required_files": [
+        "input.go",
+        "input_test.go",
+        "prompt.go"
+      ],
+      "prompt": "Implement user input handling. Text input with github.com/charmbracelet/bubbles/textinput. Multi-line with textarea. Approval/rejection prompts. Keyboard shortcuts: Ctrl+C/q (quit), Ctrl+A/y (approve), Ctrl+R/n (reject), arrows (navigate), Enter (submit). Input history. Files: internal/ui/input.go, prompt.go, input_test.go.",
+      "test_requirements": [
+        "Input handling tests",
+        "Keyboard tests",
+        "Prompt tests",
+        "Validation tests"
+      ],
+      "success_criteria": [
+        "Text input works",
+        "Prompts capture responses",
+        "Shortcuts work",
+        "History works"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Input works",
+        "Prompts work"
+      ],
+      "output_files": [
+        "update.go",
+        "tui_test.go",
+        "message.go",
+        "input_test.go",
+        "tui.go",
+        "input.go",
+        "markdown.go",
+        "view.go",
+        "chat_test.go",
+        "chat.go",
+        "model.go",
+        "history.go",
+        "welcome_test.go",
+        "welcome.go",
+        "prompt.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:07:20Z"
+    },
+    {
+      "id": "FEAT-DEV-UI-002-WELCOME-004",
+      "name": "Welcome Screen and Onboarding",
+      "description": "First-time user detection, welcome screen rendering, quick start hints, and recent task display",
+      "parent_epic": "EPIC-DEV-UI-002",
+      "parent_epic_name": "Interactive Terminal UI",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-CORE-011"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-BUBBLE-001",
+          "FEAT-DEV-UI-002-CHAT-002"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "low",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/tui",
+      "required_files": [
+        "welcome.go",
+        "welcome_test.go"
+      ],
+      "prompt": "Implement welcome screen. First-time user detection. Welcome banner with lipgloss styling. Quick start hints. Recent tasks display. Authentication status. Skip welcome option. Handle terminal size constraints. Files: internal/ui/welcome.go, welcome_test.go.",
+      "test_requirements": [
+        "Welcome rendering tests",
+        "First-time detection tests",
+        "Size adaptation tests"
+      ],
+      "success_criteria": [
+        "Welcome displays for new users",
+        "Recent tasks shown",
+        "Hints displayed",
+        "Screen adapts"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Welcome works",
+        "Detection works"
+      ],
+      "output_files": [
+        "update.go",
+        "tui_test.go",
+        "message.go",
+        "input_test.go",
+        "tui.go",
+        "input.go",
+        "markdown.go",
+        "view.go",
+        "chat_test.go",
+        "chat.go",
+        "model.go",
+        "history.go",
+        "welcome_test.go",
+        "welcome.go",
+        "prompt.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:00:49Z"
+    },
+    {
+      "id": "FEAT-AUTO-MODE-005-DETECT-001",
+      "name": "TTY/Redirect Detection",
+      "description": "Automatic detection of interactive vs non-interactive mode using isatty checks on stdin and stdout",
+      "parent_epic": "EPIC-AUTO-MODE-005",
+      "parent_epic_name": "Plain Text & Scripting Modes",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-UI-002"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/mode",
+      "required_files": [
+        "detect.go",
+        "detect_test.go"
+      ],
+      "prompt": "Implement TTY/redirect detection. Use golang.org/x/term for isatty checks on stdin, stdout, stderr. Detect piped input and output redirection. Support explicit override flags and CLINE_FORCE_TTY environment variable. Files: internal/mode/detect.go, detect_test.go.",
+      "test_requirements": [
+        "TTY detection tests",
+        "Mode determination tests",
+        "Override tests",
+        "Environment tests"
+      ],
+      "success_criteria": [
+        "isatty detection works",
+        "Piped input detected",
+        "Redirection detected",
+        "Overrides work"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Detection works",
+        "Overrides work"
+      ],
+      "output_files": [
+        "switch_test.go",
+        "switch.go",
+        "detect_test.go",
+        "detect.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:23:03Z"
+    },
+    {
+      "id": "FEAT-AUTO-MODE-005-SWITCH-002",
+      "name": "Mode Switching Logic",
+      "description": "Switch between interactive TUI and plain text output modes based on detection results and explicit flags",
+      "parent_epic": "EPIC-AUTO-MODE-005",
+      "parent_epic_name": "Plain Text & Scripting Modes",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-UI-002"
+        ],
+        "features": [
+          "FEAT-AUTO-MODE-005-DETECT-001"
+        ]
+      },
+      "parallel_group": 3,
+      "execution_phase": 3,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/mode",
+      "required_files": [
+        "switch.go",
+        "switch_test.go"
+      ],
+      "prompt": "Implement mode switching. Strategy pattern for mode-specific behavior. Initialize appropriate handlers (TUI or plain). Support modes: Interactive (Bubble Tea), Plain (text output), JSON (structured). Support force flags: --interactive, --plain, --json. Files: internal/mode/switch.go, switch_test.go.",
+      "test_requirements": [
+        "Mode switching tests",
+        "Handler tests",
+        "Query tests",
+        "Transition tests"
+      ],
+      "success_criteria": [
+        "Mode switches correctly",
+        "Handlers initialized",
+        "Runtime queries work",
+        "Transitions graceful"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Switching works",
+        "Handlers work"
+      ],
+      "output_files": [
+        "switch_test.go",
+        "switch.go",
+        "detect_test.go",
+        "detect.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:20:58Z"
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-INIT-001",
+      "name": "New Task Initialization",
+      "description": "Initialize new tasks with prompt, images, mode selection, model preference, and working directory handling",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-DEV-CLI-001-CMD-002",
+          "FEAT-INFRA-STORAGE-012-FILE-001",
+          "FEAT-INFRA-CORE-011-STREAM-002",
+          "FEAT-DEV-UI-002-CHAT-002",
+          "FEAT-DEV-AUTH-004-KEY-002"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/task",
+      "required_files": [
+        "init.go",
+        "init_test.go"
+      ],
+      "prompt": "Implement new task initialization. Generate UUID task IDs. Load and validate images. Load configuration. Establish gRPC stream. Send NewTask request. Initialize UI. Persist to history. Set working directory. Files: internal/task/init.go, init_test.go.",
+      "test_requirements": [
+        "Initialization tests",
+        "Image loading tests",
+        "gRPC tests",
+        "Error handling tests"
+      ],
+      "success_criteria": [
+        "Tasks initialize",
+        "Unique IDs",
+        "Images validated",
+        "gRPC connected"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Init works",
+        "Persistence works"
+      ],
+      "output_files": [
+        "resume.go",
+        "init_test.go",
+        "resume_test.go",
+        "tools.go",
+        "conversation.go",
+        "approval.go",
+        "tools_test.go",
+        "conversation_test.go",
+        "init.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:37:08Z"
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-RESUME-002",
+      "name": "Task Resumption by ID",
+      "description": "Resume existing tasks by ID with conversation history loading and optional follow-up message",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-INIT-001",
+          "FEAT-DEV-CLI-001-CMD-003"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/task",
+      "required_files": [
+        "resume.go",
+        "resume_test.go"
+      ],
+      "prompt": "Implement task resumption. Load task by ID. Load conversation history. Validate task state. Establish gRPC stream. Send ResumeTask with optional message. Restore UI conversation. Support --continue for most recent task. Files: internal/task/resume.go, resume_test.go.",
+      "test_requirements": [
+        "Task loading tests",
+        "History tests",
+        "Resume tests",
+        "Follow-up tests"
+      ],
+      "success_criteria": [
+        "Tasks resume correctly",
+        "History loaded",
+        "Follow-up works",
+        "Recent task found"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Resume works",
+        "History works"
+      ],
+      "output_files": [
+        "resume.go",
+        "resume_test.go",
+        "tools.go",
+        "conversation.go",
+        "approval.go",
+        "tools_test.go",
+        "conversation_test.go",
+        "init.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:34:49Z"
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-CONV-003",
+      "name": "Conversation History Management",
+      "description": "Store and load conversation messages with pagination and large conversation handling",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-INFRA-STORAGE-012-FILE-001",
+          "FEAT-DEV-TASK-003-INIT-001"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/task",
+      "required_files": [
+        "conversation.go",
+        "conversation_test.go"
+      ],
+      "prompt": "Implement conversation history management. Message storage with pagination (offset/limit). Handle large conversations with truncation. Message serialization matching proto definitions. Support conversation search and export. Efficient loading with lazy pagination. Files: internal/task/conversation.go, conversation_test.go.",
+      "test_requirements": [
+        "Storage tests",
+        "Pagination tests",
+        "Large conversation tests",
+        "Serialization tests"
+      ],
+      "success_criteria": [
+        "Conversations stored",
+        "Pagination works",
+        "Large handled",
+        "Loading efficient"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Storage works",
+        "Pagination works"
+      ],
+      "output_files": [
+        "resume.go",
+        "init_test.go",
+        "resume_test.go",
+        "tools.go",
+        "conversation.go",
+        "approval.go",
+        "tools_test.go",
+        "conversation_test.go",
+        "init.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:44:41Z"
+    },
+    {
+      "id": "FEAT-DEV-TASK-003-TOOL-004",
+      "name": "Tool Approval Workflows",
+      "description": "Display tool requests, capture user approval/rejection, execute tools, and return results with yolo mode support",
+      "parent_epic": "EPIC-DEV-TASK-003",
+      "parent_epic_name": "Task Management",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-UI-002",
+          "EPIC-DEV-AUTH-004"
+        ],
+        "features": [
+          "FEAT-DEV-UI-002-INPUT-003",
+          "FEAT-INFRA-CORE-011-STREAM-002",
+          "FEAT-DEV-TASK-003-INIT-001"
+        ]
+      },
+      "parallel_group": 4,
+      "execution_phase": 4,
+      "estimated_complexity": "high",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/task",
+      "required_files": [
+        "tools.go",
+        "tools_test.go",
+        "approval.go"
+      ],
+      "prompt": "Implement tool approval workflows. Display tool requests (read_file, write_file, execute_command, etc.). Capture approval/rejection via UI prompts. Execute approved tools. Return results via gRPC. Support yolo mode (auto-approve). Handle errors and timeouts. Files: internal/task/tools.go, approval.go, tools_test.go.",
+      "test_requirements": [
+        "Tool handling tests",
+        "Approval tests",
+        "Execution tests",
+        "Yolo mode tests"
+      ],
+      "success_criteria": [
+        "Requests displayed",
+        "Approvals captured",
+        "Tools executed",
+        "Yolo works"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Workflow works",
+        "Yolo works"
+      ],
+      "output_files": [
+        "resume.go",
+        "init_test.go",
+        "resume_test.go",
+        "tools.go",
+        "conversation.go",
+        "approval.go",
+        "tools_test.go",
+        "conversation_test.go",
+        "init.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:40:47Z"
+    },
+    {
+      "id": "FEAT-AUTO-EXEC-006-YOLO-001",
+      "name": "Yolo Mode Implementation",
+      "description": "Auto-approve all tool executions, suppress confirmation prompts, and run tasks to completion without user intervention",
+      "parent_epic": "EPIC-AUTO-EXEC-006",
+      "parent_epic_name": "Automated Execution & Yolo Mode",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-AUTO-MODE-005"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004",
+          "FEAT-AUTO-MODE-005-SWITCH-002"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/mode",
+      "required_files": [
+        "yolo.go",
+        "yolo_test.go"
+      ],
+      "prompt": "Implement yolo mode. Handle -y/--yolo flag. Auto-approve all tool requests. Suppress confirmation prompts. Run to completion. Return exit codes (0 success, non-zero failure). Log all actions. Support JSON output. Files: internal/auto/yolo.go, yolo_test.go.",
+      "test_requirements": [
+        "Yolo mode tests",
+        "Auto-approval tests",
+        "Exit code tests",
+        "Logging tests"
+      ],
+      "success_criteria": [
+        "Auto-approves all",
+        "No prompts",
+        "Correct exit codes",
+        "Actions logged"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Yolo works",
+        "Exit codes correct"
+      ],
+      "output_files": [
+        "switch_test.go",
+        "switch.go",
+        "stream.go",
+        "detect_test.go",
+        "yolo.go",
+        "json_test.go",
+        "permissions.go",
+        "yolo_test.go",
+        "json.go",
+        "detect.go",
+        "permissions_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:54:28Z"
+    },
+    {
+      "id": "FEAT-AUTO-EXEC-006-PERMS-002",
+      "name": "Command Permission Validation",
+      "description": "Validate commands against CLINE_COMMAND_PERMISSIONS allow/deny lists with glob pattern matching",
+      "parent_epic": "EPIC-AUTO-EXEC-006",
+      "parent_epic_name": "Automated Execution & Yolo Mode",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-AUTO-MODE-005"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/mode",
+      "required_files": [
+        "permissions.go",
+        "permissions_test.go"
+      ],
+      "prompt": "Implement command permission validation. Parse CLINE_COMMAND_PERMISSIONS JSON. Implement allow/deny lists with glob matching. Validate compound command segments (&&, ||, ;). Deny takes precedence. Support allowRedirects flag. Detailed error messages. Files: internal/auto/permissions.go, permissions_test.go.",
+      "test_requirements": [
+        "Permission parsing tests",
+        "Glob matching tests",
+        "Compound command tests",
+        "Precedence tests"
+      ],
+      "success_criteria": [
+        "Permissions parsed",
+        "Commands validated",
+        "Deny precedes allow",
+        "Good errors"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Validation works",
+        "Precedence works"
+      ],
+      "output_files": [
+        "switch_test.go",
+        "switch.go",
+        "stream.go",
+        "detect_test.go",
+        "yolo.go",
+        "json_test.go",
+        "permissions.go",
+        "yolo_test.go",
+        "json.go",
+        "detect.go",
+        "permissions_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:54:47Z"
+    },
+    {
+      "id": "FEAT-AUTO-OUT-007-JSON-001",
+      "name": "JSON Output Formatting",
+      "description": "Serialize messages to JSON format with required and optional fields for machine-readable output",
+      "parent_epic": "EPIC-AUTO-OUT-007",
+      "parent_epic_name": "Structured Output (JSON)",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-AUTO-MODE-005",
+          "EPIC-DEV-TASK-003"
+        ],
+        "features": [
+          "FEAT-AUTO-MODE-005-SWITCH-002",
+          "FEAT-DEV-TASK-003-CONV-003"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/mode",
+      "required_files": [
+        "json.go",
+        "json_test.go"
+      ],
+      "prompt": "Implement JSON output formatting. Serialize all message types. Required fields: type, text, ts. Optional: reasoning, say, ask, partial, images, files. Support --pretty for pretty-printing. Error output in JSON format. Deterministic output with sorted keys. Files: internal/output/json.go, json_test.go.",
+      "test_requirements": [
+        "Serialization tests",
+        "Field presence tests",
+        "Error output tests",
+        "Schema validation tests"
+      ],
+      "success_criteria": [
+        "Valid JSON output",
+        "All fields included",
+        "Errors in JSON",
+        "Deterministic"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "JSON valid",
+        "Fields correct"
+      ],
+      "output_files": [
+        "switch_test.go",
+        "switch.go",
+        "stream.go",
+        "detect_test.go",
+        "yolo.go",
+        "json_test.go",
+        "permissions.go",
+        "yolo_test.go",
+        "json.go",
+        "detect.go",
+        "permissions_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T22:53:32Z"
+    },
+    {
+      "id": "FEAT-AUTO-OUT-007-STREAM-002",
+      "name": "JSON Streaming for Long Tasks",
+      "description": "Stream JSON lines in real-time as messages arrive with partial message handling",
+      "parent_epic": "EPIC-AUTO-OUT-007",
+      "parent_epic_name": "Structured Output (JSON)",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": {
+        "epics": [
+          "EPIC-AUTO-MODE-005",
+          "EPIC-DEV-TASK-003"
+        ],
+        "features": [
+          "FEAT-AUTO-OUT-007-JSON-001",
+          "FEAT-INFRA-CORE-011-STREAM-002"
+        ]
+      },
+      "parallel_group": 5,
+      "execution_phase": 5,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/mode",
+      "required_files": [
+        "stream.go",
+        "stream_test.go"
+      ],
+      "prompt": "Implement JSON streaming. Stream JSON lines (JSONL) as messages arrive. Handle partial message updates with partial flag. Flush immediately for real-time output. Handle streaming termination. Each line valid JSON. Files: internal/output/stream.go, stream_test.go.",
+      "test_requirements": [
+        "Streaming tests",
+        "Partial message tests",
+        "Flush tests",
+        "Termination tests"
+      ],
+      "success_criteria": [
+        "Real-time streaming",
+        "Partial handled",
+        "Each line valid",
+        "Clean termination"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Streaming works",
+        "JSONL valid"
+      ],
+      "output_files": [
+        "switch_test.go",
+        "switch.go",
+        "stream.go",
+        "detect_test.go",
+        "yolo.go",
+        "json_test.go",
+        "permissions.go",
+        "yolo_test.go",
+        "stream_test.go",
+        "json.go",
+        "detect.go",
+        "permissions_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:05:22Z"
+    },
+    {
+      "id": "FEAT-ENT-SEC-008-PARSE-001",
+      "name": "Permission Rule Parsing",
+      "description": "Parse CLINE_COMMAND_PERMISSIONS JSON environment variable with allow, deny, and allowRedirects rules",
+      "parent_epic": "EPIC-ENT-SEC-008",
+      "parent_epic_name": "Security & Permissions",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004",
+          "FEAT-ENT-CONFIG-009-LAYER-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "low",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/security",
+      "required_files": [
+        "parse.go",
+        "parse_test.go"
+      ],
+      "prompt": "Implement permission rule parsing. Parse CLINE_COMMAND_PERMISSIONS JSON with allow, deny, allowRedirects fields. Validate JSON schema. Handle missing config (default allow-all). Cache parsed permissions. Descriptive error messages. Files: internal/security/parse.go, parse_test.go.",
+      "test_requirements": [
+        "JSON parsing tests",
+        "Schema validation tests",
+        "Default behavior tests",
+        "Caching tests"
+      ],
+      "success_criteria": [
+        "JSON parsed correctly",
+        "Schema validated",
+        "Defaults work",
+        "Cached"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Parsing works",
+        "Schema validated"
+      ],
+      "output_files": [
+        "danger_test.go",
+        "validate_test.go",
+        "parse_test.go",
+        "validate.go",
+        "danger.go",
+        "parse.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:22:20Z"
+    },
+    {
+      "id": "FEAT-ENT-SEC-008-VALID-002",
+      "name": "Command Validation Engine",
+      "description": "Validate commands against permission rules with deny precedence and segment validation",
+      "parent_epic": "EPIC-ENT-SEC-008",
+      "parent_epic_name": "Security & Permissions",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009"
+        ],
+        "features": [
+          "FEAT-ENT-SEC-008-PARSE-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/security",
+      "required_files": [
+        "validate.go",
+        "validate_test.go"
+      ],
+      "prompt": "Implement command validation engine. Validate against permissions with glob matching. Deny precedes allow. Validate compound command segments. Detailed validation results. Cache decisions. Log validation. Files: internal/security/validate.go, validate_test.go.",
+      "test_requirements": [
+        "Validation tests",
+        "Precedence tests",
+        "Compound command tests",
+        "Caching tests"
+      ],
+      "success_criteria": [
+        "Validation correct",
+        "Deny precedes",
+        "Compounds handled",
+        "Results detailed"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Validation works",
+        "Precedence works"
+      ],
+      "output_files": [
+        "danger_test.go",
+        "validate_test.go",
+        "parse_test.go",
+        "validate.go",
+        "danger.go",
+        "parse.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:17:19Z"
+    },
+    {
+      "id": "FEAT-ENT-SEC-008-DANGER-003",
+      "name": "Dangerous Character Detection",
+      "description": "Detect dangerous characters in commands: backticks outside quotes, unquoted newlines, subshells",
+      "parent_epic": "EPIC-ENT-SEC-008",
+      "parent_epic_name": "Security & Permissions",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009"
+        ],
+        "features": [
+          "FEAT-ENT-SEC-008-VALID-002"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/security",
+      "required_files": [
+        "danger.go",
+        "danger_test.go"
+      ],
+      "prompt": "Implement dangerous character detection. Detect backticks (`cmd`) outside single quotes. Detect subshells $(...) outside single quotes. Detect unquoted newlines. Respect single quotes (disable inside). Double quotes do NOT disable. Detailed results. Files: internal/security/danger.go, danger_test.go.",
+      "test_requirements": [
+        "Pattern detection tests",
+        "Quote handling tests",
+        "Edge case tests",
+        "False positive tests"
+      ],
+      "success_criteria": [
+        "Dangerous detected",
+        "Quotes respected",
+        "False positives minimal",
+        "Results detailed"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Detection works",
+        "Quotes handled"
+      ],
+      "output_files": [
+        "danger_test.go",
+        "validate_test.go",
+        "parse_test.go",
+        "validate.go",
+        "danger.go",
+        "parse.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:13:51Z"
+    },
+    {
+      "id": "FEAT-ENT-AUDIT-010-LOG-001",
+      "name": "Audit Logging",
+      "description": "Log all actions (command execution, file edits, API calls) with timestamps and user context",
+      "parent_epic": "EPIC-ENT-AUDIT-010",
+      "parent_epic_name": "Audit & Compliance",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009",
+          "EPIC-INFRA-STORAGE-012"
+        ],
+        "features": [
+          "FEAT-DEV-TASK-003-TOOL-004",
+          "FEAT-ENT-CONFIG-009-LAYER-001",
+          "FEAT-INFRA-STORAGE-012-FILE-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/audit",
+      "required_files": [
+        "log.go",
+        "log_test.go"
+      ],
+      "prompt": "Implement audit logging. Log: command_execution, file_read, file_write, api_call, tool_approval, tool_rejection, configuration_change. Include UTC timestamps, user context, task ID, session ID. Structured JSON logging with log/slog. Support log rotation. Async logging. Files: internal/audit/log.go, log_test.go.",
+      "test_requirements": [
+        "Event type tests",
+        "Rotation tests",
+        "Async tests",
+        "Formatting tests"
+      ],
+      "success_criteria": [
+        "All actions logged",
+        "UTC timestamps",
+        "User context included",
+        "Rotation works"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Logging works",
+        "Rotation works"
+      ],
+      "output_files": [
+        "log.go",
+        "log_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:16:49Z"
+    },
+    {
+      "id": "FEAT-ENT-AUDIT-010-EXPORT-002",
+      "name": "Compliance Report Generation",
+      "description": "Generate compliance reports from audit logs with date range filtering and export formatting",
+      "parent_epic": "EPIC-ENT-AUDIT-010",
+      "parent_epic_name": "Audit & Compliance",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-TASK-003",
+          "EPIC-ENT-CONFIG-009",
+          "EPIC-INFRA-STORAGE-012"
+        ],
+        "features": [
+          "FEAT-ENT-AUDIT-010-LOG-001"
+        ]
+      },
+      "parallel_group": 6,
+      "execution_phase": 6,
+      "estimated_complexity": "low",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/internal/audit",
+      "required_files": [
+        "export.go",
+        "export_test.go"
+      ],
+      "prompt": "Implement compliance report generation. Generate from audit logs. Date range filtering. Event type filtering. Export formats: JSON, CSV, summary. Handle large reports with streaming. Files: internal/audit/export.go, export_test.go.",
+      "test_requirements": [
+        "Report generation tests",
+        "Filtering tests",
+        "Format tests",
+        "Large report tests"
+      ],
+      "success_criteria": [
+        "Reports generated",
+        "Filtering works",
+        "Formats valid",
+        "Large handled"
+      ],
+      "validation_criteria": [
+        "Compiles without errors",
+        "All tests pass",
+        "Reports work",
+        "Filtering works"
+      ],
+      "output_files": [
+        "log.go",
+        "log_test.go",
+        "export.go",
+        "export_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:33:18Z"
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-INDEPENDENCE-001",
+      "name": "Independence Verification",
+      "description": "Verify GoLang CLI contains no embedded JavaScript/TypeScript, no Node.js dependencies, and produces single static binary",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": []
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/tests",
+      "required_files": [
+        "verify_independence.sh",
+        "verify_test.go"
+      ],
+      "prompt": "Implement independence verification. Verify no embedded JS/TS in binary. Verify no Node.js dependencies. Verify static binary. Check no imports from cli/src/. Check no npm dependencies. Generate verification report. Fail build if dependencies found. Files: scripts/verify_independence.sh, verify_test.go.",
+      "test_requirements": [
+        "Integration tests",
+        "Binary scanning tests",
+        "Dependency tests",
+        "CI/CD tests"
+      ],
+      "success_criteria": [
+        "No JS/TS in binary",
+        "No Node.js deps",
+        "Static binary",
+        "CI passes"
+      ],
+      "validation_criteria": [
+        "Script runs",
+        "All tests pass",
+        "Binary passes",
+        "Report generated"
+      ],
+      "output_files": [
+        "independence.go",
+        "independence_test.go"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:47:53Z"
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-BUILD-001",
+      "name": "Cross-platform Build Scripts",
+      "description": "Cross-compilation for Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64) with binary signing",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": []
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "medium",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/scripts",
+      "required_files": [
+        "build.sh",
+        "build_test.go"
+      ],
+      "prompt": "Implement cross-platform build scripts. Cross-compile for: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64. Sign macOS binaries (codesign). Generate checksums. Create release archives. Support version tagging. Files: scripts/build.sh, Makefile, build_test.go.",
+      "test_requirements": [
+        "Build tests",
+        "Cross-compilation tests",
+        "Binary tests",
+        "Checksum tests"
+      ],
+      "success_criteria": [
+        "All platforms built",
+        "macOS signed",
+        "Checksums generated",
+        "Archives created"
+      ],
+      "validation_criteria": [
+        "Script runs",
+        "All tests pass",
+        "Binaries produced",
+        "Signatures valid"
+      ],
+      "output_files": [
+        "generate_homebrew.go",
+        "build.go",
+        "homebrew_test.go",
+        "Makefile",
+        "homebrew.go",
+        "index.js",
+        "build_test.go",
+        "README.md",
+        "build.sh",
+        "index.test.js",
+        "generate_homebrew.sh",
+        ".gitignore",
+        "package.json",
+        "install.js",
+        "generate_homebrew_test.go",
+        "install.test.js"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:55:43Z"
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-HOMEBREW-002",
+      "name": "Homebrew Formula",
+      "description": "Generate and publish Homebrew formula for macOS/Linux installation via brew install cline",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": [
+          "FEAT-INFRA-DIST-014-BUILD-001"
+        ]
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "low",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/scripts",
+      "required_files": [
+        "homebrew.rb",
+        "generate_homebrew.sh"
+      ],
+      "prompt": "Implement Homebrew formula generation. Generate formula from template. Calculate SHA256 checksums. Support macOS (amd64, arm64) and Linux (amd64, arm64). Create tap structure. Versioning support. Files: scripts/homebrew.rb, generate_homebrew.sh.",
+      "test_requirements": [
+        "Formula validation tests",
+        "Installation tests",
+        "Version tests",
+        "Checksum tests"
+      ],
+      "success_criteria": [
+        "Formula generated",
+        "Checksums accurate",
+        "brew audit passes",
+        "Install works"
+      ],
+      "validation_criteria": [
+        "Formula valid",
+        "Audit passes",
+        "Install works",
+        "Binaries downloadable"
+      ],
+      "output_files": [
+        "generate_homebrew.go",
+        "build.go",
+        "homebrew_test.go",
+        "Makefile",
+        "homebrew.go",
+        "index.js",
+        "build_test.go",
+        "README.md",
+        "build.sh",
+        "index.test.js",
+        "generate_homebrew.sh",
+        ".gitignore",
+        "package.json",
+        "install.js",
+        "generate_homebrew_test.go",
+        "install.test.js"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:57:02Z"
+    },
+    {
+      "id": "FEAT-INFRA-DIST-014-NPM-003",
+      "name": "NPM Wrapper Package",
+      "description": "Create npm package that downloads correct platform binary with postinstall script for npm install -g cline",
+      "parent_epic": "EPIC-INFRA-DIST-014",
+      "parent_epic_name": "Distribution & Packaging",
+      "persona": "Infrastructure",
+      "domain": "Infrastructure",
+      "dependencies": {
+        "epics": [
+          "EPIC-DEV-CLI-001",
+          "EPIC-DEV-TASK-003",
+          "EPIC-DEV-AUTH-004",
+          "EPIC-AUTO-MODE-005",
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007",
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "features": [
+          "FEAT-INFRA-DIST-014-BUILD-001"
+        ]
+      },
+      "parallel_group": 7,
+      "execution_phase": 7,
+      "estimated_complexity": "low",
+      "output_directory": "/Users/oxenated/fleet/cline/golang-cli/scripts",
+      "required_files": [
+        "package.json",
+        "install.js",
+        "README.md"
+      ],
+      "prompt": "Implement NPM wrapper package. Create package.json. Postinstall script downloads correct binary for platform (process.platform, process.arch). Verify checksum. Set executable permissions. Support proxy configuration. Handle errors. Files: npm/package.json, install.js, README.md.",
+      "test_requirements": [
+        "Install script tests",
+        "Platform detection tests",
+        "Checksum tests",
+        "Error handling tests"
+      ],
+      "success_criteria": [
+        "Correct binary downloaded",
+        "Checksum verified",
+        "Executable permissions",
+        "Proxy supported"
+      ],
+      "validation_criteria": [
+        "Package valid",
+        "Script works",
+        "Install succeeds",
+        "Binary runs"
+      ],
+      "output_files": [
+        "generate_homebrew.go",
+        "build.go",
+        "homebrew_test.go",
+        "Makefile",
+        "homebrew.go",
+        "index.js",
+        "build_test.go",
+        "README.md",
+        "build.sh",
+        "index.test.js",
+        "generate_homebrew.sh",
+        ".gitignore",
+        "package.json",
+        "install.js",
+        "install.test.js"
+      ],
+      "execution_status": "completed",
+      "completed_at": "2026-03-22T23:40:39Z"
+    }
+  ],
+  "metadata": {
+    "source_feature_manifest": ".oxenated/docs/planning/cline-cli-golang-migration-prd-feature-manifest.json",
+    "source_prd": ".oxenated/docs/planning/cline-cli-golang-migration-prd.md",
+    "generated": "2026-03-22T13:00:00Z",
+    "version": "1.0",
+    "total_features": 45,
+    "execution_phases": 7,
+    "parallel_groups": 7
+  }
+}

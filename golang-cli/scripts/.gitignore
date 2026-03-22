@@ -1,0 +1,21 @@
+# Binary directory
+bin/
+
+# Node modules
+node_modules/
+
+# Test artifacts
+*.log
+*.tmp
+
+# Package files
+*.tgz
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
