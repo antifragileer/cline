@@ -483,33 +483,75 @@ validate_execution_manifest() {
 }
 
 # Get feature implementation directory within the code base
-# This returns a path in golang-cli/ where the actual implementation should go
+# Maps features to proper Go package structure (NOT epic/feature organization)
 get_feature_output_dir() {
     local feature_id="$1"
     local execution_manifest_file="$2"
     
-    # ALWAYS use CODE_BASE_DIR (golang-cli/) for implementation
-    # The output_directory in manifests is for documentation, NOT code
-    local parent_epic
-    parent_epic=$(echo "$feature_id" | sed -E 's/^FEAT-([A-Z]+)-([A-Z]+)-([0-9]+)-.*/EPIC-\1-\2-\3/')
+    # Map features to proper Go package directories based on domain/purpose
+    # NOT organized by epic - organized by Go project structure
     
-    local persona=""
-    if [[ "$parent_epic" =~ ^EPIC-DEV- ]]; then
-        persona="dev"
-    elif [[ "$parent_epic" =~ ^EPIC-AUTO- ]]; then
-        persona="automation"
-    elif [[ "$parent_epic" =~ ^EPIC-ENT- ]]; then
-        persona="enterprise"
-    elif [[ "$parent_epic" =~ ^EPIC-INFRA- ]]; then
-        persona="infrastructure"
-    else
-        persona="general"
-    fi
-    
-    # ALWAYS place implementation in golang-cli/ structure, never in planning docs
-    local output_dir="${CODE_BASE_DIR}/${persona}/epics/${parent_epic}/features/${feature_id}"
-    
-    echo "$output_dir"
+    case "$feature_id" in
+        # Storage layer - internal/storage/
+        FEAT-INFRA-STORAGE-*)
+            echo "${CODE_BASE_DIR}/internal/storage"
+            ;;
+        # gRPC/Core integration - internal/host/
+        FEAT-INFRA-CORE-*)
+            echo "${CODE_BASE_DIR}/internal/host"
+            ;;
+        # API Providers - internal/api/
+        FEAT-INFRA-API-*)
+            echo "${CODE_BASE_DIR}/internal/api"
+            ;;
+        # CLI Commands - cmd/cline/ and internal/cli/
+        FEAT-DEV-CLI-001-CMD-001|FEAT-DEV-CLI-001-CMD-002|FEAT-DEV-CLI-001-CMD-003|FEAT-DEV-CLI-001-CMD-004)
+            echo "${CODE_BASE_DIR}/cmd/cline"
+            ;;
+        FEAT-DEV-CLI-*)
+            echo "${CODE_BASE_DIR}/internal/cli"
+            ;;
+        # Authentication - internal/auth/
+        FEAT-DEV-AUTH-*)
+            echo "${CODE_BASE_DIR}/internal/auth"
+            ;;
+        # TUI components - internal/tui/
+        FEAT-DEV-UI-*)
+            echo "${CODE_BASE_DIR}/internal/tui"
+            ;;
+        # Task management - internal/task/
+        FEAT-DEV-TASK-*)
+            echo "${CODE_BASE_DIR}/internal/task"
+            ;;
+        # Automation/Scripting modes - internal/mode/
+        FEAT-AUTO-MODE-*|FEAT-AUTO-EXEC-*|FEAT-AUTO-OUT-*)
+            echo "${CODE_BASE_DIR}/internal/mode"
+            ;;
+        # Enterprise config - internal/config/
+        FEAT-ENT-CONFIG-*)
+            echo "${CODE_BASE_DIR}/internal/config"
+            ;;
+        # Security/Permissions - internal/security/
+        FEAT-ENT-SEC-*)
+            echo "${CODE_BASE_DIR}/internal/security"
+            ;;
+        # Audit logging - internal/audit/
+        FEAT-ENT-AUDIT-*)
+            echo "${CODE_BASE_DIR}/internal/audit"
+            ;;
+        # Distribution scripts - scripts/
+        FEAT-INFRA-DIST-014-BUILD-001|FEAT-INFRA-DIST-014-HOMEBREW-002|FEAT-INFRA-DIST-014-NPM-003)
+            echo "${CODE_BASE_DIR}/scripts"
+            ;;
+        # Independence verification - tests/
+        FEAT-INFRA-DIST-014-INDEPENDENCE-001)
+            echo "${CODE_BASE_DIR}/tests"
+            ;;
+        # Default to internal/ for anything else
+        *)
+            echo "${CODE_BASE_DIR}/internal"
+            ;;
+    esac
 }
 
 # Get parent epic file path for a feature
@@ -794,11 +836,13 @@ execute_feature() {
 IMPORTANT INSTRUCTIONS:
 1. $feature_prompt
 2. Write all implementation files to: $feature_dir
-3. This is CODE IMPLEMENTATION - do NOT create or modify feature.md files
-4. Do NOT rewrite requirements documentation - implement the actual Go code
+3. This is CODE IMPLEMENTATION - do NOT create documentation files
+4. Do NOT rewrite requirements - implement the actual Go code
 5. Create Go source files (.go) with proper package structure
 6. Include unit tests (.go files with _test suffix) where appropriate
-7. Follow Go best practices and the existing project structure in golang-cli/"
+7. Follow Go best practices and the existing project structure in golang-cli/
+8. The code should be organized by functional domain (storage, api, cli, etc.) NOT by epic/feature hierarchy
+9. Add code to the existing package at $feature_dir - do NOT create new subdirectories for features"
     
     # Run cline in background so we can track its PID
     $CLINE_BIN -y --json "$full_prompt" > "$output_file" 2>&1 &
