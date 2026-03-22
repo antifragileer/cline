@@ -16,6 +16,12 @@ set -euo pipefail
 # Track background processes for cleanup
 declare -a BACKGROUND_PIDS=()
 
+# Safe array length helper
+array_length() {
+    local arr_name=$1
+    eval "echo \${#${arr_name}[@]}"
+}
+
 # Script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -727,6 +733,13 @@ clean_feature_directory() {
     
     log_warn "Cleaning feature directory for retry: $feature_dir"
     
+    # SAFETY CHECK: Never delete files in .oxenated/docs/planning/ (planning docs)
+    if [[ "$feature_dir" == *".oxenated/docs/planning"* ]]; then
+        log_error "SAFETY: Refusing to delete planning documentation directory: $feature_dir"
+        log_error "The script should only delete implementation directories in golang-cli/"
+        return 1
+    fi
+    
     if [[ "$DRY_RUN" == true ]]; then
         log_info "[DRY RUN] Would remove: $feature_dir"
         return 0
@@ -1298,15 +1311,17 @@ cleanup() {
     local signal=$1
     log_warn "Received signal $signal! Cleaning up..."
     
-    # Kill any running cline processes
-    for pid in "${BACKGROUND_PIDS[@]}"; do
-        if kill -0 "$pid" 2>/dev/null; then
-            log_info "Terminating cline process: $pid"
-            kill -TERM "$pid" 2>/dev/null || true
-            sleep 1
-            kill -KILL "$pid" 2>/dev/null || true
-        fi
-    done
+    # Kill any running cline processes - handle empty array safely
+    if [[ ${#BACKGROUND_PIDS[@]} -gt 0 ]]; then
+        for pid in "${BACKGROUND_PIDS[@]}"; do
+            if kill -0 "$pid" 2>/dev/null; then
+                log_info "Terminating cline process: $pid"
+                kill -TERM "$pid" 2>/dev/null || true
+                sleep 1
+                kill -KILL "$pid" 2>/dev/null || true
+            fi
+        done
+    fi
     
     # Kill any cline processes started by this script
     pkill -f "cline.*feature.*implement" 2>/dev/null || true
