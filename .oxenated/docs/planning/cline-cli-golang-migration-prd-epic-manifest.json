@@ -1,0 +1,451 @@
+{
+  "epics": [
+    {
+      "id": "EPIC-INFRA-STORAGE-012",
+      "name": "State & Storage Layer",
+      "description": "File-based JSON storage implementation for global state, workspace state, secrets, and task history. Includes encryption, atomic writes, and migration support.",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": [],
+      "parallel_group": 1,
+      "features": [
+        "EPIC-INFRA-STORAGE-012-FILE-001",
+        "EPIC-INFRA-STORAGE-012-SECRET-002",
+        "EPIC-INFRA-STORAGE-012-MIGRATE-003"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-STORAGE-012",
+      "output_files": [
+        "epic.md"
+      ]
+    },
+    {
+      "id": "EPIC-INFRA-CORE-011",
+      "name": "Core Extension Integration",
+      "description": "gRPC client implementation for communication with existing Cline core extension, including bidirectional streaming and state synchronization.",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": [],
+      "parallel_group": 1,
+      "features": [
+        "EPIC-INFRA-CORE-011-GRPC-001",
+        "EPIC-INFRA-CORE-011-STREAM-002",
+        "EPIC-INFRA-CORE-011-STATE-003"
+      ]
+    },
+    {
+      "id": "EPIC-DEV-CLI-001",
+      "name": "Command Line Interface Foundation",
+      "description": "Cobra CLI framework with all subcommands (task, history, config, auth, update, version, dev), flag parsing, and help generation.",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": [],
+      "parallel_group": 1,
+      "features": [
+        "EPIC-DEV-CLI-001-CMD-001",
+        "EPIC-DEV-CLI-001-CMD-002",
+        "EPIC-DEV-CLI-001-CMD-003",
+        "EPIC-DEV-CLI-001-CMD-004"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-CLI-001",
+      "output_files": [
+        "epic.md"
+      ]
+    },
+    {
+      "id": "EPIC-INFRA-API-013",
+      "name": "API Provider Integrations",
+      "description": "Go implementations of all API providers (OpenAI, Anthropic, OpenRouter, Gemini, Bedrock) with streaming response handling.",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": [],
+      "parallel_group": 1,
+      "features": [
+        "EPIC-INFRA-API-013-OPENAI-001",
+        "EPIC-INFRA-API-013-ANTHROPIC-002",
+        "EPIC-INFRA-API-013-ROUTER-003",
+        "EPIC-INFRA-API-013-OTHER-004"
+      ],
+      "output_directory": ".oxenated/docs/planning/infrastructure/epics/EPIC-INFRA-API-013",
+      "output_files": [
+        "epic.md"
+      ]
+    },
+    {
+      "id": "EPIC-DEV-AUTH-004",
+      "name": "Authentication & Provider Configuration",
+      "description": "OAuth flows, API key management, and provider configuration wizard with secure credential storage.",
+      "persona": "Developer User",
+      "domain": "CLI",
+      "dependencies": [
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-INFRA-API-013"
+      ],
+      "parallel_group": 2,
+      "features": [
+        "EPIC-DEV-AUTH-004-OAUTH-001",
+        "EPIC-DEV-AUTH-004-KEY-002",
+        "EPIC-DEV-AUTH-004-PROV-003"
+      ],
+      "output_directory": ".oxenated/docs/planning/dev/epics/EPIC-DEV-AUTH-004",
+      "output_files": [
+        "epic.md"
+      ]
+    },
+    {
+      "id": "EPIC-ENT-CONFIG-009",
+      "name": "Enterprise Configuration Management",
+      "description": "Tiered configuration loading (global, workspace, environment) with policy enforcement capabilities.",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": [
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-DEV-CLI-001"
+      ],
+      "parallel_group": 2,
+      "features": [
+        "EPIC-ENT-CONFIG-009-LAYER-001",
+        "EPIC-ENT-CONFIG-009-POLICY-002"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-CONFIG-009",
+      "output_files": [
+        "epic.md"
+      ]
+    },
+    {
+      "id": "EPIC-DEV-UI-002",
+      "name": "Interactive Terminal UI",
+      "description": "Bubble Tea TUI framework with chat message rendering, user input handling, and welcome screen.",
+      "persona": "Developer User",
+      "domain": "UI",
+      "dependencies": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-INFRA-CORE-011"
+      ],
+      "parallel_group": 3,
+      "features": [
+        "EPIC-DEV-UI-002-BUBBLE-001",
+        "EPIC-DEV-UI-002-CHAT-002",
+        "EPIC-DEV-UI-002-INPUT-003",
+        "EPIC-DEV-UI-002-WELCOME-004"
+      ]
+    },
+    {
+      "id": "EPIC-AUTO-MODE-005",
+      "name": "Plain Text & Scripting Modes",
+      "description": "TTY/redirect detection for automatic mode switching between interactive TUI and plain text output.",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-DEV-UI-002"
+      ],
+      "parallel_group": 3,
+      "features": [
+        "EPIC-AUTO-MODE-005-DETECT-001",
+        "EPIC-AUTO-MODE-005-SWITCH-002"
+      ],
+      "output_directory": ".oxenated/docs/planning/automation/epics/EPIC-AUTO-MODE-005",
+      "output_files": [
+        "epic.md"
+      ]
+    },
+    {
+      "id": "EPIC-DEV-TASK-003",
+      "name": "Task Management",
+      "description": "Task initialization, resumption, conversation history management, and tool approval workflows.",
+      "persona": "Developer User",
+      "domain": "Task",
+      "dependencies": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-INFRA-CORE-011",
+        "EPIC-DEV-UI-002",
+        "EPIC-DEV-AUTH-004"
+      ],
+      "parallel_group": 4,
+      "features": [
+        "EPIC-DEV-TASK-003-INIT-001",
+        "EPIC-DEV-TASK-003-RESUME-002",
+        "EPIC-DEV-TASK-003-CONV-003",
+        "EPIC-DEV-TASK-003-TOOL-004"
+      ]
+    },
+    {
+      "id": "EPIC-AUTO-EXEC-006",
+      "name": "Automated Execution & Yolo Mode",
+      "description": "Auto-approve all tool executions, command permission validation, and non-interactive task completion.",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": [
+        "EPIC-DEV-TASK-003",
+        "EPIC-AUTO-MODE-005"
+      ],
+      "parallel_group": 5,
+      "features": [
+        "EPIC-AUTO-EXEC-006-YOLO-001",
+        "EPIC-AUTO-EXEC-006-PERMS-002"
+      ]
+    },
+    {
+      "id": "EPIC-AUTO-OUT-007",
+      "name": "Structured Output (JSON)",
+      "description": "JSON output formatting and streaming for machine-readable integration with scripts and tools.",
+      "persona": "DevOps/Automation User",
+      "domain": "Automation",
+      "dependencies": [
+        "EPIC-AUTO-MODE-005",
+        "EPIC-DEV-TASK-003"
+      ],
+      "parallel_group": 5,
+      "features": [
+        "EPIC-AUTO-OUT-007-JSON-001",
+        "EPIC-AUTO-OUT-007-STREAM-002"
+      ]
+    },
+    {
+      "id": "EPIC-ENT-SEC-008",
+      "name": "Security & Permissions",
+      "description": "CLINE_COMMAND_PERMISSIONS parsing, command validation engine, and dangerous character detection.",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": [
+        "EPIC-DEV-TASK-003",
+        "EPIC-ENT-CONFIG-009"
+      ],
+      "parallel_group": 6,
+      "features": [
+        "EPIC-ENT-SEC-008-PARSE-001",
+        "EPIC-ENT-SEC-008-VALID-002",
+        "EPIC-ENT-SEC-008-DANGER-003"
+      ]
+    },
+    {
+      "id": "EPIC-ENT-AUDIT-010",
+      "name": "Audit & Compliance",
+      "description": "Audit logging for all actions and compliance report generation for enterprise requirements.",
+      "persona": "Enterprise User",
+      "domain": "Enterprise",
+      "dependencies": [
+        "EPIC-DEV-TASK-003",
+        "EPIC-ENT-CONFIG-009",
+        "EPIC-INFRA-STORAGE-012"
+      ],
+      "parallel_group": 6,
+      "features": [
+        "EPIC-ENT-AUDIT-010-LOG-001",
+        "EPIC-ENT-AUDIT-010-EXPORT-002"
+      ],
+      "output_directory": ".oxenated/docs/planning/enterprise/epics/EPIC-ENT-AUDIT-010",
+      "output_files": [
+        "epic.md"
+      ]
+    },
+    {
+      "id": "EPIC-INFRA-DIST-014",
+      "name": "Distribution & Packaging",
+      "description": "Cross-platform builds, Homebrew formula, npm wrapper package, and independence verification.",
+      "persona": "Infrastructure (Internal)",
+      "domain": "Infrastructure",
+      "dependencies": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-DEV-TASK-003",
+        "EPIC-DEV-AUTH-004",
+        "EPIC-AUTO-MODE-005",
+        "EPIC-AUTO-EXEC-006",
+        "EPIC-AUTO-OUT-007",
+        "EPIC-ENT-SEC-008",
+        "EPIC-ENT-AUDIT-010"
+      ],
+      "parallel_group": 7,
+      "features": [
+        "EPIC-INFRA-DIST-014-INDEPENDENCE-001",
+        "EPIC-INFRA-DIST-014-BUILD-001",
+        "EPIC-INFRA-DIST-014-HOMEBREW-002",
+        "EPIC-INFRA-DIST-014-NPM-003"
+      ]
+    }
+  ],
+  "execution_plan": {
+    "phases": [
+      {
+        "phase": 1,
+        "parallel_epics": [
+          "EPIC-INFRA-STORAGE-012",
+          "EPIC-INFRA-CORE-011",
+          "EPIC-DEV-CLI-001",
+          "EPIC-INFRA-API-013"
+        ],
+        "description": "Foundation phase: Infrastructure layer, storage, gRPC client, CLI framework, and API providers can be developed in parallel as they have no dependencies on each other."
+      },
+      {
+        "phase": 2,
+        "parallel_epics": [
+          "EPIC-DEV-AUTH-004",
+          "EPIC-ENT-CONFIG-009"
+        ],
+        "description": "Configuration phase: Authentication and enterprise configuration depend on storage layer being complete. These can be developed in parallel."
+      },
+      {
+        "phase": 3,
+        "parallel_epics": [
+          "EPIC-DEV-UI-002",
+          "EPIC-AUTO-MODE-005"
+        ],
+        "description": "UI phase: Interactive TUI and mode detection depend on CLI foundation. These can be developed in parallel as they share common CLI dependencies."
+      },
+      {
+        "phase": 4,
+        "parallel_epics": [
+          "EPIC-DEV-TASK-003"
+        ],
+        "description": "Core task phase: Task management is the central feature that integrates CLI, storage, gRPC, UI, and authentication. It must be complete before automation features."
+      },
+      {
+        "phase": 5,
+        "parallel_epics": [
+          "EPIC-AUTO-EXEC-006",
+          "EPIC-AUTO-OUT-007"
+        ],
+        "description": "Automation phase: Yolo mode and JSON output build on task management and mode detection. These can be developed in parallel."
+      },
+      {
+        "phase": 6,
+        "parallel_epics": [
+          "EPIC-ENT-SEC-008",
+          "EPIC-ENT-AUDIT-010"
+        ],
+        "description": "Enterprise phase: Security permissions and audit logging depend on task management and configuration. These can be developed in parallel."
+      },
+      {
+        "phase": 7,
+        "parallel_epics": [
+          "EPIC-INFRA-DIST-014"
+        ],
+        "description": "Distribution phase: Packaging and distribution must wait for all functional epics to be complete, including independence verification."
+      }
+    ],
+    "critical_path": [
+      "EPIC-INFRA-STORAGE-012",
+      "EPIC-INFRA-CORE-011",
+      "EPIC-DEV-CLI-001",
+      "EPIC-DEV-UI-002",
+      "EPIC-DEV-TASK-003",
+      "EPIC-INFRA-DIST-014"
+    ],
+    "dependency_graph": {
+      "EPIC-INFRA-STORAGE-012": [],
+      "EPIC-INFRA-CORE-011": [],
+      "EPIC-DEV-CLI-001": [],
+      "EPIC-INFRA-API-013": [],
+      "EPIC-DEV-AUTH-004": [
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-INFRA-API-013"
+      ],
+      "EPIC-ENT-CONFIG-009": [
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-DEV-CLI-001"
+      ],
+      "EPIC-DEV-UI-002": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-INFRA-CORE-011"
+      ],
+      "EPIC-AUTO-MODE-005": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-DEV-UI-002"
+      ],
+      "EPIC-DEV-TASK-003": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-INFRA-CORE-011",
+        "EPIC-DEV-UI-002",
+        "EPIC-DEV-AUTH-004"
+      ],
+      "EPIC-AUTO-EXEC-006": [
+        "EPIC-DEV-TASK-003",
+        "EPIC-AUTO-MODE-005"
+      ],
+      "EPIC-AUTO-OUT-007": [
+        "EPIC-AUTO-MODE-005",
+        "EPIC-DEV-TASK-003"
+      ],
+      "EPIC-ENT-SEC-008": [
+        "EPIC-DEV-TASK-003",
+        "EPIC-ENT-CONFIG-009"
+      ],
+      "EPIC-ENT-AUDIT-010": [
+        "EPIC-DEV-TASK-003",
+        "EPIC-ENT-CONFIG-009",
+        "EPIC-INFRA-STORAGE-012"
+      ],
+      "EPIC-INFRA-DIST-014": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-DEV-TASK-003",
+        "EPIC-DEV-AUTH-004",
+        "EPIC-AUTO-MODE-005",
+        "EPIC-AUTO-EXEC-006",
+        "EPIC-AUTO-OUT-007",
+        "EPIC-ENT-SEC-008",
+        "EPIC-ENT-AUDIT-010"
+      ]
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "source": "cline-cli-golang-migration-prd.md",
+    "created": "2026-03-21",
+    "total_epics": 14,
+    "total_phases": 7,
+    "personas": {
+      "Developer User": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-DEV-UI-002",
+        "EPIC-DEV-TASK-003",
+        "EPIC-DEV-AUTH-004"
+      ],
+      "DevOps/Automation User": [
+        "EPIC-AUTO-MODE-005",
+        "EPIC-AUTO-EXEC-006",
+        "EPIC-AUTO-OUT-007"
+      ],
+      "Enterprise User": [
+        "EPIC-ENT-SEC-008",
+        "EPIC-ENT-CONFIG-009",
+        "EPIC-ENT-AUDIT-010"
+      ],
+      "Infrastructure (Internal)": [
+        "EPIC-INFRA-CORE-011",
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-INFRA-API-013",
+        "EPIC-INFRA-DIST-014"
+      ]
+    },
+    "domains": {
+      "CLI": [
+        "EPIC-DEV-CLI-001",
+        "EPIC-DEV-AUTH-004"
+      ],
+      "UI": [
+        "EPIC-DEV-UI-002"
+      ],
+      "Task": [
+        "EPIC-DEV-TASK-003"
+      ],
+      "Automation": [
+        "EPIC-AUTO-MODE-005",
+        "EPIC-AUTO-EXEC-006",
+        "EPIC-AUTO-OUT-007"
+      ],
+      "Enterprise": [
+        "EPIC-ENT-SEC-008",
+        "EPIC-ENT-CONFIG-009",
+        "EPIC-ENT-AUDIT-010"
+      ],
+      "Infrastructure": [
+        "EPIC-INFRA-CORE-011",
+        "EPIC-INFRA-STORAGE-012",
+        "EPIC-INFRA-API-013",
+        "EPIC-INFRA-DIST-014"
+      ]
+    }
+  }
+}
