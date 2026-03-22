@@ -233,6 +233,47 @@ get_prd_file() {
     echo "$prd_file"
 }
 
+# Validate JSON file
+validate_json() {
+    local file="$1"
+    if ! jq empty "$file" 2>/dev/null; then
+        return 1
+    fi
+    return 0
+}
+
+# Clean and fix common JSON issues from cline output
+clean_json_file() {
+    local input_file="$1"
+    local output_file="$2"
+    
+    # Use jq to validate and reformat, or sed to fix common issues if jq fails
+    if jq . "$input_file" > "$output_file" 2>/dev/null; then
+        return 0
+    fi
+    
+    log_warn "JSON has syntax errors, attempting to clean..."
+    
+    # Try to fix common issues:
+    # 1. Remove control characters
+    # 2. Fix broken escape sequences
+    # 3. Remove trailing commas
+    sed -e 's/[\x00-\x08\x0b\x0c\x0e-\x1f]//g' \
+        -e 's/\\n"/"/g' \
+        -e 's/,\s*}/}/g' \
+        -e 's/,\s*]/]/g' \
+        "$input_file" > "$output_file.tmp"
+    
+    # Try again with jq
+    if jq . "$output_file.tmp" > "$output_file" 2>/dev/null; then
+        rm -f "$output_file.tmp"
+        return 0
+    fi
+    
+    rm -f "$output_file.tmp"
+    return 1
+}
+
 # Build execution manifest from feature manifest
 build_execution_manifest() {
     local feature_manifest_file="$1"
@@ -283,6 +324,13 @@ For each feature in the feature manifest:
    - Test requirements and validation criteria
    - Success criteria for completion
    - Any specific files that must be created
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY valid JSON
+- Do not include markdown code blocks or explanations
+- Ensure all strings are properly escaped
+- Do not include trailing commas
+- The output must be parseable by jq
 
 The execution manifest JSON structure should be:
 {
@@ -353,24 +401,51 @@ EOF
     # Run cline in yolo mode for automation
     local output_file
     output_file=$(mktemp)
+    local attempt=1
     
-    if ! $CLINE_BIN -y --json "$full_prompt" > "$output_file" 2>&1; then
-        log_error "Failed to generate execution manifest. Output:"
-        cat "$output_file" >&2
-        rm -f "$output_file"
-        exit 1
-    fi
+    while [[ $attempt -le $MAX_RETRIES ]]; do
+        log_info "Attempt $attempt/$MAX_RETRIES to generate execution manifest..."
+        
+        if $CLINE_BIN -y --json "$full_prompt" > "$output_file" 2>&1; then
+            # Check if manifest was created and is valid JSON
+            if [[ -f "$execution_manifest_path" ]]; then
+                if validate_json "$execution_manifest_path"; then
+                    log_success "Execution manifest generated and validated: $execution_manifest_path"
+                    rm -f "$output_file"
+                    echo "$execution_manifest_path"
+                    return 0
+                else
+                    log_warn "Generated manifest has JSON syntax errors, attempting to clean..."
+                    local cleaned_manifest="${execution_manifest_path}.clean"
+                    if clean_json_file "$execution_manifest_path" "$cleaned_manifest"; then
+                        mv "$cleaned_manifest" "$execution_manifest_path"
+                        log_success "Execution manifest cleaned and validated: $execution_manifest_path"
+                        rm -f "$output_file"
+                        echo "$execution_manifest_path"
+                        return 0
+                    else
+                        log_error "Could not clean JSON, will retry..."
+                        rm -f "$execution_manifest_path" "$cleaned_manifest"
+                    fi
+                fi
+            else
+                log_warn "Execution manifest file was not created at expected path, will retry..."
+            fi
+        else
+            log_warn "Cline execution failed on attempt $attempt. Output:"
+            cat "$output_file" >&2
+        fi
+        
+        attempt=$((attempt + 1))
+        if [[ $attempt -le $MAX_RETRIES ]]; then
+            log_info "Waiting $RETRY_DELAY seconds before retry..."
+            sleep "$RETRY_DELAY"
+        fi
+    done
     
     rm -f "$output_file"
-    
-    # Check if manifest was created
-    if [[ ! -f "$execution_manifest_path" ]]; then
-        log_error "Execution manifest file was not created at expected path: $execution_manifest_path"
-        exit 1
-    fi
-    
-    log_success "Execution manifest generated: $execution_manifest_path"
-    echo "$execution_manifest_path"
+    log_error "Failed to generate valid execution manifest after $MAX_RETRIES attempts"
+    exit 1
 }
 
 # Validate the execution manifest JSON structure
@@ -407,32 +482,26 @@ get_feature_output_dir() {
     local feature_id="$1"
     local execution_manifest_file="$2"
     
-    local output_dir
+    # ALWAYS use CODE_BASE_DIR (golang-cli/) for implementation
+    # The output_directory in manifests is for documentation, NOT code
+    local parent_epic
+    parent_epic=$(echo "$feature_id" | sed -E 's/^FEAT-([A-Z]+)-([A-Z]+)-([0-9]+)-.*/EPIC-\1-\2-\3/')
     
-    # Try to get from execution manifest first
-    output_dir=$(jq -r ".features[] | select(.id == \"$feature_id\") | .output_directory" "$execution_manifest_file" 2>/dev/null || echo '')
-    
-    # If not found or null, construct path within the code base directory
-    if [[ -z "$output_dir" || "$output_dir" == "null" ]]; then
-        local parent_epic
-        parent_epic=$(echo "$feature_id" | sed -E 's/^FEAT-([A-Z]+)-([A-Z]+)-([0-9]+)-.*/EPIC-\1-\2-\3/')
-        
-        local persona=""
-        if [[ "$parent_epic" =~ ^EPIC-DEV- ]]; then
-            persona="dev"
-        elif [[ "$parent_epic" =~ ^EPIC-AUTO- ]]; then
-            persona="automation"
-        elif [[ "$parent_epic" =~ ^EPIC-ENT- ]]; then
-            persona="enterprise"
-        elif [[ "$parent_epic" =~ ^EPIC-INFRA- ]]; then
-            persona="infrastructure"
-        else
-            persona="general"
-        fi
-        
-        # Place implementation in golang-cli/ structure, not in planning docs
-        output_dir="${CODE_BASE_DIR}/${persona}/epics/${parent_epic}/features/${feature_id}"
+    local persona=""
+    if [[ "$parent_epic" =~ ^EPIC-DEV- ]]; then
+        persona="dev"
+    elif [[ "$parent_epic" =~ ^EPIC-AUTO- ]]; then
+        persona="automation"
+    elif [[ "$parent_epic" =~ ^EPIC-ENT- ]]; then
+        persona="enterprise"
+    elif [[ "$parent_epic" =~ ^EPIC-INFRA- ]]; then
+        persona="infrastructure"
+    else
+        persona="general"
     fi
+    
+    # ALWAYS place implementation in golang-cli/ structure, never in planning docs
+    local output_dir="${CODE_BASE_DIR}/${persona}/epics/${parent_epic}/features/${feature_id}"
     
     echo "$output_dir"
 }
