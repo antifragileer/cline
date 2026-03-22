@@ -20,6 +20,10 @@ declare -a BACKGROUND_PIDS=()
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Code implementation directory - where actual code should be written
+# This is separate from the execution manifest location (which is for planning docs)
+CODE_BASE_DIR="${PROJECT_ROOT}/golang-cli"
+
 # Default values
 DRY_RUN=false
 MAX_RETRIES=3
@@ -397,7 +401,8 @@ validate_execution_manifest() {
     return 0
 }
 
-# Get feature output directory from execution manifest
+# Get feature implementation directory within the code base
+# This returns a path in golang-cli/ where the actual implementation should go
 get_feature_output_dir() {
     local feature_id="$1"
     local execution_manifest_file="$2"
@@ -407,12 +412,9 @@ get_feature_output_dir() {
     # Try to get from execution manifest first
     output_dir=$(jq -r ".features[] | select(.id == \"$feature_id\") | .output_directory" "$execution_manifest_file" 2>/dev/null || echo '')
     
-    # If not found or null, construct from feature ID
+    # If not found or null, construct path within the code base directory
     if [[ -z "$output_dir" || "$output_dir" == "null" ]]; then
-        local manifest_dir
         local parent_epic
-        
-        manifest_dir=$(dirname "$execution_manifest_file")
         parent_epic=$(echo "$feature_id" | sed -E 's/^FEAT-([A-Z]+)-([A-Z]+)-([0-9]+)-.*/EPIC-\1-\2-\3/')
         
         local persona=""
@@ -428,7 +430,8 @@ get_feature_output_dir() {
             persona="general"
         fi
         
-        output_dir="${manifest_dir}/${persona}/epics/${parent_epic}/features/${feature_id}"
+        # Place implementation in golang-cli/ structure, not in planning docs
+        output_dir="${CODE_BASE_DIR}/${persona}/epics/${parent_epic}/features/${feature_id}"
     fi
     
     echo "$output_dir"
@@ -537,7 +540,7 @@ get_test_requirements() {
     echo "$tests"
 }
 
-# Validate that feature files were created
+# Validate that feature implementation files were created
 validate_feature_output() {
     local feature_id="$1"
     local feature_dir="$2"
@@ -550,14 +553,16 @@ validate_feature_output() {
     required_files=$(get_required_files "$feature_id" "$execution_manifest_file")
     
     local missing_files=()
-    local has_required=false
+    local has_implementation=false
     
-    # Check for feature.md specifically
-    if [[ -f "${feature_dir}/feature.md" ]]; then
-        has_required=true
+    # Check for Go source files (.go) or test files (.go) as evidence of implementation
+    if [[ -d "$feature_dir" ]]; then
+        if find "$feature_dir" -name "*.go" -type f 2>/dev/null | grep -q .; then
+            has_implementation=true
+        fi
     fi
     
-    # Check all files in the required_files array
+    # Also check all explicitly required files from the manifest
     if [[ -n "$required_files" && "$required_files" != "null" ]]; then
         while IFS= read -r file; do
             if [[ ! -f "${feature_dir}/${file}" ]]; then
@@ -566,14 +571,14 @@ validate_feature_output() {
         done < <(echo "$required_files" | jq -r '.[]')
     fi
     
-    if [[ "$has_required" == true && ${#missing_files[@]} -eq 0 ]]; then
-        log_success "All required files present for $feature_id"
+    if [[ "$has_implementation" == true && ${#missing_files[@]} -eq 0 ]]; then
+        log_success "Implementation files present for $feature_id"
         return 0
-    elif [[ "$has_required" == true ]]; then
+    elif [[ "$has_implementation" == true ]]; then
         log_warn "Missing some files for $feature_id: ${missing_files[*]}"
-        return 0  # feature.md exists, so partial success
+        return 0  # Implementation exists, so partial success
     else
-        log_warn "Missing required feature.md for $feature_id"
+        log_warn "No implementation files (.go) found for $feature_id in $feature_dir"
         return 1
     fi
 }
@@ -699,9 +704,19 @@ execute_feature() {
     local output_file
     output_file=$(mktemp)
     
-    # Create a comprehensive prompt that includes the feature details
+    # Create a comprehensive prompt that guides Cline to implement code
+    # NOT to rewrite requirements or create feature.md documentation
     local full_prompt
-    full_prompt="Implement feature $feature_id: $feature_name. $feature_prompt Save all implementation files to $feature_dir including a feature.md file documenting what was implemented."
+    full_prompt="Implement feature $feature_id: $feature_name in the Go CLI codebase. 
+    
+IMPORTANT INSTRUCTIONS:
+1. $feature_prompt
+2. Write all implementation files to: $feature_dir
+3. This is CODE IMPLEMENTATION - do NOT create or modify feature.md files
+4. Do NOT rewrite requirements documentation - implement the actual Go code
+5. Create Go source files (.go) with proper package structure
+6. Include unit tests (.go files with _test suffix) where appropriate
+7. Follow Go best practices and the existing project structure in golang-cli/"
     
     # Run cline in background so we can track its PID
     $CLINE_BIN -y --json "$full_prompt" > "$output_file" 2>&1 &
