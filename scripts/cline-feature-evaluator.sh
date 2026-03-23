@@ -508,7 +508,7 @@ EOF
     while [[ $attempt -le $MAX_RETRIES ]]; do
         log_info "Attempt $attempt/$MAX_RETRIES to generate remediation manifest..."
         
-        if $CLINE_BIN -y --json "$full_prompt" > "$output_file" 2>&1; then
+        if $CLINE_BIN -y -F json "$full_prompt" > "$output_file" 2>&1; then
             if [[ -f "$remediation_manifest_path" ]]; then
                 if validate_json "$remediation_manifest_path"; then
                     log_success "Remediation manifest generated and validated: $remediation_manifest_path"
@@ -635,7 +635,7 @@ Execute the remediation and ensure all success criteria are met."
     output_file=$(mktemp)
     
     # Run cline in background
-    $CLINE_BIN -y --json "$full_prompt" > "$output_file" 2>&1 &
+    $CLINE_BIN -y -F json "$full_prompt" > "$output_file" 2>&1 &
     local cline_pid=$!
     BACKGROUND_PIDS+=($cline_pid)
     
@@ -765,7 +765,7 @@ Return a JSON result:
     output_file=$(mktemp)
     
     # Run cline for comparison
-    $CLINE_BIN -y --json "$comparison_prompt" > "$output_file" 2>&1 &
+    $CLINE_BIN -y -F json "$comparison_prompt" > "$output_file" 2>&1 &
     local cline_pid=$!
     BACKGROUND_PIDS+=($cline_pid)
     
