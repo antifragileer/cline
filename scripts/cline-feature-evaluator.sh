@@ -508,7 +508,7 @@ EOF
     while [[ $attempt -le $MAX_RETRIES ]]; do
         log_info "Attempt $attempt/$MAX_RETRIES to generate remediation manifest..."
         
-        if $CLINE_BIN -y -F json "$full_prompt" > "$output_file" 2>&1; then
+        if $CLINE_BIN task -y --json "$full_prompt" > "$output_file" 2>&1; then
             if [[ -f "$remediation_manifest_path" ]]; then
                 if validate_json "$remediation_manifest_path"; then
                     log_success "Remediation manifest generated and validated: $remediation_manifest_path"
@@ -594,7 +594,7 @@ execute_remediation() {
     nodejs_ref=$(echo "$task_json" | jq -r '.nodejs_reference | join(", ") // empty')
     
     if [[ "$DRY_RUN" == true ]]; then
-        log_info "[DRY RUN] Would execute: cline -y \"$prompt\""
+        log_info "[DRY RUN] Would execute: cline task -y \"$prompt\""
         log_info "[DRY RUN] Target: $golang_target"
         return 0
     fi
@@ -635,7 +635,7 @@ Execute the remediation and ensure all success criteria are met."
     output_file=$(mktemp)
     
     # Run cline in background
-    $CLINE_BIN -y -F json "$full_prompt" > "$output_file" 2>&1 &
+    $CLINE_BIN task -y --json "$full_prompt" > "$output_file" 2>&1 &
     local cline_pid=$!
     BACKGROUND_PIDS+=($cline_pid)
     
@@ -765,7 +765,7 @@ Return a JSON result:
     output_file=$(mktemp)
     
     # Run cline for comparison
-    $CLINE_BIN -y -F json "$comparison_prompt" > "$output_file" 2>&1 &
+    $CLINE_BIN task -y --json "$comparison_prompt" > "$output_file" 2>&1 &
     local cline_pid=$!
     BACKGROUND_PIDS+=($cline_pid)
     
@@ -941,7 +941,7 @@ process_remediations() {
             retry_prompt="The comparison for $task_id failed to achieve parity with NodeJS. Review the comparison result in the remediation manifest and fix the behavioral differences. Focus on making the golang implementation match the NodeJS behavior exactly."
             
             if [[ "$DRY_RUN" == false ]]; then
-                $CLINE_BIN -y "$retry_prompt" 2>&1 | head -50
+                $CLINE_BIN task -y "$retry_prompt" 2>&1 | head -50
                 
                 # Re-compare
                 if compare_implementations "$task_id" "$task_name" "$remediation_manifest_file"; then
