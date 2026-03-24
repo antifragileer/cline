@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Styles holds the styling configuration for the TUI.
@@ -228,4 +230,83 @@ func RenderError(err error, useANSI bool) string {
 		return fmt.Sprintf("\033[31mError: %v\033[0m\n", err)
 	}
 	return fmt.Sprintf("Error: %v\n", err)
+}
+
+// renderMessage renders a single message
+func renderMessage(m Model, msg Message) string {
+	return msg.Content
+}
+
+// renderChatView renders the chat view
+func renderChatView(m Model) string {
+	var result strings.Builder
+	for _, msg := range m.messages {
+		result.WriteString(renderMessage(m, msg))
+		result.WriteString("\n")
+	}
+	return result.String()
+}
+
+// renderInputArea renders the input area
+func renderInputArea(m Model) string {
+	return m.textInput.View()
+}
+
+// renderWelcomeView renders the welcome view
+func renderWelcomeView(m Model) string {
+	return "Welcome to Cline!\nPress 'n' to start a new task, 'q' to quit."
+}
+
+// renderRecentTasks renders the recent tasks list
+func renderRecentTasks(m Model) string {
+	var result strings.Builder
+	result.WriteString("Recent Tasks:\n")
+	for _, task := range m.taskHistory {
+		result.WriteString(fmt.Sprintf("  - %s: %s\n", task.ID, task.Description))
+	}
+	return result.String()
+}
+
+// highlightCode highlights code with syntax highlighting
+func highlightCode(m Model, code, language string) string {
+	return code
+}
+
+// getWelcomeStyle returns the style for the welcome screen
+func getWelcomeStyle(m Model) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#7D56F4"))
+}
+
+// getLogoStyle returns the style for the logo
+func getLogoStyle(m Model) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#7D56F4")).
+		Bold(true)
+}
+
+// getMenuStyle returns the style for menu items
+func getMenuStyle(m Model) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#E0E0E0"))
+}
+
+// getSelectedMenuStyle returns the style for selected menu items
+func getSelectedMenuStyle(m Model) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#7D56F4")).
+		Bold(true).
+		Background(lipgloss.Color("#2a2a2a"))
+}
+
+// getTaskItemStyle returns the style for task items
+func getTaskItemStyle(m Model) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#E0E0E0"))
+}
+
+// extractCodeBlocks extracts code blocks from content
+func extractCodeBlocks(m Model, content string) []CodeBlock {
+	return []CodeBlock{}
 }

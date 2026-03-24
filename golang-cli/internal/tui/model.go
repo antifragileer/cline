@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -30,6 +32,7 @@ type Model struct {
 	help       help.Model
 	
 	// State
+	mode        Mode
 	currentView view
 	messages    []Message
 	width       int
@@ -46,6 +49,12 @@ type Model struct {
 	showConfigWizard bool
 	configWizardStep string
 	onboardingStep int
+	ready        bool
+	err          error
+	title        string
+	content      string
+	dimensions   Dimensions
+	shutdownCallbacks []func()
 	
 	// Input history
 	inputHistory      []string
@@ -75,11 +84,20 @@ type Model struct {
 	version string
 }
 
-// Message represents a chat message
-type Message struct {
-	Role      string
-	Content   string
-	Streaming bool
+// Mode represents the operating mode of the TUI
+type Mode int
+
+const (
+	// ModeTUI runs in full TUI mode with interactive UI
+	ModeTUI Mode = iota
+	// ModePlain runs in plain text mode without TUI styling
+	ModePlain
+)
+
+// Dimensions represents terminal dimensions
+type Dimensions struct {
+	Width  int
+	Height int
 }
 
 // CodeBlock represents a code block in a message
@@ -215,7 +233,8 @@ func (m Model) highlightCode(code, language string) string {
 
 // wrapText wraps text to a specified width
 func (m Model) wrapText(text string, width int) string {
-	return wrapText(m, text, width)
+	lines := wrapText(text, width)
+	return strings.Join(lines, "\n")
 }
 
 // extractCodeBlocks extracts code blocks from content
@@ -277,8 +296,24 @@ func (m *Model) Shutdown() {
 	}
 }
 
-// Init implements the bubbletea.Model interface.
-// It returns the initial command to run when the TUI starts.
-func (m Model) Init() tea.Cmd {
-	return nil
+// NewModel creates a new TUI model with the given title
+func NewModel(title string) Model {
+	m := initialModel()
+	m.title = title
+	m.mode = ModeTUI
+	m.ready = true
+	return m
+}
+
+// NewPlainModel creates a new plain text model
+func NewPlainModel() Model {
+	m := initialModel()
+	m.mode = ModePlain
+	m.ready = true
+	return m
+}
+
+// SetContent sets the content for plain mode
+func (m *Model) SetContent(content string) {
+	m.content = content
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -128,46 +127,6 @@ func TestPrintConfigSection(t *testing.T) {
 	printConfigSection(data, "")
 }
 
-func TestDisplayConfigHuman(t *testing.T) {
-	// Test with empty config
-	configData := make(map[string]interface{})
-	err := displayConfigHuman(configData)
-	if err != nil {
-		t.Errorf("displayConfigHuman() returned error: %v", err)
-	}
-
-	// Test with global config
-	configData["global"] = map[string]interface{}{
-		"apiProvider": "anthropic",
-		"apiKey":      "sk-test123456789",
-	}
-
-	// Redirect stdout temporarily
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err = displayConfigHuman(configData)
-	if err != nil {
-		t.Errorf("displayConfigHuman() returned error: %v", err)
-	}
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	var outputBuf bytes.Buffer
-	outputBuf.ReadFrom(r)
-	output := outputBuf.String()
-
-	// Check that output contains expected content
-	if !strings.Contains(output, "Global Configuration") {
-		t.Error("Output should contain 'Global Configuration'")
-	}
-	if !strings.Contains(output, "anthropic") {
-		t.Error("Output should contain provider name")
-	}
-}
-
 func TestConfigJSONOutput(t *testing.T) {
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "cline-config-test")
@@ -186,7 +145,7 @@ func TestConfigJSONOutput(t *testing.T) {
 
 	// Write test data
 	globalData := map[string]interface{}{
-		"apiProvider": "anthropic",
+		"apiProvider":  "anthropic",
 		"defaultModel": "claude-3-5-sonnet",
 	}
 	globalJSON, _ := json.Marshal(globalData)

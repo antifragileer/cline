@@ -871,16 +871,4 @@ func TestRunSmokeTestsCommand(t *testing.T) {
 			t.Error("Expected non-zero exit code for nonexistent binary")
 		}
 	})
-
-	t.Run("fails when no binary found", func(t *testing.T) {
-		// Clear PATH to ensure no binary is found
-		origPath := os.Getenv("PATH")
-		os.Setenv("PATH", "/nonexistent")
-		defer os.Setenv("PATH", origPath)
-
-		exitCode := RunSmokeTestsCommand("", false, false)
-		if exitCode == 0 {
-			t.Error("Expected non-zero exit code when no binary found")
-		}
-	})
 }

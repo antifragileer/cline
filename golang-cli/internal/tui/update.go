@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -24,17 +26,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.inputFocused && m.textInput.Value() != "" {
 				// Add user message
 				m.messages = append(m.messages, Message{
-					Role:    "user",
+					Type:    MessageTypeUser,
 					Content: m.textInput.Value(),
 				})
-				
+
 				// Add to history
 				m.inputHistory = append(m.inputHistory, m.textInput.Value())
 				m.inputHistoryIndex = -1
-				
+
 				// Clear input
 				m.textInput.SetValue("")
-				
+
 				// TODO: Send to backend
 			}
 
@@ -69,35 +71,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.currentView = chatView
 			}
 
-		case tea.KeyRunes:
-			switch msg.String() {
-			case "q":
-				if !m.inputFocused && m.currentView == welcomeView {
-					return m, tea.Quit
-				}
-			case "n":
-				if m.currentView == welcomeView {
-					m.currentView = chatView
-					m.showWelcome = false
-					m.inputFocused = true
-					m.textInput.Focus()
-				}
-			case "s":
-				if m.currentView == welcomeView {
-					m.currentView = settingsView
-				}
-			case "y":
-				if m.pendingApproval != nil {
-					// Handle approval
-					m.pendingApproval = nil
-				}
-			case "n":
-				if m.pendingApproval != nil {
-					// Handle rejection
-					m.pendingApproval = nil
-				}
-			}
-
 		case tea.KeyPgUp:
 			// Scroll up in viewport
 			m.viewport.LineUp(3)
@@ -119,11 +92,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlL:
 			// Clear screen - reset messages
 			m.messages = []Message{}
+
+		case tea.KeyRunes:
+			switch msg.String() {
+			case "q":
+				if !m.inputFocused && m.currentView == welcomeView {
+					return m, tea.Quit
+				}
+			case "n":
+				if m.currentView == welcomeView {
+					m.currentView = chatView
+					m.showWelcome = false
+					m.inputFocused = true
+					m.textInput.Focus()
+				} else if m.pendingApproval != nil {
+					// Handle rejection
+					m.pendingApproval = nil
+				}
+			case "s":
+				if m.currentView == welcomeView {
+					m.currentView = settingsView
+				}
+			case "y":
+				if m.pendingApproval != nil {
+					// Handle approval
+					m.pendingApproval = nil
+				}
+			}
 		}
 
 	case AddMessageMsg:
 		m.messages = append(m.messages, Message{
-			Role:    msg.Role,
+			Type:    MessageTypeUser,
 			Content: msg.Content,
 		})
 		m.viewport.GotoBottom()
@@ -153,12 +153,10 @@ func SignalCmd(sigChan chan os.Signal) tea.Cmd {
 	return func() tea.Msg {
 		sig := <-sigChan
 		switch sig {
-		case syscall.SIGINT, syscall.SIGTERM:
+		case os.Interrupt:
 			return ShutdownMsg{}
-		case syscall.SIGWINCH:
-			// Window resize is handled automatically by bubbletea
-			return nil
 		default:
+			// Window resize and other signals are handled automatically by bubbletea
 			return nil
 		}
 	}
@@ -187,4 +185,12 @@ func ShutdownCmd() tea.Cmd {
 	return func() tea.Msg {
 		return ShutdownMsg{}
 	}
+}
+
+// ShutdownMsg is sent when the TUI should shut down
+type ShutdownMsg struct{}
+
+// ContentMsg is sent when the content should be updated
+type ContentMsg struct {
+	Content string
 }

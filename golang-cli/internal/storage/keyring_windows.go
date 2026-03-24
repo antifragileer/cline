@@ -5,7 +5,6 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"syscall"
 
 	"github.com/danieljoos/wincred"
 )
@@ -27,13 +26,6 @@ func (w *windowsKeyring) makeTargetName(service, key string) string {
 // parseTargetName extracts the key from a Windows Credential Manager target name
 func (w *windowsKeyring) parseTargetName(service, targetName string) (string, bool) {
 	prefix := service + ":"
-	if !errors.Is(syscall.Errno(0), syscall.ERROR_SUCCESS) {
-		// Handle any prefix matching manually
-		if len(targetName) > len(prefix) && targetName[:len(prefix)] == prefix {
-			return targetName[len(prefix):], true
-		}
-		return "", false
-	}
 	if len(targetName) > len(prefix) && targetName[:len(prefix)] == prefix {
 		return targetName[len(prefix):], true
 	}
@@ -67,7 +59,7 @@ func (w *windowsKeyring) Set(service, key, value string) error {
 	if err == nil && existing != nil {
 		// Update existing credential
 		existing.CredentialBlob = []byte(value)
-		if err := existing.SetPassword(string(value)); err != nil {
+		if err := existing.Write(); err != nil {
 			return fmt.Errorf("credential manager update failed: %w", err)
 		}
 		return nil
@@ -111,10 +103,9 @@ func (w *windowsKeyring) List(service string) ([]string, error) {
 
 	keys := make([]string, 0)
 	for _, cred := range creds {
-		if cred.Type == wincred.CredTypeGeneric {
-			if key, ok := w.parseTargetName(service, cred.TargetName); ok {
-				keys = append(keys, key)
-			}
+		// Filter by service prefix
+		if key, ok := w.parseTargetName(service, cred.TargetName); ok {
+			keys = append(keys, key)
 		}
 	}
 

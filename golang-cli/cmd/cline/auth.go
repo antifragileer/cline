@@ -555,10 +555,11 @@ func testProviderAuth(provider, apiKey string) error {
 }
 
 // GetCurrentProvider returns the currently configured provider
+// Returns empty string if no provider is configured (no error)
 func GetCurrentProvider(ctx *storage.StorageContext) (string, error) {
 	providerVal, ok := ctx.GlobalState.Get("apiProvider")
 	if !ok {
-		return "", fmt.Errorf("no provider configured")
+		return "", nil
 	}
 
 	provider, ok := providerVal.(string)
@@ -570,10 +571,11 @@ func GetCurrentProvider(ctx *storage.StorageContext) (string, error) {
 }
 
 // GetAPIKey retrieves the API key for a provider
+// Returns empty string if no API key is found (no error)
 func GetAPIKey(ctx *storage.StorageContext, provider string) (string, error) {
 	apiKeyVal, ok := ctx.Secrets.Get(provider + "ApiKey")
 	if !ok {
-		return "", fmt.Errorf("no API key found for %s", provider)
+		return "", nil
 	}
 
 	apiKey, ok := apiKeyVal.(string)

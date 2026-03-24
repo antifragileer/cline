@@ -1,4 +1,4 @@
-//go:build darwin
+//go:build darwin && cgo
 
 package storage
 
@@ -44,13 +44,9 @@ func (m *macOSKeyring) Get(service, key string) (string, error) {
 
 // Set stores a secret in the macOS Keychain
 func (m *macOSKeyring) Set(service, key, value string) error {
-	item := keychain.NewItem()
-	item.SetSecClass(keychain.SecClassGenericPassword)
-	item.SetService(service)
-	item.SetAccount(sanitizeKey(key))
-	item.SetData([]byte(value))
-	item.SetAccessible(keychain.AccessibleWhenUnlocked)
-
+	// Use NewGenericPassword which creates an item with proper accessibility
+	item := keychain.NewGenericPassword(service, sanitizeKey(key), "", []byte(value), "")
+	
 	// Try to add the item
 	err := keychain.AddItem(item)
 	if err == nil {
@@ -59,18 +55,22 @@ func (m *macOSKeyring) Set(service, key, value string) error {
 
 	// If item already exists, update it
 	if errors.Is(err, keychain.ErrorDuplicateItem) {
-		query := keychain.NewItem()
-		query.SetSecClass(keychain.SecClassGenericPassword)
-		query.SetService(service)
-		query.SetAccount(sanitizeKey(key))
-
-		update := keychain.NewItem()
-		update.SetData([]byte(value))
-
-		return keychain.UpdateItem(query, update)
+		return m.updateItem(service, key, value)
 	}
 
 	return fmt.Errorf("failed to add item to keychain: %w", err)
+}
+
+func (m *macOSKeyring) updateItem(service, key, value string) error {
+	query := keychain.NewItem()
+	query.SetSecClass(keychain.SecClassGenericPassword)
+	query.SetService(service)
+	query.SetAccount(sanitizeKey(key))
+
+	update := keychain.NewItem()
+	update.SetData([]byte(value))
+
+	return keychain.UpdateItem(query, update)
 }
 
 // Delete removes a secret from the macOS Keychain

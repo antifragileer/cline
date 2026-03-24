@@ -379,9 +379,18 @@ func (v *CommandValidator) Validate(ctx context.Context, command string) Validat
 				}
 				// Also try matching just the base command (first word)
 				words := strings.Fields(seg.Segment)
-				if len(words) > 0 && matchGlob(rule.Pattern, words[0]) {
-					segmentAllowed = true
-					break
+				if len(words) > 0 {
+					// Try matching the base command directly
+					if matchGlob(rule.Pattern, words[0]) {
+						segmentAllowed = true
+						break
+					}
+					// Also try matching with wildcard pattern (e.g., "git *" should match "git")
+					baseCmdPattern := words[0] + " *"
+					if matchGlob(rule.Pattern, baseCmdPattern) {
+						segmentAllowed = true
+						break
+					}
 				}
 			}
 			if !segmentAllowed {
@@ -605,10 +614,21 @@ func (v *CommandValidator) validateSegments(segments []string) []SegmentValidati
 		// If not denied, check allow rules
 		if len(val.DeniedBy) == 0 {
 			for _, rule := range allowRules {
+				// Try matching the full segment
 				if matchGlob(rule.Pattern, seg) {
 					val.MatchedPatterns = append(val.MatchedPatterns, rule.Pattern)
 					val.Allowed = true
 					break
+				}
+				// Also try matching just the base command (first word) with wildcards
+				words := strings.Fields(seg)
+				if len(words) > 0 {
+					baseCmdPattern := words[0] + " *"
+					if matchGlob(rule.Pattern, baseCmdPattern) || matchGlob(rule.Pattern, words[0]) {
+						val.MatchedPatterns = append(val.MatchedPatterns, rule.Pattern)
+						val.Allowed = true
+						break
+					}
 				}
 			}
 		}
@@ -710,7 +730,25 @@ func matchGlob(pattern, s string) bool {
 		return matched
 	}
 
-	return matched
+	if matched {
+		return true
+	}
+
+	// Special handling: if the input is a base command and the pattern
+	// is the base command followed by wildcard (e.g., "git *" should match "git")
+	words := strings.Fields(pattern)
+	if len(words) > 1 && strings.HasSuffix(pattern, " *") {
+		basePattern := strings.TrimSuffix(pattern, " *")
+		// Try matching just the base pattern
+		regexPattern = globToRegex(basePattern)
+		matched, err = regexp.MatchString("(?i)^"+regexPattern+"$", s)
+		if err != nil {
+			matched, _ = filepath.Match(basePattern, s)
+		}
+		return matched
+	}
+
+	return false
 }
 
 // globToRegex converts a glob pattern to a regex pattern

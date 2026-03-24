@@ -1,8 +1,8 @@
-//go:build darwin
+//go:build darwin && !cgo
 
 package storage
 
-// getPlatformKeyring returns the appropriate keyring provider for macOS
+// getPlatformKeyring returns a stub keyring provider for macOS without CGO
 func getPlatformKeyring() keyringProvider {
-	return &macOSKeyring{}
+	return &unsupportedKeyring{}
 }
