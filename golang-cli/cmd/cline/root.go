@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,6 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/cline/cline/golang-cli/internal/host"
+	"github.com/cline/cline/golang-cli/internal/task"
 )
 
 const (
@@ -110,6 +114,7 @@ Usage:
   # Use a custom configuration file
   cline --config /path/to/config.yaml "explain this code"`,
 		RunE: runRoot,
+		Args: cobra.ArbitraryArgs,
 	}
 )
 
@@ -125,6 +130,9 @@ func init() {
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is $HOME/.%s/%s.%s)", ConfigDirName, DefaultConfigName, DefaultConfigType))
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
+
+	// Disable flag parsing for the root command to allow arbitrary prompt arguments
+	rootCmd.DisableFlagParsing = false
 
 	// Mode flags (mutually exclusive)
 	rootCmd.Flags().BoolVarP(&actFlag, "act", "a", false, "Run in act mode (execute actions)")
@@ -444,42 +452,114 @@ func runTaskWithPrompt(opts *RootOptions) error {
 		"model", opts.Model,
 	)
 
-	// Apply options and run task
-	config := TaskConfig{
-		Mode:                  getTaskMode(opts),
-		Yolo:                  opts.Yolo,
-		Timeout:               opts.Timeout,
-		Model:                 opts.Model,
-		Verbose:               verbose,
-		Cwd:                   opts.Cwd,
-		ConfigPath:            opts.Config,
-		Thinking:              opts.Thinking != nil,
-		JSON:                  opts.JSON,
-		TaskID:                opts.TaskID,
-		Prompt:                opts.Prompt,
-		AutoApproveAll:        opts.AutoApproveAll,
-		ReasoningEffort:       opts.ReasoningEffort,
-		DoubleCheckCompletion: opts.DoubleCheckCompletion,
-		AutoCondense:          opts.AutoCondense,
-		HooksDir:              opts.HooksDir,
+	// For now, always use gRPC mode
+	return runTaskWithGRPC(opts)
+}
+
+// runTaskWithGRPC runs a task using gRPC connection to the core extension
+func runTaskWithGRPC(opts *RootOptions) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Add timeout if specified
+	if opts.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+
+	// Resolve gRPC endpoint
+	resolver := host.NewEndpointResolver("")
+	endpointConfig, err := resolver.Resolve()
+	if err != nil {
+		return fmt.Errorf("failed to resolve gRPC endpoint: %w", err)
+	}
+
+	// Create connection manager
+	cm := host.NewConnectionManager(endpointConfig)
+	if err := cm.ConnectWithRetry(ctx, 3); err != nil {
+		return fmt.Errorf("failed to connect to Cline core extension at %s: %w", endpointConfig.Address, err)
+	}
+	defer cm.Close()
+
+	// Verify connection is healthy
+	if err := cm.HealthCheck(ctx); err != nil {
+		return fmt.Errorf("health check failed: %w", err)
+	}
+
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Connected to Cline core extension at %s\n", endpointConfig.Address)
+	}
+
+	// Create task runner
+	runner := task.NewRunner(cm.GetConnection())
+
+	// Build task config
+	config := task.Config{
+		Mode:                    getTaskModeAsTaskMode(opts),
+		Yolo:                    opts.Yolo,
+		Timeout:                 opts.Timeout,
+		Model:                   opts.Model,
+		Verbose:                 verbose,
+		Cwd:                     opts.Cwd,
+		Thinking:                opts.Thinking != nil,
+		JSON:                    opts.JSON,
+		TaskID:                  opts.TaskID,
+		Prompt:                  opts.Prompt,
+		AutoApproveAll:          opts.AutoApproveAll,
+		ReasoningEffort:         opts.ReasoningEffort,
+		DoubleCheckCompletion:   opts.DoubleCheckCompletion,
+		AutoCondense:            opts.AutoCondense,
+		HooksDir:                opts.HooksDir,
 	}
 
 	// Add thinking budget if specified
 	if opts.Thinking != nil {
 		config.ThinkingBudget = *opts.Thinking
-		if config.ThinkingBudget > 0 {
-			logger.Debug("thinking budget set", "tokens", config.ThinkingBudget)
-		}
 	}
 
 	// Add max consecutive mistakes if specified
 	if opts.MaxConsecutiveMistakes != nil {
 		config.MaxConsecutiveMistakes = *opts.MaxConsecutiveMistakes
-		logger.Debug("max consecutive mistakes set", "count", config.MaxConsecutiveMistakes)
 	}
 
-	runner := NewDefaultTaskRunner(os.Stdout)
-	return runner.Run(config)
+	// Create message handler based on output mode
+	var handler task.MessageHandler
+	if opts.JSON {
+		handler = &task.JSONHandler{
+			Output: os.Stdout,
+		}
+	} else {
+		handler = &task.PlainTextHandler{
+			Verbose:     verbose,
+			JSONOutput:  opts.JSON,
+			Output:      os.Stdout,
+			AutoApprove: opts.Yolo || opts.AutoApproveAll,
+		}
+	}
+
+	// Run the task with streaming
+	if err := runner.RunWithStreaming(ctx, config, handler); err != nil {
+		return fmt.Errorf("task execution failed: %w", err)
+	}
+
+	return nil
+}
+
+// getTaskModeAsTaskMode converts RootOptions mode to task.Mode
+func getTaskModeAsTaskMode(opts *RootOptions) task.Mode {
+	if opts.Plan {
+		return task.ModePlan
+	}
+	return task.ModeAct
+}
+
+// isTTY checks if stdout is a terminal
+func isTTY() bool {
+	stat, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (stat.Mode() & os.ModeCharDevice) != 0
 }
 
 // runInteractiveMode starts the interactive TUI
@@ -516,10 +596,3 @@ func runInteractiveMode(opts *RootOptions) error {
 	return nil
 }
 
-// getTaskMode determines the task mode from options
-func getTaskMode(opts *RootOptions) TaskMode {
-	if opts.Plan {
-		return TaskModePlan
-	}
-	return TaskModeAct
-}

@@ -1,6 +1,4 @@
 // Package task provides task execution functionality for the Cline CLI.
-// This file implements the TaskRunner which executes tasks by communicating
-// with the core extension via gRPC.
 package task
 
 import (
@@ -13,582 +11,460 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/cline/cline/golang-cli/internal/generated/cline/cline"
-	"github.com/cline/cline/golang-cli/internal/host"
 )
 
-// OutputMode represents the output mode for task execution
-type OutputMode int
+// Mode represents the execution mode for a task
+type Mode string
 
 const (
-	// ModeTUI runs in interactive TUI mode
-	ModeTUI OutputMode = iota
-	// ModePlain runs in plain text mode
-	ModePlain
-	// ModeJSON runs in JSON output mode
-	ModeJSON
+	// ModeAct represents act mode (execute actions)
+	ModeAct Mode = "act"
+	// ModePlan represents plan mode (planning only)
+	ModePlan Mode = "plan"
 )
 
-// RunnerOptions provides options for creating a TaskRunner
-type RunnerOptions struct {
-	// ProtoClient is the gRPC client for communicating with core
-	ProtoClient *host.ProtoClient
-
-	// Output mode (TUI, Plain, or JSON)
-	Mode OutputMode
-
-	// Output writer for results
-	Output io.Writer
-
-	// Error writer for errors
-	ErrorOutput io.Writer
-
-	// Input reader for user input
-	Input io.Reader
-
-	// Auto-approve without prompting
-	AutoApprove bool
-
-	// Timeout for task execution
+// Config holds all configuration options for a task
+type Config struct {
+	// Mode specifies whether to run in act or plan mode
+	Mode Mode
+	// Yolo enables auto-approval without confirmation
+	Yolo bool
+	// Timeout is the maximum duration for task execution
 	Timeout time.Duration
-
-	// Verbose output
+	// Model specifies the model to use for the task
+	Model string
+	// Images is a list of image file paths to attach
+	Images []string
+	// Verbose enables verbose output
 	Verbose bool
+	// Cwd is the current working directory for the task
+	Cwd string
+	// Thinking enables thinking mode
+	Thinking bool
+	// ThinkingBudget specifies the thinking budget in tokens
+	ThinkingBudget int
+	// JSON enables JSON output format
+	JSON bool
+	// TaskID specifies a task ID to resume or reference
+	TaskID string
+	// Prompt is the task prompt/message
+	Prompt string
+	// AutoApproveAll enables auto-approve all actions
+	AutoApproveAll bool
+	// ReasoningEffort specifies the reasoning effort level
+	ReasoningEffort string
+	// MaxConsecutiveMistakes is the maximum consecutive mistakes
+	MaxConsecutiveMistakes int
+	// DoubleCheckCompletion rejects first completion attempt
+	DoubleCheckCompletion bool
+	// AutoCondense enables AI-powered context compaction
+	AutoCondense bool
+	// HooksDir is the path to additional hooks directory
+	HooksDir string
 }
 
-// TaskRunner executes tasks by communicating with the core extension
-type TaskRunner struct {
-	protoClient *host.ProtoClient
-	mode        OutputMode
-	output      io.Writer
-	errorOutput io.Writer
-	input       io.Reader
-	autoApprove bool
-	timeout     time.Duration
-	verbose     bool
-
-	// Runtime state
-	currentTaskID string
-	completionCh  chan struct{}
-	errorCh       chan error
-	cancelFunc    context.CancelFunc
+// Runner executes tasks via gRPC
+type Runner struct {
+	taskClient cline.TaskServiceClient
+	uiClient   cline.UiServiceClient
+	conn       *grpc.ClientConn
 }
 
-// NewTaskRunner creates a new TaskRunner with the given options
-func NewTaskRunner(opts RunnerOptions) *TaskRunner {
-	output := opts.Output
-	if output == nil {
-		output = os.Stdout
-	}
-
-	errorOutput := opts.ErrorOutput
-	if errorOutput == nil {
-		errorOutput = os.Stderr
-	}
-
-	input := opts.Input
-	if input == nil {
-		input = os.Stdin
-	}
-
-	return &TaskRunner{
-		protoClient: opts.ProtoClient,
-		mode:        opts.Mode,
-		output:      output,
-		errorOutput: errorOutput,
-		input:       input,
-		autoApprove: opts.AutoApprove,
-		timeout:     opts.Timeout,
-		verbose:     opts.Verbose,
-		completionCh: make(chan struct{}),
-		errorCh:      make(chan error, 1),
+// NewRunner creates a new task runner
+func NewRunner(conn *grpc.ClientConn) *Runner {
+	return &Runner{
+		taskClient: cline.NewTaskServiceClient(conn),
+		uiClient:   cline.NewUiServiceClient(conn),
+		conn:       conn,
 	}
 }
 
 // Run executes a task with the given configuration
-func (r *TaskRunner) Run(cfg TaskConfig) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	r.cancelFunc = cancel
-	defer cancel()
-
-	// Apply timeout if specified
-	if r.timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, r.timeout)
-		r.cancelFunc = cancel
-		defer cancel()
+func (r *Runner) Run(ctx context.Context, config Config, handler MessageHandler) error {
+	// Validate configuration
+	if config.Prompt == "" && config.TaskID == "" {
+		return fmt.Errorf("task prompt required (or use TaskID to resume)")
 	}
 
-	// Validate gRPC client
-	if r.protoClient == nil {
-		return fmt.Errorf("gRPC client not initialized")
-	}
-
-	// Process images if provided
-	imageDataUrls, err := r.processImages(cfg.Images)
-	if err != nil {
-		return fmt.Errorf("failed to process images: %w", err)
-	}
-
-	// Create or resume task
-	var taskID string
-	if cfg.TaskID != "" {
-		// Resume existing task
-		taskID = cfg.TaskID
-		if r.verbose {
-			fmt.Fprintf(r.output, "Resuming task: %s\n", taskID)
-		}
-	} else {
-		// Create new task
-		taskID, err = r.createTask(ctx, cfg.Prompt, imageDataUrls, cfg)
+	// Prepare images
+	var imageData []string
+	for _, imgPath := range config.Images {
+		data, err := loadImageData(imgPath)
 		if err != nil {
-			return fmt.Errorf("failed to create task: %w", err)
+			return fmt.Errorf("failed to load image %s: %w", imgPath, err)
 		}
-		if r.verbose {
-			fmt.Fprintf(r.output, "Created task: %s\n", taskID)
-		}
+		imageData = append(imageData, data)
 	}
 
-	r.currentTaskID = taskID
-
-	// Subscribe to state updates
-	go r.subscribeToMessages(ctx)
-
-	// Wait for completion or error
-	select {
-	case <-r.completionCh:
-		return nil
-	case err := <-r.errorCh:
-		return err
-	case <-ctx.Done():
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("task timed out after %s", r.timeout)
-		}
-		return ctx.Err()
+	// Create the task
+	newTaskReq := &cline.NewTaskRequest{
+		Text:   config.Prompt,
+		Images: imageData,
 	}
-}
 
-// createTask creates a new task via gRPC
-func (r *TaskRunner) createTask(ctx context.Context, prompt string, images []string, cfg TaskConfig) (string, error) {
-	// Build settings from config
-	settings := r.buildSettings(cfg)
-
-	taskID, err := r.protoClient.NewTask(ctx, prompt, images, nil, settings)
+	// Create task
+	resp, err := r.taskClient.NewTask(ctx, newTaskReq)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("failed to create task: %w", err)
 	}
 
-	return taskID, nil
+	taskID := resp.Value
+	if config.Verbose {
+		handler.OnInfo(fmt.Sprintf("Task created: %s", taskID))
+	}
+
+	// Subscribe to message updates
+	if err := r.subscribeToMessages(ctx, handler); err != nil {
+		return fmt.Errorf("failed to subscribe to messages: %w", err)
+	}
+
+	return nil
 }
 
-// buildSettings builds the Settings proto from TaskConfig
-func (r *TaskRunner) buildSettings(cfg TaskConfig) *cline.Settings {
-	settings := &cline.Settings{}
-
-	// Set mode
-	mode := cline.PlanActMode_ACT
-	if cfg.Mode == TaskModePlan {
-		mode = cline.PlanActMode_PLAN
-	}
-	settings.Mode = &mode
-
-	// Set model if specified (use ActMode for simplicity, could be enhanced to set both)
-	if cfg.Model != "" {
-		settings.ActModeApiModelId = &cfg.Model
+// RunWithStreaming executes a task and streams messages to the handler
+func (r *Runner) RunWithStreaming(ctx context.Context, config Config, handler MessageHandler) error {
+	// Validate configuration
+	if config.Prompt == "" && config.TaskID == "" {
+		return fmt.Errorf("task prompt required (or use TaskID to resume)")
 	}
 
-	// Set auto-approve flags via yolo mode
-	yoloMode := cfg.Yolo
-	settings.YoloModeToggled = &yoloMode
+	// Prepare images
+	var imageData []string
+	for _, imgPath := range config.Images {
+		data, err := loadImageData(imgPath)
+		if err != nil {
+			return fmt.Errorf("failed to load image %s: %w", imgPath, err)
+		}
+		imageData = append(imageData, data)
+	}
 
-	return settings
-}
+	// Create the task
+	newTaskReq := &cline.NewTaskRequest{
+		Text:   config.Prompt,
+		Images: imageData,
+	}
 
-// subscribeToMessages subscribes to ClineMessage updates from the core
-func (r *TaskRunner) subscribeToMessages(ctx context.Context) {
-	stream, err := r.protoClient.SubscribeToPartialMessage(ctx)
+	// Create task
+	resp, err := r.taskClient.NewTask(ctx, newTaskReq)
 	if err != nil {
-		r.errorCh <- fmt.Errorf("failed to subscribe to messages: %w", err)
-		return
+		return fmt.Errorf("failed to create task: %w", err)
 	}
 
+	taskID := resp.Value
+	if config.Verbose && !config.JSON {
+		handler.OnInfo(fmt.Sprintf("Task created: %s", taskID))
+	}
+
+	// Subscribe to message updates and process them
+	return r.subscribeAndProcessMessages(ctx, config, taskID, handler)
+}
+
+// subscribeAndProcessMessages subscribes to partial messages and processes them
+func (r *Runner) subscribeAndProcessMessages(ctx context.Context, config Config, taskID string, handler MessageHandler) error {
+	// Create subscription request
+	req := &cline.EmptyRequest{}
+
+	// Subscribe to partial messages
+	stream, err := r.uiClient.SubscribeToPartialMessage(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to messages: %w", err)
+	}
+
+	// Process messages
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		default:
 		}
 
 		msg, err := stream.Recv()
+		if err == io.EOF {
+			// Stream closed normally
+			return nil
+		}
 		if err != nil {
-			if err == io.EOF {
-				// Stream closed normally
-				close(r.completionCh)
-				return
+			st, ok := status.FromError(err)
+			if ok && st.Code() == codes.Canceled {
+				// Context was cancelled
+				return ctx.Err()
 			}
-			r.errorCh <- fmt.Errorf("stream error: %w", err)
-			return
+			return fmt.Errorf("error receiving message: %w", err)
 		}
 
 		// Process the message
-		if err := r.processMessage(msg); err != nil {
-			r.errorCh <- err
-			return
+		if err := r.handleMessage(ctx, msg, config, handler); err != nil {
+			return err
 		}
 	}
 }
 
-// processMessage processes a ClineMessage from the core
-func (r *TaskRunner) processMessage(msg *cline.ClineMessage) error {
-	if msg == nil {
-		return nil
-	}
-
-	// Route based on message type
+// handleMessage processes a single ClineMessage
+func (r *Runner) handleMessage(ctx context.Context, msg *cline.ClineMessage, config Config, handler MessageHandler) error {
+	// Handle based on message type
 	switch msg.Type {
 	case cline.ClineMessageType_SAY:
-		return r.handleSayMessage(msg)
+		return r.handleSayMessage(ctx, msg, config, handler)
 	case cline.ClineMessageType_ASK:
-		return r.handleAskMessage(msg)
+		return r.handleAskMessage(ctx, msg, config, handler)
 	default:
-		// Unknown message type, log but don't fail
-		if r.verbose {
-			fmt.Fprintf(r.errorOutput, "Unknown message type: %v\n", msg.Type)
+		// Unknown message type, just log it
+		if config.Verbose {
+			handler.OnInfo(fmt.Sprintf("Unknown message type: %v", msg.Type))
 		}
 		return nil
 	}
 }
 
-// handleSayMessage handles say messages from the core
-func (r *TaskRunner) handleSayMessage(msg *cline.ClineMessage) error {
-	switch msg.Say {
-	case cline.ClineSay_TEXT:
-		// Display assistant text
-		return r.displayText(msg.Text, msg.Partial)
+// handleSayMessage handles a SAY message from the assistant
+func (r *Runner) handleSayMessage(ctx context.Context, msg *cline.ClineMessage, config Config, handler MessageHandler) error {
+	// Check if it's a partial message
+	if msg.Partial {
+		// For partial messages, we may want to update in-place in TUI mode
+		// For now, just pass to handler
+	}
 
-	case cline.ClineSay_ERROR:
-		// Mark task as failed
-		return fmt.Errorf("task error: %s", msg.Text)
+	// Convert say type to string for handler
+	sayType := sayTypeToString(msg.Say)
+	
+	// Pass to handler
+	handler.OnSay(sayType, msg.Text, msg.Partial)
 
-	case cline.ClineSay_API_REQ_STARTED:
-		// Show loading indicator
-		if r.mode == ModePlain {
-			fmt.Fprintln(r.output, "Processing...")
+	return nil
+}
+
+// handleAskMessage handles an ASK message (requires user response)
+func (r *Runner) handleAskMessage(ctx context.Context, msg *cline.ClineMessage, config Config, handler MessageHandler) error {
+	askType := askTypeToString(msg.Ask)
+
+	// Check for auto-approval
+	if shouldAutoApprove(msg.Ask, config) {
+		// Auto-approve
+		if err := r.sendAskResponse(ctx, "yesButtonClicked", "", nil, nil); err != nil {
+			return fmt.Errorf("failed to send auto-approval: %w", err)
 		}
-
-	case cline.ClineSay_API_REQ_FINISHED:
-		// Hide loading, show token usage if available
-		if r.verbose && msg.Text != "" {
-			fmt.Fprintf(r.output, "API request finished: %s\n", msg.Text)
-		}
-
-	case cline.ClineSay_COMPLETION_RESULT_SAY:
-		// Task complete
-		r.displayText(msg.Text, false)
-		close(r.completionCh)
+		handler.OnInfo("Auto-approved: " + askType)
 		return nil
+	}
 
-	case cline.ClineSay_COMMAND_SAY:
-		// Command output
-		if r.mode == ModePlain {
-			fmt.Fprintf(r.output, "$ %s\n", msg.Text)
-		}
+	// Get user response
+	response, err := handler.OnAsk(askType, msg.Text)
+	if err != nil {
+		return err
+	}
 
-	case cline.ClineSay_BROWSER_ACTION:
-		// Browser action output
-		if r.verbose {
-			fmt.Fprintf(r.output, "[Browser] %s\n", msg.Text)
-		}
-
-	default:
-		// Unknown say type, display as-is in verbose mode
-		if r.verbose {
-			fmt.Fprintf(r.output, "[Say:%v] %s\n", msg.Say, msg.Text)
-		}
+	// Send response
+	if err := r.sendAskResponse(ctx, response, "", nil, nil); err != nil {
+		return fmt.Errorf("failed to send response: %w", err)
 	}
 
 	return nil
 }
 
-// handleAskMessage handles ask messages from the core
-func (r *TaskRunner) handleAskMessage(msg *cline.ClineMessage) error {
-	switch msg.Ask {
+// sendAskResponse sends a response to an ask message
+func (r *Runner) sendAskResponse(ctx context.Context, responseType, text string, images, files []string) error {
+	req := &cline.AskResponseRequest{
+		ResponseType: responseType,
+		Text:         text,
+		Images:       images,
+		Files:        files,
+	}
+
+	_, err := r.taskClient.AskResponse(ctx, req)
+	return err
+}
+
+// shouldAutoApprove determines if an ask should be auto-approved
+func shouldAutoApprove(askType cline.ClineAsk, config Config) bool {
+	if !config.Yolo && !config.AutoApproveAll {
+		return false
+	}
+
+	// In yolo mode, auto-approve certain ask types
+	switch askType {
 	case cline.ClineAsk_COMMAND:
-		// Command approval request
-		approved := r.autoApprove
-		if !approved {
-			approved = r.requestApproval("command", msg.Text)
-		}
-
-		responseType := "rejected"
-		if approved {
-			responseType = "yesButtonClicked"
-		}
-
-		return r.protoClient.AskResponse(context.Background(), responseType, "", nil, nil)
-
+		return config.Yolo || config.AutoApproveAll
 	case cline.ClineAsk_TOOL:
-		// Tool approval request
-		approved := r.autoApprove
-		if !approved {
-			approved = r.requestApproval("tool", msg.Text)
-		}
-
-		responseType := "rejected"
-		if approved {
-			responseType = "yesButtonClicked"
-		}
-
-		return r.protoClient.AskResponse(context.Background(), responseType, "", nil, nil)
-
-	case cline.ClineAsk_BROWSER_ACTION_LAUNCH:
-		// Browser action approval
-		approved := r.autoApprove
-		if !approved {
-			approved = r.requestApproval("browser", msg.Text)
-		}
-
-		responseType := "rejected"
-		if approved {
-			responseType = "yesButtonClicked"
-		}
-
-		return r.protoClient.AskResponse(context.Background(), responseType, "", nil, nil)
-
-	case cline.ClineAsk_FOLLOWUP:
-		// Display question, wait for user input
-		response, err := r.getUserInput(msg.Text)
-		if err != nil {
-			return err
-		}
-
-		return r.protoClient.AskResponse(context.Background(), "messageResponse", response, nil, nil)
-
-	case cline.ClineAsk_PLAN_MODE_RESPOND:
-		// Plan mode response
-		response, err := r.getUserInput(msg.Text)
-		if err != nil {
-			return err
-		}
-
-		return r.protoClient.AskResponse(context.Background(), "messageResponse", response, nil, nil)
-
-	case cline.ClineAsk_COMPLETION_RESULT:
-		// Task complete (ask variant)
-		close(r.completionCh)
-		return nil
-
+		return config.Yolo || config.AutoApproveAll
 	default:
-		// Unknown ask type
-		if r.verbose {
-			fmt.Fprintf(r.errorOutput, "Unknown ask type: %v\n", msg.Ask)
-		}
-		// Auto-reject unknown asks
-		return r.protoClient.AskResponse(context.Background(), "rejected", "", nil, nil)
+		return false
 	}
 }
 
-// displayText displays text output based on mode
-func (r *TaskRunner) displayText(text string, partial bool) error {
-	switch r.mode {
-	case ModeJSON:
-		// Output as JSON
-		fmt.Fprintf(r.output, `{"type":"text","partial":%t,"content":%q}`+"\n", partial, text)
-	case ModePlain:
-		// Plain text output
-		if partial {
-			// For partial messages, just print (no newline until complete)
-			fmt.Fprint(r.output, text)
-		} else {
-			// Complete message
-			fmt.Fprintln(r.output, text)
-		}
-	default:
-		// TUI mode - would be handled by TUI component
-		if r.verbose {
-			fmt.Fprintln(r.output, text)
-		}
-	}
-	return nil
-}
-
-// requestApproval prompts the user for approval
-func (r *TaskRunner) requestApproval(requestType, details string) bool {
-	if r.mode == ModePlain {
-		// Plain mode approval prompt
-		fmt.Fprintf(r.output, "\nCline wants to execute %s:\n", requestType)
-		fmt.Fprintf(r.output, "%s\n", details)
-		fmt.Fprint(r.output, "Approve? (y/n/a=always): ")
-
-		var response string
-		fmt.Fscanln(r.input, &response)
-
-		response = strings.ToLower(strings.TrimSpace(response))
-		switch response {
-		case "y", "yes":
-			return true
-		case "a", "always":
-			r.autoApprove = true
-			return true
-		default:
-			return false
-		}
-	}
-
-	// For TUI mode, this would be handled by the TUI
-	// Default to auto-approve if no interactive input available
-	return r.autoApprove
-}
-
-// getUserInput prompts for and reads user input
-func (r *TaskRunner) getUserInput(prompt string) (string, error) {
-	if r.mode == ModePlain {
-		// Plain mode input
-		fmt.Fprintf(r.output, "\n%s\n", prompt)
-		fmt.Fprint(r.output, "> ")
-
-		var response string
-		_, err := fmt.Fscanln(r.input, &response)
-		if err != nil {
-			return "", err
-		}
-
-		return response, nil
-	}
-
-	// For TUI mode, this would be handled by the TUI
-	return "", fmt.Errorf("user input not available in non-interactive mode")
-}
-
-// processImages converts image file paths to base64 data URLs
-func (r *TaskRunner) processImages(paths []string) ([]string, error) {
-	if len(paths) == 0 {
-		return nil, nil
-	}
-
-	result := make([]string, 0, len(paths))
-
-	for _, path := range paths {
-		dataUrl, err := r.loadImageAsDataURL(path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load image %s: %w", path, err)
-		}
-		result = append(result, dataUrl)
-	}
-
-	return result, nil
-}
-
-// loadImageAsDataURL loads an image file and returns it as a base64 data URL
-func (r *TaskRunner) loadImageAsDataURL(path string) (string, error) {
-	// Expand path if needed
-	if strings.HasPrefix(path, "~") {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("failed to get home directory: %w", err)
-		}
-		path = filepath.Join(homeDir, path[1:])
-	}
-
-	// Convert to absolute path
-	absPath, err := filepath.Abs(path)
+// loadImageData loads an image file and returns base64 encoded data
+func loadImageData(path string) (string, error) {
+	// Read file
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path: %w", err)
+		return "", err
 	}
 
-	// Check file exists
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return "", fmt.Errorf("file not accessible: %w", err)
-	}
-
-	if info.IsDir() {
-		return "", fmt.Errorf("path is a directory, not a file")
-	}
-
-	// Validate extension
-	ext := strings.ToLower(filepath.Ext(absPath))
-	mimeType := getMimeTypeFromExt(ext)
+	// Determine mime type from extension
+	ext := strings.ToLower(filepath.Ext(path))
+	mimeType := getMimeType(ext)
 	if mimeType == "" {
-		return "", fmt.Errorf("unsupported image format: %s", ext)
+		mimeType = "image/png" // Default to png
 	}
-
-	// Read file content
-	content, err := os.ReadFile(absPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
-	}
-
-	// Encode to base64
-	encoded := base64.StdEncoding.EncodeToString(content)
-
-	// Build data URL
-	dataUrl := fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
-
-	return dataUrl, nil
+	
+	// Encode as data URL
+	encoded := base64.StdEncoding.EncodeToString(data)
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, encoded), nil
 }
 
-// getMimeTypeFromExt returns the MIME type for a file extension
-func getMimeTypeFromExt(ext string) string {
-	switch ext {
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".webp":
-		return "image/webp"
-	case ".bmp":
-		return "image/bmp"
-	case ".svg":
-		return "image/svg+xml"
+// sayTypeToString converts ClineSay to string
+func sayTypeToString(say cline.ClineSay) string {
+	switch say {
+	case cline.ClineSay_TEXT:
+		return "text"
+	case cline.ClineSay_TASK:
+		return "task"
+	case cline.ClineSay_ERROR:
+		return "error"
+	case cline.ClineSay_API_REQ_STARTED:
+		return "api_req_started"
+	case cline.ClineSay_API_REQ_FINISHED:
+		return "api_req_finished"
+	case cline.ClineSay_COMMAND_SAY:
+		return "command"
+	case cline.ClineSay_COMMAND_OUTPUT_SAY:
+		return "command_output"
+	case cline.ClineSay_TOOL_SAY:
+		return "tool"
+	case cline.ClineSay_COMPLETION_RESULT_SAY:
+		return "completion_result"
+	case cline.ClineSay_USER_FEEDBACK:
+		return "user_feedback"
+	case cline.ClineSay_USER_FEEDBACK_DIFF:
+		return "user_feedback_diff"
+	case cline.ClineSay_CHECKPOINT_CREATED:
+		return "checkpoint_created"
+	case cline.ClineSay_GENERATE_EXPLANATION:
+		return "generate_explanation"
+	case cline.ClineSay_REASONING:
+		return "thinking"
+	case cline.ClineSay_BROWSER_ACTION:
+		return "browser_action"
+	case cline.ClineSay_BROWSER_ACTION_RESULT:
+		return "browser_action_result"
+	case cline.ClineSay_MCP_SERVER_REQUEST_STARTED:
+		return "mcp_server_request"
+	case cline.ClineSay_MCP_SERVER_RESPONSE:
+		return "mcp_server_response"
+	case cline.ClineSay_MCP_NOTIFICATION:
+		return "mcp_notification"
+	case cline.ClineSay_SHELL_INTEGRATION_WARNING:
+		return "shell_integration_warning"
+	case cline.ClineSay_API_REQ_RETRIED:
+		return "api_req_retried"
+	case cline.ClineSay_DIFF_ERROR:
+		return "diff_error"
+	case cline.ClineSay_DELETED_API_REQS:
+		return "deleted_api_reqs"
+	case cline.ClineSay_CLINEIGNORE_ERROR:
+		return "clineignore_error"
+	case cline.ClineSay_LOAD_MCP_DOCUMENTATION:
+		return "load_mcp_documentation"
+	case cline.ClineSay_INFO:
+		return "info"
+	case cline.ClineSay_TASK_PROGRESS:
+		return "task_progress"
+	case cline.ClineSay_ERROR_RETRY:
+		return "error_retry"
+	case cline.ClineSay_HOOK_STATUS:
+		return "hook_status"
+	case cline.ClineSay_HOOK_OUTPUT_STREAM:
+		return "hook_output_stream"
+	case cline.ClineSay_COMMAND_PERMISSION_DENIED:
+		return "command_permission_denied"
+	case cline.ClineSay_CONDITIONAL_RULES_APPLIED:
+		return "conditional_rules_applied"
+	case cline.ClineSay_SUBAGENT_STATUS:
+		return "subagent_status"
+	case cline.ClineSay_USE_SUBAGENTS_SAY:
+		return "use_subagents"
+	case cline.ClineSay_SUBAGENT_USAGE:
+		return "subagent_usage"
 	default:
-		return ""
+		return "unknown"
 	}
 }
 
-// Cancel cancels the currently running task
-func (r *TaskRunner) Cancel() error {
-	if r.cancelFunc != nil {
-		r.cancelFunc()
+// askTypeToString converts ClineAsk to string
+func askTypeToString(ask cline.ClineAsk) string {
+	switch ask {
+	case cline.ClineAsk_FOLLOWUP:
+		return "followup"
+	case cline.ClineAsk_COMMAND:
+		return "command_approval"
+	case cline.ClineAsk_TOOL:
+		return "tool_approval"
+	case cline.ClineAsk_COMMAND_OUTPUT:
+		return "command_output"
+	case cline.ClineAsk_COMPLETION_RESULT:
+		return "completion_result"
+	case cline.ClineAsk_RESUME_TASK:
+		return "resume_task"
+	case cline.ClineAsk_RESUME_COMPLETED_TASK:
+		return "resume_completed_task"
+	case cline.ClineAsk_USE_MCP_SERVER:
+		return "use_mcp_server"
+	case cline.ClineAsk_NEW_TASK:
+		return "new_task"
+	case cline.ClineAsk_BROWSER_ACTION_LAUNCH:
+		return "browser_action_launch"
+	case cline.ClineAsk_CONDENSE:
+		return "condense"
+	case cline.ClineAsk_REPORT_BUG:
+		return "report_bug"
+	case cline.ClineAsk_SUMMARIZE_TASK:
+		return "summarize_task"
+	case cline.ClineAsk_ACT_MODE_RESPOND:
+		return "act_mode_respond"
+	case cline.ClineAsk_USE_SUBAGENTS:
+		return "use_subagents"
+	case cline.ClineAsk_MISTAKE_LIMIT_REACHED:
+		return "mistake_limit_reached"
+	case cline.ClineAsk_API_REQ_FAILED:
+		return "api_req_failed"
+	default:
+		return "unknown"
+	}
+}
+
+// SubscribeToPartialMessage subscribes to partial message updates
+func (r *Runner) subscribeToMessages(ctx context.Context, handler MessageHandler) error {
+	req := &cline.EmptyRequest{}
+	
+	stream, err := r.uiClient.SubscribeToPartialMessage(ctx, req)
+	if err != nil {
+		return err
 	}
 
-	if r.protoClient != nil {
-		return r.protoClient.CancelTask(context.Background())
-	}
+	// Start a goroutine to handle messages
+	go func() {
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					handler.OnError(fmt.Errorf("stream error: %w", err))
+				}
+				return
+			}
+
+			// Handle message
+			if msg.Type == cline.ClineMessageType_SAY {
+				handler.OnSay(sayTypeToString(msg.Say), msg.Text, msg.Partial)
+			} else if msg.Type == cline.ClineMessageType_ASK {
+				// For asks in background mode, auto-approve or log
+				handler.OnInfo(fmt.Sprintf("Ask received: %s", askTypeToString(msg.Ask)))
+			}
+		}
+	}()
 
 	return nil
-}
-
-// GetCurrentTaskID returns the current task ID
-func (r *TaskRunner) GetCurrentTaskID() string {
-	return r.currentTaskID
-}
-
-// RunTask is a convenience function to run a task with default options
-func RunTask(protoClient *host.ProtoClient, cfg TaskConfig) error {
-	opts := RunnerOptions{
-		ProtoClient: protoClient,
-		Mode:        ModePlain,
-		AutoApprove: cfg.Yolo,
-		Timeout:     cfg.Timeout,
-		Verbose:     cfg.Verbose,
-	}
-
-	runner := NewTaskRunner(opts)
-	return runner.Run(cfg)
-}
-
-// RunTaskWithMode runs a task with a specific output mode
-func RunTaskWithMode(protoClient *host.ProtoClient, cfg TaskConfig, mode OutputMode) error {
-	opts := RunnerOptions{
-		ProtoClient: protoClient,
-		Mode:        mode,
-		AutoApprove: cfg.Yolo,
-		Timeout:     cfg.Timeout,
-		Verbose:     cfg.Verbose,
-	}
-
-	runner := NewTaskRunner(opts)
-	return runner.Run(cfg)
 }

@@ -1,16 +1,16 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
+	"context"
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cline/cline/golang-cli/internal/host"
+	"github.com/cline/cline/golang-cli/internal/task"
 )
 
 // TaskMode represents the execution mode for a task
@@ -23,177 +23,25 @@ const (
 	TaskModePlan TaskMode = "plan"
 )
 
-// TaskConfig holds all configuration options for a task
-type TaskConfig struct {
-	// Mode specifies whether to run in act or plan mode
-	Mode TaskMode `json:"mode"`
-
-	// Yolo enables auto-approval without confirmation
-	Yolo bool `json:"yolo"`
-
-	// Timeout is the maximum duration for task execution
-	Timeout time.Duration `json:"timeout"`
-
-	// Model specifies the model to use for the task
-	Model string `json:"model"`
-
-	// Images is a list of image file paths to attach
-	Images []string `json:"images"`
-
-	// Verbose enables verbose output
-	Verbose bool `json:"verbose"`
-
-	// Cwd is the current working directory for the task
-	Cwd string `json:"cwd"`
-
-	// ConfigPath is the path to a custom configuration file
-	ConfigPath string `json:"configPath"`
-
-	// Thinking enables thinking mode
-	Thinking bool `json:"thinking"`
-
-	// ThinkingBudget specifies the thinking budget in tokens (0 = default 1024)
-	ThinkingBudget int `json:"thinkingBudget,omitempty"`
-
-	// JSON enables JSON output format
-	JSON bool `json:"json"`
-
-	// TaskID specifies a task ID to resume or reference
-	TaskID string `json:"taskId"`
-
-	// Prompt is the task prompt/message
-	Prompt string `json:"prompt"`
-
-	// AutoApproveAll enables auto-approve all actions while keeping interactive mode
-	AutoApproveAll bool `json:"autoApproveAll"`
-
-	// ReasoningEffort specifies the reasoning effort level (low, medium, high, xhigh)
-	ReasoningEffort string `json:"reasoningEffort"`
-
-	// MaxConsecutiveMistakes is the maximum consecutive mistakes before halting in yolo mode
-	MaxConsecutiveMistakes int `json:"maxConsecutiveMistakes"`
-
-	// DoubleCheckCompletion rejects first completion attempt to force re-verification
-	DoubleCheckCompletion bool `json:"doubleCheckCompletion"`
-
-	// AutoCondense enables AI-powered context compaction instead of mechanical truncation
-	AutoCondense bool `json:"autoCondense"`
-
-	// HooksDir is the path to additional hooks directory for runtime hook injection
-	HooksDir string `json:"hooksDir"`
-}
-
-// TaskRunner defines the interface for executing tasks
-type TaskRunner interface {
-	Run(config TaskConfig) error
-}
-
-// DefaultTaskRunner is the default implementation of TaskRunner
-type DefaultTaskRunner struct {
-	output io.Writer
-}
-
-// NewDefaultTaskRunner creates a new DefaultTaskRunner
-func NewDefaultTaskRunner(output io.Writer) *DefaultTaskRunner {
-	if output == nil {
-		output = os.Stdout
-	}
-	return &DefaultTaskRunner{output: output}
-}
-
-// Run executes a task with the given configuration
-func (r *DefaultTaskRunner) Run(config TaskConfig) error {
-	if config.Verbose && !config.JSON {
-		fmt.Fprintf(r.output, "Starting task in %s mode\n", config.Mode)
-		if config.Yolo {
-			fmt.Fprintln(r.output, "Yolo mode: auto-approval enabled")
-		}
-		if config.AutoApproveAll {
-			fmt.Fprintln(r.output, "Auto-approve all: enabled")
-		}
-		if config.Timeout > 0 {
-			fmt.Fprintf(r.output, "Timeout: %s\n", config.Timeout)
-		}
-		if config.Model != "" {
-			fmt.Fprintf(r.output, "Model: %s\n", config.Model)
-		}
-		if len(config.Images) > 0 {
-			fmt.Fprintf(r.output, "Images: %s\n", strings.Join(config.Images, ", "))
-		}
-		if config.Cwd != "" {
-			fmt.Fprintf(r.output, "Working directory: %s\n", config.Cwd)
-		}
-		if config.ConfigPath != "" {
-			fmt.Fprintf(r.output, "Config file: %s\n", config.ConfigPath)
-		}
-		if config.Thinking {
-			fmt.Fprintln(r.output, "Thinking mode enabled")
-		}
-		if config.ReasoningEffort != "" {
-			fmt.Fprintf(r.output, "Reasoning effort: %s\n", config.ReasoningEffort)
-		}
-		if config.MaxConsecutiveMistakes > 0 {
-			fmt.Fprintf(r.output, "Max consecutive mistakes: %d\n", config.MaxConsecutiveMistakes)
-		}
-		if config.DoubleCheckCompletion {
-			fmt.Fprintln(r.output, "Double-check completion: enabled")
-		}
-		if config.AutoCondense {
-			fmt.Fprintln(r.output, "Auto-condense: enabled")
-		}
-		if config.HooksDir != "" {
-			fmt.Fprintf(r.output, "Hooks directory: %s\n", config.HooksDir)
-		}
-		if config.TaskID != "" {
-			fmt.Fprintf(r.output, "Task ID: %s\n", config.TaskID)
-		}
-	}
-
-	// Validate images exist and are readable
-	for _, img := range config.Images {
-		if _, err := os.Stat(img); err != nil {
-			return fmt.Errorf("image file not accessible: %s: %w", img, err)
-		}
-	}
-
-	// Validate config file exists if specified
-	if config.ConfigPath != "" {
-		if _, err := os.Stat(config.ConfigPath); err != nil {
-			return fmt.Errorf("config file not found: %s: %w", config.ConfigPath, err)
-		}
-	}
-
-	// Output JSON if requested
-	if config.JSON {
-		output := map[string]interface{}{
-			"mode":                   config.Mode,
-			"yolo":                   config.Yolo,
-			"autoApproveAll":         config.AutoApproveAll,
-			"timeout":                config.Timeout.String(),
-			"model":                  config.Model,
-			"images":                 config.Images,
-			"cwd":                    config.Cwd,
-			"configPath":             config.ConfigPath,
-			"thinking":               config.Thinking,
-			"reasoningEffort":        config.ReasoningEffort,
-			"maxConsecutiveMistakes": config.MaxConsecutiveMistakes,
-			"doubleCheckCompletion":  config.DoubleCheckCompletion,
-			"autoCondense":           config.AutoCondense,
-			"hooksDir":               config.HooksDir,
-			"taskId":                 config.TaskID,
-			"prompt":                 config.Prompt,
-			"status":                 "started",
-		}
-		encoder := json.NewEncoder(r.output)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(output)
-	}
-
-	// Normal output
-	fmt.Fprintf(r.output, "Task: %s\n", config.Prompt)
-	fmt.Fprintln(r.output, "Status: Started successfully")
-
-	return nil
+// taskFlags holds the parsed flag values
+var taskFlags struct {
+	act                    bool
+	plan                   bool
+	yolo                   bool
+	timeout                string
+	model                  string
+	images                 []string
+	cwd                    string
+	config                 string
+	thinking               bool
+	json                   bool
+	taskId                 string
+	autoApproveAll         bool
+	reasoningEffort        string
+	maxConsecutiveMistakes int
+	doubleCheckCompletion  bool
+	autoCondense           bool
+	hooksDir               string
 }
 
 // taskCmd represents the task command
@@ -219,27 +67,6 @@ for controlling execution mode, model selection, and attachments.`,
   # Resume a task
   cline task -T task-123`,
 	RunE: runTask,
-}
-
-// taskFlags holds the parsed flag values
-var taskFlags struct {
-	act                    bool
-	plan                   bool
-	yolo                   bool
-	timeout                string
-	model                  string
-	images                 []string
-	cwd                    string
-	config                 string
-	thinking               bool
-	json                   bool
-	taskId                 string
-	autoApproveAll         bool
-	reasoningEffort        string
-	maxConsecutiveMistakes int
-	doubleCheckCompletion  bool
-	autoCondense           bool
-	hooksDir               string
 }
 
 func init() {
@@ -283,19 +110,68 @@ func runTask(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Create runner and execute
-	runner := NewDefaultTaskRunner(cmd.OutOrStdout())
-	return runner.Run(config)
+	// Resolve gRPC endpoint
+	resolver := host.NewEndpointResolver("")
+	endpointConfig, err := resolver.Resolve()
+	if err != nil {
+		return fmt.Errorf("failed to resolve gRPC endpoint: %w", err)
+	}
+
+	// Connect to gRPC server
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Add timeout if specified
+	if config.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, config.Timeout)
+		defer cancel()
+	}
+
+	// Create connection manager
+	cm := host.NewConnectionManager(endpointConfig)
+	if err := cm.ConnectWithRetry(ctx, 3); err != nil {
+		return fmt.Errorf("failed to connect to Cline core extension: %w", err)
+	}
+	defer cm.Close()
+
+	// Verify connection is healthy
+	if err := cm.HealthCheck(ctx); err != nil {
+		return fmt.Errorf("health check failed: %w", err)
+	}
+
+	// Create task runner
+	runner := task.NewRunner(cm.GetConnection())
+
+	// Create message handler based on output mode
+	var handler task.MessageHandler
+	if config.JSON {
+		handler = &task.JSONHandler{
+			Output: cmd.OutOrStdout(),
+		}
+	} else {
+		handler = &task.PlainTextHandler{
+			Verbose:     config.Verbose,
+			JSONOutput:  config.JSON,
+			Output:      cmd.OutOrStdout(),
+			AutoApprove: config.Yolo || config.AutoApproveAll,
+		}
+	}
+
+	// Run the task with streaming
+	if err := runner.RunWithStreaming(ctx, config, handler); err != nil {
+		return fmt.Errorf("task execution failed: %w", err)
+	}
+
+	return nil
 }
 
-// buildTaskConfig builds TaskConfig from parsed flags
-func buildTaskConfig() (TaskConfig, error) {
-	config := TaskConfig{
+// buildTaskConfig builds task.Config from parsed flags
+func buildTaskConfig() (task.Config, error) {
+	config := task.Config{
 		Yolo:                   taskFlags.yolo,
 		Model:                  taskFlags.model,
 		Images:                 taskFlags.images,
 		Cwd:                    taskFlags.cwd,
-		ConfigPath:             taskFlags.config,
 		Thinking:               taskFlags.thinking,
 		JSON:                   taskFlags.json,
 		TaskID:                 taskFlags.taskId,
@@ -309,16 +185,16 @@ func buildTaskConfig() (TaskConfig, error) {
 
 	// Determine mode (mutually exclusive, default to act)
 	if taskFlags.plan {
-		config.Mode = TaskModePlan
+		config.Mode = task.ModePlan
 	} else {
-		config.Mode = TaskModeAct
+		config.Mode = task.ModeAct
 	}
 
 	// Parse timeout
 	if taskFlags.timeout != "" {
 		duration, err := time.ParseDuration(taskFlags.timeout)
 		if err != nil {
-			return TaskConfig{}, fmt.Errorf("invalid timeout format: %s", taskFlags.timeout)
+			return task.Config{}, fmt.Errorf("invalid timeout format: %s", taskFlags.timeout)
 		}
 		config.Timeout = duration
 	}
@@ -356,7 +232,7 @@ func normalizeReasoningEffort(value string) string {
 }
 
 // validateTaskConfig validates the task configuration
-func validateTaskConfig(config TaskConfig) error {
+func validateTaskConfig(config task.Config) error {
 	var errs []string
 
 	// Check for mutually exclusive act/plan flags
@@ -380,9 +256,9 @@ func validateTaskConfig(config TaskConfig) error {
 	}
 
 	// Validate config file exists if specified
-	if config.ConfigPath != "" {
-		if _, err := os.Stat(config.ConfigPath); os.IsNotExist(err) {
-			errs = append(errs, fmt.Sprintf("config file not found: %s", config.ConfigPath))
+	if taskFlags.config != "" {
+		if _, err := os.Stat(taskFlags.config); os.IsNotExist(err) {
+			errs = append(errs, fmt.Sprintf("config file not found: %s", taskFlags.config))
 		}
 	}
 
@@ -396,64 +272,8 @@ func validateTaskConfig(config TaskConfig) error {
 	}
 
 	if len(errs) > 0 {
-		return errors.New(strings.Join(errs, "; "))
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 
 	return nil
-}
-
-// ValidateImageFile validates that an image file exists and is readable
-func ValidateImageFile(path string) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("image file does not exist: %s", path)
-		}
-		return fmt.Errorf("cannot access image file: %s: %w", path, err)
-	}
-
-	if info.IsDir() {
-		return fmt.Errorf("image path is a directory, not a file: %s", path)
-	}
-
-	// Check file extension for common image types
-	ext := strings.ToLower(filepath.Ext(path))
-	validExts := map[string]bool{
-		".png":  true,
-		".jpg":  true,
-		".jpeg": true,
-		".gif":  true,
-		".webp": true,
-		".bmp":  true,
-		".svg":  true,
-	}
-
-	if !validExts[ext] {
-		return fmt.Errorf("unsupported image format: %s (supported: png, jpg, jpeg, gif, webp, bmp, svg)", ext)
-	}
-
-	return nil
-}
-
-// ExpandPath expands a path that may contain ~ (home directory)
-func ExpandPath(path string) (string, error) {
-	if path == "" {
-		return "", nil
-	}
-
-	if strings.HasPrefix(path, "~") {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("failed to get home directory: %w", err)
-		}
-		path = filepath.Join(homeDir, path[1:])
-	}
-
-	// Convert to absolute path
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	return absPath, nil
 }
