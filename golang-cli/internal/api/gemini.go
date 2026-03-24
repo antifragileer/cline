@@ -626,13 +626,13 @@ func (p *GeminiProvider) convertGeminiError(err *geminiErrorResponse) error {
 }
 
 // GetModel returns the current default model
-func (p *GeminiProvider) GetModel() GeminiModel {
-	return p.model
+func (p *GeminiProvider) GetModel() string {
+	return string(p.model)
 }
 
 // SetModel sets the default model
-func (p *GeminiProvider) SetModel(model GeminiModel) {
-	p.model = model
+func (p *GeminiProvider) SetModel(model string) {
+	p.model = GeminiModel(model)
 }
 
 // GetModelContextWindow returns the context window size for a model

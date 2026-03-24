@@ -626,6 +626,32 @@ func (p *LMStudioProvider) convertLMStudioError(err *lmStudioError) error {
 	return fmt.Errorf("%w: %s", ErrLMStudioProviderError, err.Error.Message)
 }
 
+// GetSupportedModels returns a list of supported model IDs
+func (p *LMStudioProvider) GetSupportedModels() []string {
+	// LM Studio supports any OpenAI-compatible model
+	// In practice, users would call ListModels() to get loaded models
+	return []string{}
+}
+
+// ValidateModel checks if a model is supported
+func (p *LMStudioProvider) ValidateModel(model string) error {
+	// LM Studio supports any model name
+	if model == "" {
+		return fmt.Errorf("%w: model name cannot be empty", ErrLMStudioModelNotFound)
+	}
+	return nil
+}
+
+// GetModel returns the current default model
+func (p *LMStudioProvider) GetModel() string {
+	return ""
+}
+
+// SetModel sets the default model
+func (p *LMStudioProvider) SetModel(model string) {
+	// No-op for LM Studio since models are specified per-request
+}
+
 // GetBaseURL returns the base URL for the provider
 func (p *LMStudioProvider) GetBaseURL() string {
 	return p.baseURL

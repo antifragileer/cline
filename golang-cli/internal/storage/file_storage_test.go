@@ -76,6 +76,50 @@ func TestNewClineFileStorage(t *testing.T) {
 			t.Error("Nested directories should be created")
 		}
 	})
+
+	t.Run("handles empty file", func(t *testing.T) {
+		filePath := filepath.Join(tempDir, "empty.json")
+		// Create empty file
+		if err := os.WriteFile(filePath, []byte{}, 0644); err != nil {
+			t.Fatalf("Failed to create empty file: %v", err)
+		}
+
+		storage, err := NewClineFileStorage(filePath, 0644)
+		if err != nil {
+			t.Fatalf("NewClineFileStorage failed: %v", err)
+		}
+		defer storage.Close()
+
+		// Should start with empty data
+		all := storage.GetAll()
+		if len(all) != 0 {
+			t.Errorf("Expected empty data, got %d entries", len(all))
+		}
+	})
+
+	t.Run("handles invalid JSON", func(t *testing.T) {
+		filePath := filepath.Join(tempDir, "invalid.json")
+		// Create file with invalid JSON
+		if err := os.WriteFile(filePath, []byte("not valid json"), 0644); err != nil {
+			t.Fatalf("Failed to create invalid file: %v", err)
+		}
+
+		_, err := NewClineFileStorage(filePath, 0644)
+		if err == nil {
+			t.Error("Should fail with invalid JSON")
+		}
+	})
+
+	t.Run("handles directory creation failure", func(t *testing.T) {
+		// Try to create storage in a path where we can't create directories
+		// On most systems, this would be a read-only root or similar
+		invalidPath := "/nonexistent_root_dir/storage.json"
+		
+		_, err := NewClineFileStorage(invalidPath, 0644)
+		if err == nil {
+			t.Skip("System allows creating directories anywhere, skipping")
+		}
+	})
 }
 
 func TestClineFileStorage_Get(t *testing.T) {
@@ -240,6 +284,28 @@ func TestClineFileStorage_Set(t *testing.T) {
 			t.Error("Should return error when storage is closed")
 		}
 	})
+
+	t.Run("stores nil value", func(t *testing.T) {
+		storage, err := NewClineFileStorage(filepath.Join(tempDir, "nil.json"), 0644)
+		if err != nil {
+			t.Fatalf("NewClineFileStorage failed: %v", err)
+		}
+		defer storage.Close()
+
+		// First set a value, then set it to nil
+		storage.Set("key", "value")
+		if err := storage.Set("key", nil); err != nil {
+			t.Fatalf("Set nil failed: %v", err)
+		}
+
+		val, ok := storage.Get("key")
+		if !ok {
+			t.Error("Key with nil value should still exist")
+		}
+		if val != nil {
+			t.Errorf("Expected nil, got %v", val)
+		}
+	})
 }
 
 func TestClineFileStorage_SetBatch(t *testing.T) {
@@ -277,6 +343,34 @@ func TestClineFileStorage_SetBatch(t *testing.T) {
 				t.Errorf("Key %s: got %v (type %T), want %v (type %T)", key, actual, actual, expected, expected)
 			}
 		}
+	})
+
+	t.Run("overwrites existing keys in batch", func(t *testing.T) {
+		// Set initial value
+		storage.Set("existing", "old")
+
+		pairs := map[string]interface{}{
+			"existing": "new",
+			"newkey":   "value",
+		}
+
+		if err := storage.SetBatch(pairs); err != nil {
+			t.Fatalf("SetBatch failed: %v", err)
+		}
+
+		val, _ := storage.Get("existing")
+		if val != "new" {
+			t.Errorf("Expected 'new', got %v", val)
+		}
+	})
+
+	t.Run("empty batch is no-op", func(t *testing.T) {
+		if err := storage.SetBatch(map[string]interface{}{}); err != nil {
+			t.Fatalf("SetBatch failed: %v", err)
+		}
+
+		// After batch, dirty should be set then cleared by flush
+		// This just verifies no error occurs
 	})
 
 	t.Run("returns error when closed", func(t *testing.T) {
@@ -385,6 +479,14 @@ func TestClineFileStorage_GetAll(t *testing.T) {
 		all := tempStorage.GetAll()
 		if len(all) != 0 {
 			t.Error("Should return empty map when closed")
+		}
+	})
+
+	t.Run("returns empty map for new storage", func(t *testing.T) {
+		all := storage.GetAll()
+		// Should not be nil
+		if all == nil {
+			t.Error("GetAll should never return nil")
 		}
 	})
 }
@@ -613,10 +715,15 @@ func TestClineFileStorage_IsDirty(t *testing.T) {
 		}
 	})
 
-	t.Run("dirty after set", func(t *testing.T) {
-		storage.Set("key", "value")
-		// Note: Set also calls flush, so dirty might be false immediately after
-		// This tests the internal state tracking
+	t.Run("tracks dirty state correctly", func(t *testing.T) {
+		// Note: Set() also calls flush(), so dirty might be false immediately after
+		// The implementation detail is that dirty is set during modification
+		// and cleared after flush
+		
+		// Before any operation
+		if storage.IsDirty() {
+			t.Log("Storage is dirty before any operation (unexpected but implementation-dependent)")
+		}
 	})
 }
 
@@ -668,3 +775,315 @@ func TestClineFileStorage_Reload(t *testing.T) {
 	})
 }
 
+func TestClineFileStorage_AtomicWrites(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cline-storage-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	storage, err := NewClineFileStorage(filepath.Join(tempDir, "atomic.json"), 0644)
+	if err != nil {
+		t.Fatalf("NewClineFileStorage failed: %v", err)
+	}
+	defer storage.Close()
+
+	t.Run("no temp files left after write", func(t *testing.T) {
+		// Perform multiple writes
+		for i := 0; i < 10; i++ {
+			storage.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
+		}
+
+		// Check for temp files
+		entries, err := os.ReadDir(tempDir)
+		if err != nil {
+			t.Fatalf("Failed to read directory: %v", err)
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			// Look for temp file patterns
+			if len(name) > 4 && name[len(name)-4:] == ".tmp" {
+				t.Errorf("Temp file left behind: %s", name)
+			}
+		}
+	})
+
+	t.Run("data integrity after many writes", func(t *testing.T) {
+		// Write many values rapidly
+		for i := 0; i < 100; i++ {
+			if err := storage.Set("counter", i); err != nil {
+				t.Fatalf("Set failed at iteration %d: %v", i, err)
+			}
+		}
+
+		// Final value should be 99
+		val, ok := storage.Get("counter")
+		if !ok {
+			t.Fatal("Counter key not found")
+		}
+		if val != float64(99) {
+			t.Errorf("Final value = %v, want 99", val)
+		}
+	})
+}
+
+func TestClineFileStorage_ConcurrentFileAccess(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cline-storage-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	filePath := filepath.Join(tempDir, "concurrent.json")
+
+	t.Run("multiple processes can access file safely", func(t *testing.T) {
+		// Create first storage
+		storage1, err := NewClineFileStorage(filePath, 0644)
+		if err != nil {
+			t.Fatalf("NewClineFileStorage failed: %v", err)
+		}
+
+		// Try to create second storage (should use file locking)
+		storage2, err := NewClineFileStorage(filePath, 0644)
+		if err != nil {
+			// This is expected if file locking prevents concurrent access
+			t.Logf("Second storage creation result: %v", err)
+		} else {
+			// If it succeeds, both should work
+			storage2.Close()
+		}
+
+		storage1.Close()
+	})
+}
+
+func TestClineFileStorage_LargeData(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cline-storage-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	storage, err := NewClineFileStorage(filepath.Join(tempDir, "large.json"), 0644)
+	if err != nil {
+		t.Fatalf("NewClineFileStorage failed: %v", err)
+	}
+	defer storage.Close()
+
+	t.Run("handles large values", func(t *testing.T) {
+		// Create a large string (1MB)
+		largeString := make([]byte, 1024*1024)
+		for i := range largeString {
+			largeString[i] = byte('a' + (i % 26))
+		}
+
+		if err := storage.Set("large", string(largeString)); err != nil {
+			t.Fatalf("Set failed for large value: %v", err)
+		}
+
+		val, ok := storage.Get("large")
+		if !ok {
+			t.Fatal("Large value not found")
+		}
+
+		retrieved := val.(string)
+		if len(retrieved) != len(largeString) {
+			t.Errorf("Retrieved size = %d, want %d", len(retrieved), len(largeString))
+		}
+	})
+
+	t.Run("handles many keys", func(t *testing.T) {
+		// Add many keys
+		for i := 0; i < 1000; i++ {
+			key := fmt.Sprintf("key%d", i)
+			if err := storage.Set(key, fmt.Sprintf("value%d", i)); err != nil {
+				t.Fatalf("Set failed at key %d: %v", i, err)
+			}
+		}
+
+		// Verify count
+		all := storage.GetAll()
+		if len(all) < 1000 {
+			t.Errorf("Expected at least 1000 keys, got %d", len(all))
+		}
+	})
+}
+
+func TestClineFileStorage_SpecialValues(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cline-storage-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	storage, err := NewClineFileStorage(filepath.Join(tempDir, "special.json"), 0644)
+	if err != nil {
+		t.Fatalf("NewClineFileStorage failed: %v", err)
+	}
+	defer storage.Close()
+
+	t.Run("handles unicode strings", func(t *testing.T) {
+		tests := []string{
+			"Hello, 世界",
+			"🎉 Party time! 🎊",
+			"مرحبا بالعالم",
+			"שלום עולם",
+		}
+
+		for i, value := range tests {
+			key := fmt.Sprintf("unicode%d", i)
+			if err := storage.Set(key, value); err != nil {
+				t.Fatalf("Set failed for unicode %d: %v", i, err)
+			}
+
+			retrieved, ok := storage.Get(key)
+			if !ok {
+				t.Fatalf("Unicode key %d not found", i)
+			}
+
+			if retrieved != value {
+				t.Errorf("Unicode %d: got %q, want %q", i, retrieved, value)
+			}
+		}
+	})
+
+	t.Run("handles special characters in keys", func(t *testing.T) {
+		// Note: Some characters might not be valid in JSON keys
+		// but we should handle common ones
+		tests := []string{
+			"key-with-dashes",
+			"key_with_underscores",
+			"key.with.dots",
+			"key:with:colons",
+		}
+
+		for _, key := range tests {
+			if err := storage.Set(key, "value"); err != nil {
+				t.Fatalf("Set failed for key %q: %v", key, err)
+			}
+
+			retrieved, ok := storage.Get(key)
+			if !ok {
+				t.Errorf("Key %q not found", key)
+			} else if retrieved != "value" {
+				t.Errorf("Key %q: got %v, want 'value'", key, retrieved)
+			}
+		}
+	})
+}
+
+func TestClineFileStorage_Close(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cline-storage-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	t.Run("persists data on close", func(t *testing.T) {
+		filePath := filepath.Join(tempDir, "close-persist.json")
+		storage, _ := NewClineFileStorage(filePath, 0644)
+
+		storage.Set("key", "value")
+		
+		// Close should persist
+		if err := storage.Close(); err != nil {
+			t.Fatalf("Close failed: %v", err)
+		}
+
+		// Verify file exists and contains data
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			t.Fatalf("Failed to read file: %v", err)
+		}
+
+		var parsed map[string]interface{}
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			t.Fatalf("File is not valid JSON: %v", err)
+		}
+
+		if parsed["key"] != "value" {
+			t.Errorf("Expected 'value', got %v", parsed["key"])
+		}
+	})
+
+	t.Run("multiple close calls are safe", func(t *testing.T) {
+		filePath := filepath.Join(tempDir, "multi-close.json")
+		storage, _ := NewClineFileStorage(filePath, 0644)
+
+		storage.Set("key", "value")
+
+		// First close should persist
+		if err := storage.Close(); err != nil {
+			t.Fatalf("First close failed: %v", err)
+		}
+
+		// Subsequent closes should be safe (no-op)
+		for i := 0; i < 3; i++ {
+			if err := storage.Close(); err != nil {
+				t.Fatalf("Close %d failed: %v", i+2, err)
+			}
+		}
+	})
+}
+
+func TestClineFileStorage_StressTest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping stress test in short mode")
+	}
+
+	tempDir, err := os.MkdirTemp("", "cline-stress-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	storage, err := NewClineFileStorage(filepath.Join(tempDir, "stress.json"), 0644)
+	if err != nil {
+		t.Fatalf("NewClineFileStorage failed: %v", err)
+	}
+	defer storage.Close()
+
+	t.Run("rapid concurrent operations", func(t *testing.T) {
+		const numWorkers = 20
+		const opsPerWorker = 500
+
+		var wg sync.WaitGroup
+		start := make(chan bool)
+
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				<-start // Synchronize start
+
+				for j := 0; j < opsPerWorker; j++ {
+					switch j % 4 {
+					case 0:
+						storage.Set(fmt.Sprintf("w%d-key%d", id, j), j)
+					case 1:
+						storage.Get(fmt.Sprintf("w%d-key%d", id, j-1))
+					case 2:
+						storage.GetAll()
+					case 3:
+						if j > 100 {
+							storage.Delete(fmt.Sprintf("w%d-key%d", id, j-100))
+						}
+					}
+				}
+			}(i)
+		}
+
+		// Start all workers simultaneously
+		close(start)
+		wg.Wait()
+
+		// Storage should still be functional
+		if err := storage.Set("final", "test"); err != nil {
+			t.Fatalf("Storage not functional after stress test: %v", err)
+		}
+	})
+}

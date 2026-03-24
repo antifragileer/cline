@@ -85,16 +85,16 @@ type ImageData struct {
 
 // NewTaskRequest represents a request to create a new task
 type NewTaskRequest struct {
-	TaskID      string      `json:"taskId"`
-	Prompt      string      `json:"prompt"`
-	Mode        TaskMode    `json:"mode"`
-	Images      []ImageData `json:"images,omitempty"`
-	Model       string      `json:"model"`
-	Timeout     int64       `json:"timeout"` // seconds
-	Yolo        bool        `json:"yolo"`
-	Thinking    bool        `json:"thinking"`
-	Cwd         string      `json:"cwd"`
-	Timestamp   int64       `json:"timestamp"`
+	TaskID      string            `json:"taskId"`
+	Prompt      string            `json:"prompt"`
+	Mode        TaskMode          `json:"mode"`
+	Images      []ImageData       `json:"images,omitempty"`
+	Model       string            `json:"model"`
+	Timeout     int64             `json:"timeout"` // seconds
+	Yolo        bool              `json:"yolo"`
+	Thinking    bool              `json:"thinking"`
+	Cwd         string            `json:"cwd"`
+	Timestamp   int64             `json:"timestamp"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
@@ -423,7 +423,7 @@ func (i *Initializer) loadImage(path string) (*ImageData, error) {
 
 // getMimeType returns the MIME type for a given file extension
 func getMimeType(ext string) string {
-	switch ext {
+	switch strings.ToLower(ext) {
 	case ".png":
 		return "image/png"
 	case ".jpg", ".jpeg":
@@ -506,78 +506,73 @@ func (i *Initializer) loadConfigFile(path string, cfg *TaskConfig) error {
 	return nil
 }
 
-// sendNewTaskRequest sends the NewTask request via gRPC
+// sendNewTaskRequest sends the NewTask request via gRPC using the TaskStreamHandler
 func (i *Initializer) sendNewTaskRequest(ctx context.Context, taskID string, cfg TaskConfig, images []ImageData) (*NewTaskResponse, error) {
 	if i.client == nil {
 		return nil, fmt.Errorf("gRPC client not available")
 	}
 
-	// Build request
-	req := &NewTaskRequest{
+	// Create a TaskStreamHandler for bidirectional communication
+	handler := host.NewTaskStreamHandler(taskID)
+	
+	// Set up message callbacks
+	handler.OnTextMessage = func(text string) {
+		if cfg.Verbose {
+			fmt.Fprintf(i.output, "Assistant: %s\n", text)
+		}
+	}
+	
+	handler.OnCompletion = func(result string) {
+		if cfg.Verbose {
+			fmt.Fprintf(i.output, "Task completed: %s\n", result)
+		}
+	}
+	
+	handler.OnError = func(err error) {
+		fmt.Fprintf(i.output, "Error: %v\n", err)
+	}
+
+	// Create a StreamCreator function using the client
+	streamCreator := func(ctx context.Context, conn *grpc.ClientConn) (host.TaskService_StreamClient, error) {
+		return CreateTaskStream(ctx, conn, taskID)
+	}
+
+	// Start the handler
+	if err := handler.Start(streamCreator); err != nil {
+		return nil, fmt.Errorf("failed to start task stream handler: %w", err)
+	}
+	defer handler.Stop()
+
+	// Send the initial task message
+	imageContents := make([]string, 0, len(images))
+	for _, img := range images {
+		imageContents = append(imageContents, img.Content)
+	}
+
+	if err := handler.SendMessage(cfg.Prompt, imageContents, nil); err != nil {
+		return nil, fmt.Errorf("failed to send task message: %w", err)
+	}
+
+	// Wait for completion or timeout
+	if cfg.Timeout > 0 {
+		ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+		defer cancel()
+		
+		if err := handler.WaitForCompletion(ctx); err != nil {
+			return nil, fmt.Errorf("task execution failed: %w", err)
+		}
+	} else {
+		if err := handler.WaitForCompletion(ctx); err != nil {
+			return nil, fmt.Errorf("task execution failed: %w", err)
+		}
+	}
+
+	return &NewTaskResponse{
+		Success:   true,
 		TaskID:    taskID,
-		Prompt:    cfg.Prompt,
-		Mode:      cfg.Mode,
-		Images:    images,
-		Model:     cfg.Model,
-		Timeout:   int64(cfg.Timeout.Seconds()),
-		Yolo:      cfg.Yolo,
-		Thinking:  cfg.Thinking,
-		Cwd:       cfg.Cwd,
+		Message:   "Task completed successfully",
 		Timestamp: time.Now().Unix(),
-		Metadata: map[string]string{
-			"source":    "golang-cli",
-			"version":   getVersion(),
-			"timestamp": time.Now().Format(time.RFC3339),
-		},
-	}
-
-	// Use retry logic
-	var resp *NewTaskResponse
-	err := i.client.WithRetry(ctx, func(conn *grpc.ClientConn) error {
-		// Create a stream for this request
-		stream, err := createTaskStream(ctx, conn)
-		if err != nil {
-			return fmt.Errorf("failed to create stream: %w", err)
-		}
-
-		// Send request
-		msg := &host.Message{
-			Type:    "new_task",
-			Payload: mustMarshalJSON(req),
-		}
-
-		if err := stream.Send(msg); err != nil {
-			return fmt.Errorf("failed to send request: %w", err)
-		}
-
-		// Receive response
-		response, err := stream.Recv()
-		if err != nil {
-			return fmt.Errorf("failed to receive response: %w", err)
-		}
-
-		// Parse response
-		var newTaskResp NewTaskResponse
-		if err := json.Unmarshal(response.Payload, &newTaskResp); err != nil {
-			return fmt.Errorf("failed to parse response: %w", err)
-		}
-
-		resp = &newTaskResp
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// createTaskStream creates a bidirectional stream for task communication
-func createTaskStream(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[host.Message, host.Message], error) {
-	// This is a placeholder - in a real implementation, this would use the generated proto client
-	// For now, we return an error indicating this needs the actual proto implementation
-	return nil, fmt.Errorf("stream creation requires proto implementation")
+	}, nil
 }
 
 // persistToHistory saves the task to history
@@ -636,6 +631,164 @@ func getVersion() string {
 func (i *Initializer) Close() error {
 	if i.ui != nil {
 		return i.ui.Close()
+	}
+	return nil
+}
+
+// ============================================================================
+// Task Stream Functions
+// ============================================================================
+
+// CreateTaskStream creates a bidirectional stream for task communication using the generated proto types
+// This function is used by the task initializer to establish communication with the core extension
+func CreateTaskStream(ctx context.Context, conn *grpc.ClientConn, taskID string) (host.TaskService_StreamClient, error) {
+	// Use the StreamCreator from the host package
+	streamCreator := host.CreateTaskStreamCreator(taskID)
+	return streamCreator(ctx, conn)
+}
+
+// HandleTaskStream manages the bidirectional stream for a task, routing messages between
+// the CLI and the core extension. It handles incoming messages (tool requests, responses)
+// and sends user input back.
+func HandleTaskStream(ctx context.Context, stream host.TaskService_StreamClient, handlers TaskStreamHandlers) error {
+	// Create channels for coordinating send/receive
+	errChan := make(chan error, 2)
+	doneChan := make(chan struct{})
+
+	// Start receive goroutine
+	go func() {
+		defer close(doneChan)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			msg, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+				errChan <- fmt.Errorf("receive error: %w", err)
+				return
+			}
+
+			if msg == nil || msg.ClineMessage == nil {
+				continue
+			}
+
+			// Route the message to appropriate handler
+			if err := routeMessage(msg, handlers); err != nil {
+				errChan <- fmt.Errorf("message routing error: %w", err)
+				return
+			}
+		}
+	}()
+
+	// Wait for completion or error
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errChan:
+		return err
+	case <-doneChan:
+		return nil
+	}
+}
+
+// TaskStreamHandlers contains callback functions for handling different message types
+type TaskStreamHandlers struct {
+	// OnTextMessage is called when a text message is received
+	OnTextMessage func(text string)
+	// OnToolRequest is called when a tool execution is requested
+	OnToolRequest func(tool *host.ClineSayTool) error
+	// OnCommandRequest is called when a command execution is requested
+	OnCommandRequest func(command string) error
+	// OnCompletion is called when the task completes
+	OnCompletion func(result string)
+	// OnError is called when an error occurs
+	OnError func(err error)
+	// OnAskQuestion is called when a question is asked
+	OnAskQuestion func(question *host.ClineAskQuestion) (string, error)
+	// SendResponse is called to send a response back to the core extension
+	SendResponse func(responseType string, text string, images []string, files []string) error
+}
+
+// routeMessage routes an incoming message to the appropriate handler
+func routeMessage(msg *host.ClineMessageProto, handlers TaskStreamHandlers) error {
+	if msg == nil || msg.ClineMessage == nil {
+		return nil
+	}
+
+	switch msg.Type {
+	case host.ClineMessageType_SAY:
+		return handleSayMessage(msg, handlers)
+	case host.ClineMessageType_ASK:
+		return handleAskMessage(msg, handlers)
+	default:
+		return fmt.Errorf("unknown message type: %v", msg.Type)
+	}
+}
+
+// handleSayMessage handles say messages from the core extension
+func handleSayMessage(msg *host.ClineMessageProto, handlers TaskStreamHandlers) error {
+	switch msg.Say {
+	case host.ClineSay_TEXT:
+		if handlers.OnTextMessage != nil {
+			handlers.OnTextMessage(msg.Text)
+		}
+	case host.ClineSay_TOOL_SAY:
+		if msg.SayTool != nil && handlers.OnToolRequest != nil {
+			if err := handlers.OnToolRequest(msg.SayTool); err != nil {
+				return err
+			}
+		}
+	case host.ClineSay_COMMAND_SAY:
+		if handlers.OnCommandRequest != nil {
+			if err := handlers.OnCommandRequest(msg.Text); err != nil {
+				return err
+			}
+		}
+	case host.ClineSay_COMPLETION_RESULT_SAY:
+		if handlers.OnCompletion != nil {
+			handlers.OnCompletion(msg.Text)
+		}
+	case host.ClineSay_ERROR:
+		if handlers.OnError != nil {
+			handlers.OnError(fmt.Errorf("%s", msg.Text))
+		}
+	}
+	return nil
+}
+
+// handleAskMessage handles ask messages from the core extension
+func handleAskMessage(msg *host.ClineMessageProto, handlers TaskStreamHandlers) error {
+	switch msg.Ask {
+	case host.ClineAsk_FOLLOWUP, host.ClineAsk_PLAN_MODE_RESPOND, host.ClineAsk_ACT_MODE_RESPOND:
+		if msg.AskQuestion != nil && handlers.OnAskQuestion != nil {
+			response, err := handlers.OnAskQuestion(msg.AskQuestion)
+			if err != nil {
+				return err
+			}
+			if handlers.SendResponse != nil {
+				return handlers.SendResponse("messageResponse", response, nil, nil)
+			}
+		}
+	case host.ClineAsk_COMMAND:
+		// Command approval request - auto-approve for now
+		if handlers.SendResponse != nil {
+			return handlers.SendResponse("yesButtonClicked", "", nil, nil)
+		}
+	case host.ClineAsk_TOOL:
+		// Tool approval request - auto-approve for now
+		if handlers.SendResponse != nil {
+			return handlers.SendResponse("yesButtonClicked", "", nil, nil)
+		}
+	case host.ClineAsk_COMPLETION_RESULT:
+		if handlers.OnCompletion != nil {
+			handlers.OnCompletion(msg.Text)
+		}
 	}
 	return nil
 }

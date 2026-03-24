@@ -52,6 +52,9 @@ type TaskConfig struct {
 	// Thinking enables thinking mode
 	Thinking bool `json:"thinking"`
 
+	// ThinkingBudget specifies the thinking budget in tokens (0 = default 1024)
+	ThinkingBudget int `json:"thinkingBudget,omitempty"`
+
 	// JSON enables JSON output format
 	JSON bool `json:"json"`
 
@@ -60,6 +63,24 @@ type TaskConfig struct {
 
 	// Prompt is the task prompt/message
 	Prompt string `json:"prompt"`
+
+	// AutoApproveAll enables auto-approve all actions while keeping interactive mode
+	AutoApproveAll bool `json:"autoApproveAll"`
+
+	// ReasoningEffort specifies the reasoning effort level (low, medium, high, xhigh)
+	ReasoningEffort string `json:"reasoningEffort"`
+
+	// MaxConsecutiveMistakes is the maximum consecutive mistakes before halting in yolo mode
+	MaxConsecutiveMistakes int `json:"maxConsecutiveMistakes"`
+
+	// DoubleCheckCompletion rejects first completion attempt to force re-verification
+	DoubleCheckCompletion bool `json:"doubleCheckCompletion"`
+
+	// AutoCondense enables AI-powered context compaction instead of mechanical truncation
+	AutoCondense bool `json:"autoCondense"`
+
+	// HooksDir is the path to additional hooks directory for runtime hook injection
+	HooksDir string `json:"hooksDir"`
 }
 
 // TaskRunner defines the interface for executing tasks
@@ -87,6 +108,9 @@ func (r *DefaultTaskRunner) Run(config TaskConfig) error {
 		if config.Yolo {
 			fmt.Fprintln(r.output, "Yolo mode: auto-approval enabled")
 		}
+		if config.AutoApproveAll {
+			fmt.Fprintln(r.output, "Auto-approve all: enabled")
+		}
 		if config.Timeout > 0 {
 			fmt.Fprintf(r.output, "Timeout: %s\n", config.Timeout)
 		}
@@ -104,6 +128,21 @@ func (r *DefaultTaskRunner) Run(config TaskConfig) error {
 		}
 		if config.Thinking {
 			fmt.Fprintln(r.output, "Thinking mode enabled")
+		}
+		if config.ReasoningEffort != "" {
+			fmt.Fprintf(r.output, "Reasoning effort: %s\n", config.ReasoningEffort)
+		}
+		if config.MaxConsecutiveMistakes > 0 {
+			fmt.Fprintf(r.output, "Max consecutive mistakes: %d\n", config.MaxConsecutiveMistakes)
+		}
+		if config.DoubleCheckCompletion {
+			fmt.Fprintln(r.output, "Double-check completion: enabled")
+		}
+		if config.AutoCondense {
+			fmt.Fprintln(r.output, "Auto-condense: enabled")
+		}
+		if config.HooksDir != "" {
+			fmt.Fprintf(r.output, "Hooks directory: %s\n", config.HooksDir)
 		}
 		if config.TaskID != "" {
 			fmt.Fprintf(r.output, "Task ID: %s\n", config.TaskID)
@@ -127,17 +166,23 @@ func (r *DefaultTaskRunner) Run(config TaskConfig) error {
 	// Output JSON if requested
 	if config.JSON {
 		output := map[string]interface{}{
-			"mode":       config.Mode,
-			"yolo":       config.Yolo,
-			"timeout":    config.Timeout.String(),
-			"model":      config.Model,
-			"images":     config.Images,
-			"cwd":        config.Cwd,
-			"configPath": config.ConfigPath,
-			"thinking":   config.Thinking,
-			"taskId":     config.TaskID,
-			"prompt":     config.Prompt,
-			"status":     "started",
+			"mode":                   config.Mode,
+			"yolo":                   config.Yolo,
+			"autoApproveAll":         config.AutoApproveAll,
+			"timeout":                config.Timeout.String(),
+			"model":                  config.Model,
+			"images":                 config.Images,
+			"cwd":                    config.Cwd,
+			"configPath":             config.ConfigPath,
+			"thinking":               config.Thinking,
+			"reasoningEffort":        config.ReasoningEffort,
+			"maxConsecutiveMistakes": config.MaxConsecutiveMistakes,
+			"doubleCheckCompletion":  config.DoubleCheckCompletion,
+			"autoCondense":           config.AutoCondense,
+			"hooksDir":               config.HooksDir,
+			"taskId":                 config.TaskID,
+			"prompt":                 config.Prompt,
+			"status":                 "started",
 		}
 		encoder := json.NewEncoder(r.output)
 		encoder.SetIndent("", "  ")
@@ -178,17 +223,23 @@ for controlling execution mode, model selection, and attachments.`,
 
 // taskFlags holds the parsed flag values
 var taskFlags struct {
-	act      bool
-	plan     bool
-	yolo     bool
-	timeout  string
-	model    string
-	images   []string
-	cwd      string
-	config   string
-	thinking bool
-	json     bool
-	taskId   string
+	act                    bool
+	plan                   bool
+	yolo                   bool
+	timeout                string
+	model                  string
+	images                 []string
+	cwd                    string
+	config                 string
+	thinking               bool
+	json                   bool
+	taskId                 string
+	autoApproveAll         bool
+	reasoningEffort        string
+	maxConsecutiveMistakes int
+	doubleCheckCompletion  bool
+	autoCondense           bool
+	hooksDir               string
 }
 
 func init() {
@@ -206,6 +257,12 @@ func init() {
 	taskCmd.Flags().BoolVar(&taskFlags.thinking, "thinking", false, "Enable thinking mode")
 	taskCmd.Flags().BoolVar(&taskFlags.json, "json", false, "Output in JSON format")
 	taskCmd.Flags().StringVarP(&taskFlags.taskId, "taskId", "T", "", "Task ID to resume or reference")
+	taskCmd.Flags().BoolVar(&taskFlags.autoApproveAll, "auto-approve-all", false, "Enable auto-approve all actions while keeping interactive mode")
+	taskCmd.Flags().StringVar(&taskFlags.reasoningEffort, "reasoning-effort", "", "Reasoning effort: none|low|medium|high|xhigh")
+	taskCmd.Flags().IntVar(&taskFlags.maxConsecutiveMistakes, "max-consecutive-mistakes", 0, "Maximum consecutive mistakes before halting in yolo mode")
+	taskCmd.Flags().BoolVar(&taskFlags.doubleCheckCompletion, "double-check-completion", false, "Reject first completion attempt to force re-verification")
+	taskCmd.Flags().BoolVar(&taskFlags.autoCondense, "auto-condense", false, "Enable AI-powered context compaction instead of mechanical truncation")
+	taskCmd.Flags().StringVar(&taskFlags.hooksDir, "hooks-dir", "", "Path to additional hooks directory for runtime hook injection")
 }
 
 // runTask executes the task command
@@ -234,14 +291,20 @@ func runTask(cmd *cobra.Command, args []string) error {
 // buildTaskConfig builds TaskConfig from parsed flags
 func buildTaskConfig() (TaskConfig, error) {
 	config := TaskConfig{
-		Yolo:       taskFlags.yolo,
-		Model:      taskFlags.model,
-		Images:     taskFlags.images,
-		Cwd:        taskFlags.cwd,
-		ConfigPath: taskFlags.config,
-		Thinking:   taskFlags.thinking,
-		JSON:       taskFlags.json,
-		TaskID:     taskFlags.taskId,
+		Yolo:                   taskFlags.yolo,
+		Model:                  taskFlags.model,
+		Images:                 taskFlags.images,
+		Cwd:                    taskFlags.cwd,
+		ConfigPath:             taskFlags.config,
+		Thinking:               taskFlags.thinking,
+		JSON:                   taskFlags.json,
+		TaskID:                 taskFlags.taskId,
+		AutoApproveAll:         taskFlags.autoApproveAll,
+		ReasoningEffort:        normalizeReasoningEffort(taskFlags.reasoningEffort),
+		MaxConsecutiveMistakes: taskFlags.maxConsecutiveMistakes,
+		DoubleCheckCompletion:  taskFlags.doubleCheckCompletion,
+		AutoCondense:           taskFlags.autoCondense,
+		HooksDir:               taskFlags.hooksDir,
 	}
 
 	// Determine mode (mutually exclusive, default to act)
@@ -266,6 +329,30 @@ func buildTaskConfig() (TaskConfig, error) {
 	}
 
 	return config, nil
+}
+
+// normalizeReasoningEffort validates and normalizes the reasoning effort value
+func normalizeReasoningEffort(value string) string {
+	if value == "" {
+		return ""
+	}
+
+	normalized := strings.ToLower(value)
+	validValues := map[string]bool{
+		"none":   true,
+		"low":    true,
+		"medium": true,
+		"high":   true,
+		"xhigh":  true,
+	}
+
+	if validValues[normalized] {
+		return normalized
+	}
+
+	// Invalid value - print warning and default to medium
+	fmt.Fprintf(os.Stderr, "Invalid --reasoning-effort '%s'. Using 'medium'. Valid values: none, low, medium, high, xhigh.\n", value)
+	return "medium"
 }
 
 // validateTaskConfig validates the task configuration

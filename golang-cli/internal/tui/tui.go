@@ -84,6 +84,7 @@ func NewProgram(opts ProgramOptions) (*Program, error) {
 	var model Model
 	if opts.Mode == ModePlain {
 		model = NewPlainModel()
+		model.SetContent(opts.InitialContent)
 	} else {
 		model = NewModel(opts.Title)
 		model.SetContent(opts.InitialContent)

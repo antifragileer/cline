@@ -6,9 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/cline/cline/golang-cli/internal/tui"
 )
 
 // configFlags holds the parsed flag values for config command
@@ -64,8 +67,88 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return editConfig(ctx)
 	}
 
-	// Display configuration
-	return displayConfig(ctx, configFlags.json, configFlags.global)
+	// Handle JSON output mode
+	if configFlags.json {
+		return displayConfigJSON(ctx, configFlags.global)
+	}
+
+	// Check if we should use interactive TUI mode
+	// TUI is used when: no flags are provided AND stdout is a terminal
+	if shouldUseInteractiveMode() {
+		return runInteractiveConfig(ctx)
+	}
+
+	// Display configuration in human-readable format
+	return displayConfigHuman(ctx, configFlags.global)
+}
+
+// shouldUseInteractiveMode returns true if we should use the interactive TUI
+func shouldUseInteractiveMode() bool {
+	// Use TUI if no flags are set
+	if configFlags.json || configFlags.edit || configFlags.global {
+		return false
+	}
+
+	// Only use TUI if stdout is a terminal
+	return tui.SupportsTUI()
+}
+
+// runInteractiveConfig runs the interactive TUI config mode
+func runInteractiveConfig(ctx *storage.StorageContext) error {
+	// Get data directory
+	dataDir := getDataDir()
+
+	// Create the config TUI model
+	configModel := tui.NewConfigModel(ctx, dataDir)
+
+	// Set up callbacks
+	configModel.OnUpdateGlobal = func(key string, value interface{}) error {
+		return ctx.GlobalState.Set(key, value)
+	}
+
+	configModel.OnUpdateWorkspace = func(key string, value interface{}) error {
+		if ctx.WorkspaceState == nil {
+			return fmt.Errorf("no workspace state available")
+		}
+		return ctx.WorkspaceState.Set(key, value)
+	}
+
+	configModel.OnToggleRule = func(isGlobal bool, rulePath string, enabled bool, ruleType string) error {
+		return handleToggleRule(ctx, isGlobal, rulePath, enabled, ruleType)
+	}
+
+	configModel.OnToggleWorkflow = func(isGlobal bool, workflowPath string, enabled bool) error {
+		return handleToggleWorkflow(ctx, isGlobal, workflowPath, enabled)
+	}
+
+	configModel.OnToggleHook = func(isGlobal bool, hookName string, enabled bool, workspaceName string) error {
+		return handleToggleHook(ctx, isGlobal, hookName, enabled, workspaceName)
+	}
+
+	configModel.OnToggleSkill = func(isGlobal bool, skillPath string, enabled bool) error {
+		return handleToggleSkill(ctx, isGlobal, skillPath, enabled)
+	}
+
+	configModel.OnQuit = func() {
+		// Cleanup if needed
+	}
+
+	// Run the TUI program
+	p := tea.NewProgram(configModel, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	return nil
+}
+
+// getDataDir returns the data directory path
+func getDataDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "~/.cline/data"
+	}
+	return filepath.Join(homeDir, ".cline", "data")
 }
 
 // getWorkspaceHash returns the current workspace hash or empty string
@@ -76,6 +159,197 @@ func getWorkspaceHash() string {
 	}
 	hash, _ := storage.GetWorkspaceHash(cwd)
 	return hash
+}
+
+// handleToggleRule handles toggling a rule
+func handleToggleRule(ctx *storage.StorageContext, isGlobal bool, rulePath string, enabled bool, ruleType string) error {
+	var key string
+	if isGlobal {
+		key = "globalClineRulesToggles"
+	} else {
+		switch ruleType {
+		case "cline":
+			key = "localClineRulesToggles"
+		case "cursor":
+			key = "localCursorRulesToggles"
+		case "windsurf":
+			key = "localWindsurfRulesToggles"
+		case "agents":
+			key = "localAgentsRulesToggles"
+		default:
+			key = "localClineRulesToggles"
+		}
+	}
+
+	storage := ctx.GlobalState
+	if !isGlobal {
+		storage = ctx.WorkspaceState
+		if storage == nil {
+			return fmt.Errorf("no workspace state available")
+		}
+	}
+
+	// Get current toggles
+	var toggles map[string]interface{}
+	if val, ok := storage.Get(key); ok {
+		if t, ok := val.(map[string]interface{}); ok {
+			toggles = t
+		} else {
+			toggles = make(map[string]interface{})
+		}
+	} else {
+		toggles = make(map[string]interface{})
+	}
+
+	// Update toggle
+	toggles[rulePath] = enabled
+
+	return storage.Set(key, toggles)
+}
+
+// handleToggleWorkflow handles toggling a workflow
+func handleToggleWorkflow(ctx *storage.StorageContext, isGlobal bool, workflowPath string, enabled bool) error {
+	var key string
+	if isGlobal {
+		key = "globalWorkflowToggles"
+	} else {
+		key = "localWorkflowToggles"
+	}
+
+	storage := ctx.GlobalState
+	if !isGlobal {
+		storage = ctx.WorkspaceState
+		if storage == nil {
+			return fmt.Errorf("no workspace state available")
+		}
+	}
+
+	// Get current toggles
+	var toggles map[string]interface{}
+	if val, ok := storage.Get(key); ok {
+		if t, ok := val.(map[string]interface{}); ok {
+			toggles = t
+		} else {
+			toggles = make(map[string]interface{})
+		}
+	} else {
+		toggles = make(map[string]interface{})
+	}
+
+	// Update toggle
+	toggles[workflowPath] = enabled
+
+	return storage.Set(key, toggles)
+}
+
+// handleToggleHook handles toggling a hook
+func handleToggleHook(ctx *storage.StorageContext, isGlobal bool, hookName string, enabled bool, workspaceName string) error {
+	if isGlobal {
+		// Update global hooks
+		val, ok := ctx.GlobalState.Get("globalHooks")
+		if !ok {
+			return nil
+		}
+
+		hooks, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		// Find and update the hook
+		for _, h := range hooks {
+			if hookMap, ok := h.(map[string]interface{}); ok {
+				if name, ok := hookMap["name"].(string); ok && name == hookName {
+					hookMap["enabled"] = enabled
+					break
+				}
+			}
+		}
+
+		return ctx.GlobalState.Set("globalHooks", hooks)
+	}
+
+	// Update workspace hooks
+	if ctx.WorkspaceState == nil {
+		return fmt.Errorf("no workspace state available")
+	}
+
+	val, ok := ctx.WorkspaceState.Get("workspaceHooks")
+	if !ok {
+		return nil
+	}
+
+	wsHooks, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	// Find and update the hook in the appropriate workspace
+	for _, wh := range wsHooks {
+		if wsHookMap, ok := wh.(map[string]interface{}); ok {
+			wsName := ""
+			if name, ok := wsHookMap["workspaceName"].(string); ok {
+				wsName = name
+			}
+
+			if wsName == workspaceName {
+				if hooks, ok := wsHookMap["hooks"].([]interface{}); ok {
+					for _, h := range hooks {
+						if hookMap, ok := h.(map[string]interface{}); ok {
+							if name, ok := hookMap["name"].(string); ok && name == hookName {
+								hookMap["enabled"] = enabled
+								break
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return ctx.WorkspaceState.Set("workspaceHooks", wsHooks)
+}
+
+// handleToggleSkill handles toggling a skill
+func handleToggleSkill(ctx *storage.StorageContext, isGlobal bool, skillPath string, enabled bool) error {
+	var key string
+	if isGlobal {
+		key = "globalSkills"
+	} else {
+		key = "localSkills"
+	}
+
+	storage := ctx.GlobalState
+	if !isGlobal {
+		storage = ctx.WorkspaceState
+		if storage == nil {
+			return fmt.Errorf("no workspace state available")
+		}
+	}
+
+	// Get current skills
+	val, ok := storage.Get(key)
+	if !ok {
+		return nil
+	}
+
+	skills, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	// Find and update the skill
+	for _, s := range skills {
+		if skillMap, ok := s.(map[string]interface{}); ok {
+			if path, ok := skillMap["path"].(string); ok && path == skillPath {
+				skillMap["enabled"] = enabled
+				break
+			}
+		}
+	}
+
+	return storage.Set(key, skills)
 }
 
 // editConfig opens the configuration file in the default editor
@@ -117,8 +391,8 @@ func editConfig(ctx *storage.StorageContext) error {
 	return cmd.Run()
 }
 
-// displayConfig displays the configuration in the requested format
-func displayConfig(ctx *storage.StorageContext, asJSON bool, globalOnly bool) error {
+// displayConfigJSON displays the configuration as JSON
+func displayConfigJSON(ctx *storage.StorageContext, globalOnly bool) error {
 	configData := make(map[string]interface{})
 
 	// Add global state
@@ -135,19 +409,30 @@ func displayConfig(ctx *storage.StorageContext, asJSON bool, globalOnly bool) er
 		}
 	}
 
-	// Output based on format
-	if asJSON {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(configData)
-	}
-
-	// Human-readable output
-	return displayConfigHuman(configData)
+	// Output as JSON
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(configData)
 }
 
 // displayConfigHuman displays configuration in human-readable format
-func displayConfigHuman(configData map[string]interface{}) error {
+func displayConfigHuman(ctx *storage.StorageContext, globalOnly bool) error {
+	configData := make(map[string]interface{})
+
+	// Add global state
+	globalData := ctx.GlobalState.GetAll()
+	if len(globalData) > 0 {
+		configData["global"] = globalData
+	}
+
+	// Add workspace state if available and not global-only
+	if !globalOnly && ctx.WorkspaceState != nil {
+		workspaceData := ctx.WorkspaceState.GetAll()
+		if len(workspaceData) > 0 {
+			configData["workspace"] = workspaceData
+		}
+	}
+
 	// Display global configuration
 	if globalData, ok := configData["global"].(map[string]interface{}); ok && len(globalData) > 0 {
 		fmt.Println("=== Global Configuration ===")
@@ -232,12 +517,6 @@ func contains(s, substr string) bool {
 		}
 	}
 	return false
-}
-
-// ConfigStorage interface for testing
-type ConfigStorage interface {
-	GetAll() map[string]interface{}
-	FilePath() string
 }
 
 // GetConfigPath returns the path to the configuration file

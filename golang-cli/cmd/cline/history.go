@@ -134,7 +134,7 @@ func validateHistoryConfig(config HistoryConfig) error {
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf(strings.Join(errs, "; "))
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 
 	return nil
@@ -352,7 +352,7 @@ func formatTimestamp(ts int64) string {
 		return "unknown"
 	}
 
-	t := time.Unix(ts/1000, 0) // Convert from milliseconds to seconds
+	t := time.Unix(ts/1000, 0).UTC() // Convert from milliseconds to seconds, use UTC
 	return t.Format("2006-01-02 15:04")
 }
 

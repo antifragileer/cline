@@ -198,16 +198,17 @@ func TestGeminiProvider_Complete(t *testing.T) {
 
 func TestGeminiProvider_CompleteStream(t *testing.T) {
 	tests := []struct {
-		name       string
-		streamBody string
-		statusCode int
-		wantChunks int
-		wantErr    bool
+		name           string
+		streamBody     string
+		statusCode     int
+		wantChunks     int
+		wantErr        bool
+		wantImmediateErr bool // Error returned directly from CompleteStream, not through channel
 	}{
 		{
 			name: "successful streaming response",
-			streamBody: `data: {"candidates": [{"content": {"parts": [{"text": "Hello"]}}, "finishReason": ""}]}
-data: {"candidates": [{"content": {"parts": [{"text": " world"]}}, "finishReason": "STOP"}], "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15}}
+			streamBody: `data: {"candidates": [{"content": {"parts": [{"text": "Hello"}]}, "finishReason": ""}]}
+data: {"candidates": [{"content": {"parts": [{"text": " world"}]}, "finishReason": "STOP"}], "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15}}
 data: [DONE]`,
 			statusCode: http.StatusOK,
 			wantChunks: 2,
@@ -219,6 +220,7 @@ data: [DONE]`,
 			statusCode: http.StatusTooManyRequests,
 			wantChunks: 0,
 			wantErr:    true,
+			wantImmediateErr: true, // HTTP errors are returned directly from CompleteStream
 		},
 	}
 
@@ -242,6 +244,15 @@ data: [DONE]`,
 				MaxTokens: 100,
 				Messages:  []GeminiMessage{{Role: "user", Content: "Test"}},
 			})
+
+			// Check for immediate error (HTTP-level errors)
+			if tt.wantImmediateErr {
+				if err == nil {
+					t.Error("Expected immediate error from CompleteStream, got nil")
+				}
+				return
+			}
+
 			if err != nil {
 				t.Fatalf("CompleteStream() returned error: %v", err)
 			}

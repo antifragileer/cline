@@ -1073,3 +1073,251 @@ func TestMigratableStorage_ConcurrentAccess(t *testing.T) {
 		t.Fatalf("Save() error = %v", err)
 	}
 }
+
+func TestMigratableStorage_LoadErrors(t *testing.T) {
+	t.Run("load fails with invalid JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "invalid.json")
+
+		// Create file with invalid JSON
+		if err := os.WriteFile(filePath, []byte("not valid json"), 0644); err != nil {
+			t.Fatalf("Failed to create file: %v", err)
+		}
+
+		registry := NewMigrationRegistry()
+		storage, err := NewMigratableStorage(filePath, registry)
+		if err != nil {
+			t.Fatalf("NewMigratableStorage() error = %v", err)
+		}
+
+		err = storage.Load()
+		if err == nil {
+			t.Error("Expected error loading invalid JSON")
+		}
+	})
+
+	t.Run("load with no registry initializes version", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "noversion.json")
+
+		storage, err := NewMigratableStorage(filePath, nil)
+		if err != nil {
+			t.Fatalf("NewMigratableStorage() error = %v", err)
+		}
+
+		err = storage.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if storage.GetVersion() != DefaultStorageVersion {
+			t.Errorf("Expected version %d, got %d", DefaultStorageVersion, storage.GetVersion())
+		}
+	})
+}
+
+func TestMigratableStorage_atomicWriteErrors(t *testing.T) {
+	t.Run("atomic write fails with invalid directory", func(t *testing.T) {
+		// Try to write to a directory that doesn't exist and can't be created
+		storage, _ := NewMigratableStorage("/nonexistent/path/file.json", NewMigrationRegistry())
+		
+		storage.Set("key", "value")
+		err := storage.Save()
+		if err == nil {
+			t.Error("Expected error saving to invalid directory")
+		}
+	})
+}
+
+func TestMigratableStorage_readFileErrors(t *testing.T) {
+	t.Run("readFile fails with non-existent file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storage, _ := NewMigratableStorage(filepath.Join(tmpDir, "nonexistent.json"), NewMigrationRegistry())
+		
+		_, err := storage.readFile("/nonexistent/path/file.json")
+		if err == nil {
+			t.Error("Expected error reading non-existent file")
+		}
+	})
+
+	t.Run("readFile fails with invalid JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "invalid.json")
+		
+		// Create file with invalid JSON
+		os.WriteFile(filePath, []byte("invalid json"), 0644)
+
+		storage, _ := NewMigratableStorage(filePath, NewMigrationRegistry())
+		
+		_, err := storage.readFile(filePath)
+		if err == nil {
+			t.Error("Expected error reading invalid JSON")
+		}
+	})
+}
+
+func TestMigratableStorage_migrationEdgeCases(t *testing.T) {
+	t.Run("migration from version 0 with init", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "v0.json")
+		registry := NewMigrationRegistry()
+
+		// Create unversioned data
+		data := map[string]interface{}{
+			"someKey": "someValue",
+		}
+		jsonData, _ := json.Marshal(data)
+		os.WriteFile(filePath, jsonData, 0644)
+
+		storage, _ := NewMigratableStorage(filePath, registry)
+		err := storage.Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		// Should have initialized version
+		if storage.GetVersion() != DefaultStorageVersion {
+			t.Errorf("Expected version %d, got %d", DefaultStorageVersion, storage.GetVersion())
+		}
+	})
+
+	t.Run("migration path with no migrations", func(t *testing.T) {
+		registry := NewMigrationRegistry()
+		path, err := registry.GetMigrationPath(5, 5)
+		if err != nil {
+			t.Fatalf("GetMigrationPath() error = %v", err)
+		}
+		if len(path) != 0 {
+			t.Errorf("Expected empty path, got %d migrations", len(path))
+		}
+	})
+
+	t.Run("migration path with missing migration", func(t *testing.T) {
+		registry := NewMigrationRegistry()
+		registry.Register(Migration{
+			FromVersion: 1,
+			ToVersion:   2,
+			Name:        "v1_to_v2",
+			Apply:       func(data map[string]any) error { return nil },
+		})
+
+		_, err := registry.GetMigrationPath(2, 5)
+		if err == nil {
+			t.Error("Expected error for missing migration")
+		}
+	})
+}
+
+func TestMigratableStorage_createBackup(t *testing.T) {
+	t.Run("create backup for non-existent file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "newfile.json")
+		registry := NewMigrationRegistry()
+
+		storage, _ := NewMigratableStorage(filePath, registry)
+		storage.Load()
+		storage.Set("key", "value")
+
+		backupPath, err := storage.createBackup()
+		if err != nil {
+			t.Fatalf("createBackup() error = %v", err)
+		}
+
+		if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+			t.Error("Backup file should exist")
+		}
+	})
+
+	t.Run("create backup with read-only backup dir", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("Skipping permission test as root")
+		}
+
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "file.json")
+		backupDir := filepath.Join(tmpDir, "readonly")
+		
+		// Create read-only directory
+		os.MkdirAll(backupDir, 0755)
+		storage, _ := NewMigratableStorage(filePath, NewMigrationRegistry(), WithBackupDir(backupDir))
+		storage.Load()
+		storage.Set("key", "value")
+		storage.Save()
+
+		// Make backup dir read-only
+		os.Chmod(backupDir, 0555)
+		defer os.Chmod(backupDir, 0755)
+
+		_, err := storage.createBackup()
+		if err == nil {
+			t.Log("Backup succeeded despite read-only dir (may vary by OS)")
+		}
+	})
+}
+
+func TestMigratableStorage_restoreFromBackup(t *testing.T) {
+	t.Run("restore from non-existent backup", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "file.json")
+		storage, _ := NewMigratableStorage(filePath, NewMigrationRegistry())
+		storage.Load()
+
+		err := storage.restoreFromBackup("/nonexistent/backup.json")
+		if err == nil {
+			t.Error("Expected error restoring from non-existent backup")
+		}
+	})
+
+	t.Run("restore from backup with invalid JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "file.json")
+		backupPath := filepath.Join(tmpDir, "backup.json")
+
+		// Create invalid JSON backup
+		os.WriteFile(backupPath, []byte("invalid json"), 0600)
+
+		storage, _ := NewMigratableStorage(filePath, NewMigrationRegistry())
+		storage.Load()
+
+		err := storage.restoreFromBackup(backupPath)
+		if err == nil {
+			t.Error("Expected error restoring from invalid backup")
+		}
+	})
+}
+
+func TestMigratableStorage_CleanupOldBackups(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "file.json")
+	registry := NewMigrationRegistry()
+
+	storage, _ := NewMigratableStorage(filePath, registry)
+	storage.Load()
+	storage.Set("key", "value")
+
+	// Create multiple backups
+	for i := 0; i < 5; i++ {
+		time.Sleep(10 * time.Millisecond) // Ensure different timestamps
+		storage.Save()
+		_, err := storage.createBackup()
+		if err != nil {
+			t.Fatalf("Failed to create backup %d: %v", i, err)
+		}
+	}
+
+	backups, _ := storage.ListBackups()
+	if len(backups) < 5 {
+		t.Fatalf("Expected at least 5 backups, got %d", len(backups))
+	}
+
+	// Cleanup, keep only 2
+	err := storage.CleanupOldBackups(2)
+	if err != nil {
+		t.Fatalf("CleanupOldBackups() error = %v", err)
+	}
+
+	backups, _ = storage.ListBackups()
+	if len(backups) != 2 {
+		t.Errorf("Expected 2 backups after cleanup, got %d", len(backups))
+	}
+}

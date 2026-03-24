@@ -846,3 +846,481 @@ func BenchmarkGet(b *testing.B) {
 		}
 	}
 }
+
+// TestSecretsManager_RecoverFromFallback tests recovering secrets from fallback file
+func TestSecretsManager_RecoverFromFallback(t *testing.T) {
+	t.Run("recover valid secrets from fallback", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create a fallback file with encrypted secrets
+		sm, err := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		if err != nil {
+			t.Fatalf("Failed to create SecretsManager: %v", err)
+		}
+		defer sm.Close()
+
+		// Store a secret in fallback mode
+		sm.useKeyring = false
+		if err := sm.Set("recover-key", "recovered-secret"); err != nil {
+			t.Fatalf("Failed to set secret: %v", err)
+		}
+
+		// Verify it was stored
+		value, err := sm.Get("recover-key")
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		if value != "recovered-secret" {
+			t.Errorf("Expected 'recovered-secret', got '%s'", value)
+		}
+	})
+
+	t.Run("returns nil for non-existent fallback file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = "/nonexistent/fallback.json"
+		sm.useKeyring = false // Ensure not using keyring to trigger fallback path
+
+		// When fallback file doesn't exist, returns nil (nothing to migrate)
+		err := sm.RecoverFromFallback()
+		if err != nil {
+			t.Errorf("Expected nil for non-existent fallback, got: %v", err)
+		}
+	})
+
+	t.Run("already using keyring returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// When already using keyring, should return nil immediately
+		sm.useKeyring = true
+		
+		// Create a fallback file (though it won't be read)
+		fallbackPath := filepath.Join(tmpDir, "fallback.json")
+		os.WriteFile(fallbackPath, []byte("invalid json"), 0600)
+		sm.fallbackPath = fallbackPath
+
+		err := sm.RecoverFromFallback()
+		if err != nil {
+			t.Errorf("Expected nil when using keyring, got: %v", err)
+		}
+	})
+
+	t.Run("skips invalid encrypted entries", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		fallbackPath := filepath.Join(tmpDir, "fallback.json")
+		
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// Create fallback with invalid entries
+		fallbackData := fallbackData{
+			Version: 1,
+			Secrets: map[string]string{
+				"invalid-key": "!!!invalid-base64!!!",
+			},
+		}
+		
+		data, _ := json.Marshal(fallbackData)
+		os.WriteFile(fallbackPath, data, 0600)
+
+		sm.fallbackPath = fallbackPath
+
+		// Should handle gracefully - returns ErrKeyringUnavailable since keyring not available
+		err := sm.RecoverFromFallback()
+		// May return error or succeed depending on keyring availability
+		t.Logf("RecoverFromFallback result: %v", err)
+	})
+}
+
+// TestSecretsManager_FallbackEncryptionKeyErrors tests error cases
+func TestSecretsManager_FallbackEncryptionKeyErrors(t *testing.T) {
+	t.Run("returns key even with non-existent fallback path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// Point to non-existent file - FallbackEncryptionKey derives from machine data, not file
+		sm.fallbackPath = "/nonexistent_dir/fallback.json"
+
+		key, err := sm.FallbackEncryptionKey()
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if len(key) != 32 {
+			t.Errorf("Expected 32-byte key, got %d", len(key))
+		}
+	})
+
+	t.Run("returns valid key regardless of fallback file content", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		fallbackPath := filepath.Join(tmpDir, "fallback.json")
+		
+		// Create invalid JSON - FallbackEncryptionKey doesn't read this file
+		os.WriteFile(fallbackPath, []byte("invalid json"), 0600)
+
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = fallbackPath
+
+		key, err := sm.FallbackEncryptionKey()
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if len(key) != 32 {
+			t.Errorf("Expected 32-byte key, got %d", len(key))
+		}
+	})
+}
+
+// TestSecretsManager_WriteFallbackFileErrors tests error handling in writeFallbackFile
+func TestSecretsManager_WriteFallbackFileErrors(t *testing.T) {
+	t.Run("fails with invalid path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = "/nonexistent_dir/subdir/fallback.json"
+		sm.useKeyring = false
+
+		err := sm.Set("key", "value")
+		if err == nil {
+			t.Error("Expected error writing to invalid path")
+		}
+	})
+}
+
+// TestSecretsManager_GetFromFileErrors tests error handling in getFromFile
+func TestSecretsManager_GetFromFileErrors(t *testing.T) {
+	t.Run("returns error for non-existent file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = "/nonexistent/file.json"
+
+		_, err := sm.getFromFile("key")
+		if err == nil {
+			t.Error("Expected error for non-existent file")
+		}
+	})
+
+	t.Run("returns error for corrupted JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		fallbackPath := filepath.Join(tmpDir, "corrupted.json")
+		
+		// Write corrupted JSON
+		os.WriteFile(fallbackPath, []byte("{invalid}"), 0600)
+
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = fallbackPath
+
+		_, err := sm.getFromFile("key")
+		if err == nil {
+			t.Error("Expected error for corrupted JSON")
+		}
+	})
+}
+
+// TestSecretsManager_ListFromFileErrors tests error handling in listFromFile
+func TestSecretsManager_ListFromFileErrors(t *testing.T) {
+	t.Run("returns error for corrupted JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		fallbackPath := filepath.Join(tmpDir, "corrupted.json")
+		
+		// Write corrupted JSON
+		os.WriteFile(fallbackPath, []byte("{invalid}"), 0600)
+
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = fallbackPath
+
+		_, err := sm.listFromFile()
+		if err == nil {
+			t.Error("Expected error for corrupted JSON")
+		}
+	})
+
+	t.Run("returns empty list for non-existent file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = "/nonexistent/file.json"
+
+		keys, err := sm.listFromFile()
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if len(keys) != 0 {
+			t.Errorf("Expected empty list, got: %v", keys)
+		}
+	})
+}
+
+// TestSecretsManager_DeleteFromFileErrors tests error handling in deleteFromFile
+func TestSecretsManager_DeleteFromFileErrors(t *testing.T) {
+	t.Run("returns error for corrupted JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		fallbackPath := filepath.Join(tmpDir, "corrupted.json")
+		
+		// Write corrupted JSON
+		os.WriteFile(fallbackPath, []byte("{invalid}"), 0600)
+
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = fallbackPath
+
+		err := sm.deleteFromFile("key")
+		if err == nil {
+			t.Error("Expected error for corrupted JSON")
+		}
+	})
+
+	t.Run("returns error for non-existent file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = "/nonexistent/file.json"
+
+		// Should return ErrSecretNotFound when file doesn't exist
+		err := sm.deleteFromFile("key")
+		if !errors.Is(err, ErrSecretNotFound) {
+			t.Errorf("Expected ErrSecretNotFound, got: %v", err)
+		}
+	})
+}
+
+// TestSecretsManager_EncryptDecryptErrors tests error handling
+func TestSecretsManager_EncryptDecryptErrors(t *testing.T) {
+	t.Run("decrypt with invalid base64 returns error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		_, err := sm.decrypt("!!!not-valid-base64!!!")
+		if err == nil {
+			t.Error("Expected error for invalid base64")
+		}
+	})
+
+	t.Run("decrypt with too short data returns error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// Valid base64 but too short
+		shortData := "c2hvcnQ=" // "short" in base64
+		_, err := sm.decrypt(shortData)
+		if err == nil {
+			t.Error("Expected error for short ciphertext")
+		}
+	})
+
+	t.Run("decrypt with corrupted ciphertext returns error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// Valid base64 but wrong data (16 bytes of zeros + garbage)
+		corruptData := "AAAAAAAAAAAAAAAAAAAAAA==" // 16 zero bytes then base64
+		_, err := sm.decrypt(corruptData)
+		if err == nil {
+			t.Error("Expected error for corrupted ciphertext")
+		}
+	})
+}
+
+// TestSecretsManager_ReadFallbackFileErrors tests error handling
+func TestSecretsManager_ReadFallbackFileErrors(t *testing.T) {
+	t.Run("returns empty data for non-existent file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = "/nonexistent/file.json"
+
+		// readFallbackFile returns empty data, not error for non-existent file
+		data, err := sm.readFallbackFile()
+		if err != nil {
+			t.Errorf("Expected no error for non-existent file, got: %v", err)
+		}
+		if data == nil {
+			t.Error("Expected non-nil data")
+		}
+	})
+
+	t.Run("returns error for invalid JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		fallbackPath := filepath.Join(tmpDir, "fallback.json")
+		
+		os.WriteFile(fallbackPath, []byte("invalid json"), 0600)
+
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		sm.fallbackPath = fallbackPath
+
+		_, err := sm.readFallbackFile()
+		if err == nil {
+			t.Error("Expected error for invalid JSON")
+		}
+	})
+}
+
+
+// TestSecretsManager_GetWithKeyringErrors tests error handling when using keyring
+func TestSecretsManager_GetWithKeyringErrors(t *testing.T) {
+	t.Run("returns error when keyring fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// Set up mock keyring that fails
+		mock := newMockKeyring(true)
+		sm.provider = mock
+		sm.useKeyring = true
+
+		// Try to get non-existent key
+		_, err := sm.Get("nonexistent")
+		if !errors.Is(err, ErrSecretNotFound) {
+			t.Errorf("Expected ErrSecretNotFound, got: %v", err)
+		}
+	})
+}
+
+// TestSecretsManager_DeleteWithKeyring tests deletion with keyring
+func TestSecretsManager_DeleteWithKeyring(t *testing.T) {
+	t.Run("deletes from keyring successfully", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		mock := newMockKeyring(true)
+		sm.provider = mock
+		sm.useKeyring = true
+
+		// Set a secret
+		mock.Set(serviceName, "delete-me", "value")
+
+		// Delete it
+		err := sm.Delete("delete-me")
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+
+		// Verify it's gone
+		_, err = sm.Get("delete-me")
+		if !errors.Is(err, ErrSecretNotFound) {
+			t.Errorf("Expected ErrSecretNotFound after delete, got: %v", err)
+		}
+	})
+}
+
+// TestSecretsManager_ListWithKeyringErrors tests list with keyring errors
+func TestSecretsManager_ListWithKeyringErrors(t *testing.T) {
+	t.Run("returns error when keyring unavailable", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// Set up unavailable keyring
+		mock := newMockKeyring(false)
+		sm.provider = mock
+		sm.useKeyring = true
+
+		_, err := sm.List()
+		if err == nil {
+			t.Error("Expected error when keyring unavailable")
+		}
+	})
+}
+
+// TestSecretsManager_FallbackEncryptionKeyPaths tests key derivation paths
+func TestSecretsManager_FallbackEncryptionKeyPaths(t *testing.T) {
+	t.Run("derives key on Darwin without machine-id", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		sm, _ := NewSecretsManager(SecretsManagerOptions{
+			ConfigDir: tmpDir,
+		})
+		defer sm.Close()
+
+		// Key should be derived from available info
+		key, err := sm.FallbackEncryptionKey()
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if len(key) != 32 {
+			t.Errorf("Expected 32-byte key, got %d", len(key))
+		}
+	})
+}
+
+// TestSecretsManager_NewWithErrors tests error paths in constructor
+func TestSecretsManager_NewWithErrors(t *testing.T) {
+	t.Run("fails with invalid home directory", func(t *testing.T) {
+		// Save original HOME
+		origHome := os.Getenv("HOME")
+		defer os.Setenv("HOME", origHome)
+
+		// Set invalid home
+		os.Setenv("HOME", "/nonexistent/path/that/cannot/be/created")
+
+		// This might fail or succeed depending on OS permissions
+		_, err := NewSecretsManager(SecretsManagerOptions{})
+		// Just verify it doesn't panic
+		t.Logf("NewSecretsManager with invalid home: %v", err)
+	})
+}

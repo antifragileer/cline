@@ -700,16 +700,11 @@ func (e *ToolExecutor) resolvePath(path string) string {
 }
 
 // addToHistory adds a record to the execution history.
+// NOTE: This method assumes the caller already holds the lock (e.mu)
 func (e *ToolExecutor) addToHistory(record ToolExecutionRecord) {
-	select {
-	case e.mu <- struct{}{}:
-		e.history = append(e.history, record)
-		if len(e.history) > e.maxHistory {
-			e.history = e.history[len(e.history)-e.maxHistory:]
-		}
-		<-e.mu
-	default:
-		// If we can't acquire the lock, skip history
+	e.history = append(e.history, record)
+	if len(e.history) > e.maxHistory {
+		e.history = e.history[len(e.history)-e.maxHistory:]
 	}
 }
 

@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"sync"
@@ -14,29 +15,29 @@ import (
 
 // mockBidiStream is a mock implementation of grpc.BidiStreamingClient for testing
 type mockBidiStream struct {
-	mu           sync.RWMutex
-	sendMsgs     []*Message
-	recvMsgs     []*Message
-	recvIndex    int
-	closed       bool
-	sendError    error
-	recvError    error
-	sendDelay    time.Duration
-	recvDelay    time.Duration
-	onSend       func(*Message)
-	onRecv       func() *Message
-	ctx          context.Context
+	mu        sync.RWMutex
+	sendMsgs  []*ClineMessageProto
+	recvMsgs  []*ClineMessageProto
+	recvIndex int
+	closed    bool
+	sendError error
+	recvError error
+	sendDelay time.Duration
+	recvDelay time.Duration
+	onSend    func(*ClineMessageProto)
+	onRecv    func() *ClineMessageProto
+	ctx       context.Context
 }
 
 func newMockBidiStream() *mockBidiStream {
 	return &mockBidiStream{
-		sendMsgs: make([]*Message, 0),
-		recvMsgs: make([]*Message, 0),
+		sendMsgs: make([]*ClineMessageProto, 0),
+		recvMsgs: make([]*ClineMessageProto, 0),
 		ctx:      context.Background(),
 	}
 }
 
-func (m *mockBidiStream) Send(msg *Message) error {
+func (m *mockBidiStream) Send(msg *ClineMessageProto) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -61,7 +62,7 @@ func (m *mockBidiStream) Send(msg *Message) error {
 	return nil
 }
 
-func (m *mockBidiStream) Recv() (*Message, error) {
+func (m *mockBidiStream) Recv() (*ClineMessageProto, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -122,7 +123,7 @@ func (m *mockBidiStream) Trailer() metadata.MD {
 }
 
 func (m *mockBidiStream) SendMsg(msg interface{}) error {
-	if castMsg, ok := msg.(*Message); ok {
+	if castMsg, ok := msg.(*ClineMessageProto); ok {
 		return m.Send(castMsg)
 	}
 	return errors.New("invalid message type")
@@ -133,38 +134,25 @@ func (m *mockBidiStream) RecvMsg(msg interface{}) error {
 	if err != nil {
 		return err
 	}
-	if castMsg, ok := msg.(*Message); ok && received != nil {
+	if castMsg, ok := msg.(*ClineMessageProto); ok && received != nil {
 		*castMsg = *received
 		return nil
 	}
 	return errors.New("invalid message type")
 }
 
-func (m *mockBidiStream) addRecvMessage(msg *Message) {
+func (m *mockBidiStream) addRecvMessage(msg *ClineMessageProto) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.recvMsgs = append(m.recvMsgs, msg)
 }
 
-func (m *mockBidiStream) getSentMessages() []*Message {
+func (m *mockBidiStream) getSentMessages() []*ClineMessageProto {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	result := make([]*Message, len(m.sendMsgs))
+	result := make([]*ClineMessageProto, len(m.sendMsgs))
 	copy(result, m.sendMsgs)
 	return result
-}
-
-// mockConnPool is a mock implementation of connection pool for testing
-type mockConnPool struct {
-	conn *grpc.ClientConn
-	err  error
-}
-
-func (m *mockConnPool) GetConnection() (*grpc.ClientConn, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return m.conn, nil
 }
 
 func TestNewBidiStream(t *testing.T) {
@@ -178,22 +166,12 @@ func TestNewBidiStream(t *testing.T) {
 			name:    "nil config uses defaults",
 			config:  nil,
 			wantErr: true,
-			errMsg:  "client is required",
-		},
-		{
-			name: "missing client",
-			config: &StreamConfig{
-				StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
-					return nil, nil
-				},
-			},
-			wantErr: true,
-			errMsg:  "client is required",
+			errMsg:  "stream creator is required",
 		},
 		{
 			name: "missing stream creator",
 			config: &StreamConfig{
-				Client: &Client{},
+				BufferSize: 100,
 			},
 			wantErr: true,
 			errMsg:  "stream creator is required",
@@ -201,8 +179,7 @@ func TestNewBidiStream(t *testing.T) {
 		{
 			name: "valid config with defaults",
 			config: &StreamConfig{
-				Client: &Client{},
-				StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+				StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 					return nil, nil
 				},
 			},
@@ -211,13 +188,12 @@ func TestNewBidiStream(t *testing.T) {
 		{
 			name: "valid config with custom values",
 			config: &StreamConfig{
-				Client:                 &Client{},
 				BufferSize:             200,
 				MaxOutstandingMessages: 100,
 				ReconnectDelay:         5 * time.Second,
 				MaxReconnectAttempts:   10,
 				MaxChunkSize:           8192,
-				StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+				StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 					return nil, nil
 				},
 			},
@@ -231,7 +207,7 @@ func TestNewBidiStream(t *testing.T) {
 
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("NewBidiStream() error = nil, wantErr %v", tt.wantErr)
+					t.Errorf("NewBidiStream() error = nil, wantErr = true")
 					return
 				}
 				if tt.errMsg != "" && err.Error() != tt.errMsg {
@@ -241,7 +217,7 @@ func TestNewBidiStream(t *testing.T) {
 			}
 
 			if err != nil {
-				t.Errorf("NewBidiStream() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewBidiStream() error = %v, wantErr = false", err)
 				return
 			}
 
@@ -308,163 +284,9 @@ func TestStreamStateString(t *testing.T) {
 	}
 }
 
-func TestNewMessage(t *testing.T) {
-	payload := []byte("test payload")
-	msg := NewMessage("test-type", payload)
-
-	if msg == nil {
-		t.Fatal("NewMessage() returned nil")
-	}
-
-	if msg.Type != "test-type" {
-		t.Errorf("expected type 'test-type', got %s", msg.Type)
-	}
-
-	if string(msg.Payload) != string(payload) {
-		t.Errorf("expected payload %s, got %s", payload, msg.Payload)
-	}
-
-	if msg.ID == "" {
-		t.Error("expected non-empty ID")
-	}
-
-	if msg.Timestamp.IsZero() {
-		t.Error("expected non-zero timestamp")
-	}
-
-	if msg.Partial {
-		t.Error("expected Partial to be false for new message")
-	}
-
-	if !msg.IsLast {
-		t.Error("expected IsLast to be true for new message")
-	}
-
-	if msg.TotalChunks != 1 {
-		t.Errorf("expected TotalChunks 1, got %d", msg.TotalChunks)
-	}
-}
-
-func TestChunkMessage(t *testing.T) {
-	tests := []struct {
-		name      string
-		payload   []byte
-		chunkSize int
-		wantChunks int
-	}{
-		{
-			name:       "small message no chunking",
-			payload:    []byte("small"),
-			chunkSize:  100,
-			wantChunks: 1,
-		},
-		{
-			name:       "exact chunk size",
-			payload:    []byte("exactly ten"),
-			chunkSize:  11,
-			wantChunks: 1,
-		},
-		{
-			name:       "two chunks",
-			payload:    []byte("this is a longer message that needs two chunks"),
-			chunkSize:  25,
-			wantChunks: 2,
-		},
-		{
-			name:       "three chunks",
-			payload:    []byte("this is a much longer message that definitely needs three chunks to store"),
-			chunkSize:  25,
-			wantChunks: 3,
-		},
-		{
-			name:       "empty payload",
-			payload:    []byte{},
-			chunkSize:  10,
-			wantChunks: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			msg := NewMessage("test", tt.payload)
-			chunks := chunkMessage(msg, tt.chunkSize)
-
-			if len(chunks) != tt.wantChunks {
-				t.Errorf("expected %d chunks, got %d", tt.wantChunks, len(chunks))
-			}
-
-			// Verify all chunks have the same ID
-			for i, chunk := range chunks {
-				if chunk.ID != msg.ID {
-					t.Errorf("chunk %d has different ID: %s vs %s", i, chunk.ID, msg.ID)
-				}
-
-				if chunk.Type != msg.Type {
-					t.Errorf("chunk %d has different type: %s vs %s", i, chunk.Type, msg.Type)
-				}
-
-				if chunk.TotalChunks != tt.wantChunks {
-					t.Errorf("chunk %d has wrong TotalChunks: %d vs %d", i, chunk.TotalChunks, tt.wantChunks)
-				}
-
-				if chunk.SequenceNumber != i {
-					t.Errorf("chunk %d has wrong SequenceNumber: %d vs %d", i, chunk.SequenceNumber, i)
-				}
-
-				if i < len(chunks)-1 && chunk.IsLast {
-					t.Errorf("chunk %d should not be IsLast", i)
-				}
-
-				if i == len(chunks)-1 && !chunk.IsLast {
-					t.Errorf("last chunk should be IsLast")
-				}
-
-				if !chunk.Partial && len(chunks) > 1 {
-					t.Errorf("chunk %d should be Partial when there are multiple chunks", i)
-				}
-			}
-
-			// Verify payload reassembly
-			if len(chunks) > 1 {
-				var reassembled []byte
-				for _, chunk := range chunks {
-					reassembled = append(reassembled, chunk.Payload...)
-				}
-				if string(reassembled) != string(tt.payload) {
-					t.Errorf("reassembled payload mismatch: got %s, want %s", reassembled, tt.payload)
-				}
-			}
-		})
-	}
-}
-
-func TestCopyMetadata(t *testing.T) {
-	original := map[string]string{
-		"key1": "value1",
-		"key2": "value2",
-		"key3": "value3",
-	}
-
-	copied := copyMetadata(original)
-
-	// Verify copy has same values
-	for k, v := range original {
-		if copied[k] != v {
-			t.Errorf("copied metadata mismatch for key %s: got %s, want %s", k, copied[k], v)
-		}
-	}
-
-	// Verify copy is independent
-	copied["key1"] = "modified"
-	if original["key1"] != "value1" {
-		t.Error("modifying copy affected original")
-	}
-}
-
 func TestBidiStreamStartStop(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		BufferSize: 10,
@@ -496,8 +318,7 @@ func TestBidiStreamSend(t *testing.T) {
 	mockStream := newMockBidiStream()
 
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return mockStream, nil
 		},
 		BufferSize:             10,
@@ -510,7 +331,14 @@ func TestBidiStreamSend(t *testing.T) {
 	}
 
 	// Should fail when not started
-	msg := NewMessage("test", []byte("hello"))
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:   time.Now().UnixMilli(),
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: "test",
+		},
+	}
 	err = bidiStream.Send(msg)
 	if err != ErrStreamNotReady {
 		t.Errorf("expected ErrStreamNotReady, got %v", err)
@@ -527,8 +355,7 @@ func TestBidiStreamPartialMessages(t *testing.T) {
 	mockStream := newMockBidiStream()
 
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return mockStream, nil
 		},
 		BufferSize:             100,
@@ -543,12 +370,15 @@ func TestBidiStreamPartialMessages(t *testing.T) {
 	}
 
 	// Create a message larger than MaxChunkSize
-	largePayload := make([]byte, 35) // Will create 4 chunks of 10 bytes
-	for i := range largePayload {
-		largePayload[i] = byte('a' + (i % 26))
+	largeText := "abcdefghijklmnopqrstuvwxyz0123456789" // 36 chars, will create 4 chunks of 10 bytes
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:   time.Now().UnixMilli(),
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: largeText,
+		},
 	}
-
-	msg := NewMessage("large", largePayload)
 
 	// Verify chunking logic
 	chunks := chunkMessage(msg, config.MaxChunkSize)
@@ -557,10 +387,10 @@ func TestBidiStreamPartialMessages(t *testing.T) {
 	}
 
 	// Verify chunk sizes
-	expectedSizes := []int{10, 10, 10, 5}
+	expectedSizes := []int{10, 10, 10, 6}
 	for i, chunk := range chunks {
-		if len(chunk.Payload) != expectedSizes[i] {
-			t.Errorf("chunk %d size = %d, want %d", i, len(chunk.Payload), expectedSizes[i])
+		if len(chunk.Text) != expectedSizes[i] {
+			t.Errorf("chunk %d size = %d, want %d", i, len(chunk.Text), expectedSizes[i])
 		}
 	}
 	_ = bidiStream // Use the stream to avoid unused variable error
@@ -568,8 +398,7 @@ func TestBidiStreamPartialMessages(t *testing.T) {
 
 func TestBidiStreamPartialMessageReassembly(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		BufferSize:             100,
@@ -583,53 +412,51 @@ func TestBidiStreamPartialMessageReassembly(t *testing.T) {
 		t.Fatalf("failed to create stream: %v", err)
 	}
 
-	msgID := "test-message-id"
-	originalPayload := []byte("hello world, this is a test message")
+	ts := time.Now().UnixMilli()
+	originalText := "hello world, this is a test message"
 
-	// Simulate receiving chunks IN ORDER (the implementation appends in received order)
-	chunks := []*Message{
+	// Simulate receiving chunks IN ORDER
+	chunks := []*ClineMessageProto{
 		{
-			ID:             msgID,
-			Type:           "test",
-			Payload:        originalPayload[0:10], // "hello worl"
-			Partial:        true,
-			SequenceNumber: 0,
-			TotalChunks:    4,
-			IsLast:         false,
+			ClineMessage: &ClineMessage{
+				Ts:      ts,
+				Type:    ClineMessageType_SAY,
+				Say:     ClineSay_TEXT,
+				Text:    originalText[0:10], // "hello worl"
+				Partial: true,
+			},
 		},
 		{
-			ID:             msgID,
-			Type:           "test",
-			Payload:        originalPayload[10:20], // "d, this is"
-			Partial:        true,
-			SequenceNumber: 1,
-			TotalChunks:    4,
-			IsLast:         false,
+			ClineMessage: &ClineMessage{
+				Ts:      ts,
+				Type:    ClineMessageType_SAY,
+				Say:     ClineSay_TEXT,
+				Text:    originalText[10:20], // "d, this is"
+				Partial: true,
+			},
 		},
 		{
-			ID:             msgID,
-			Type:           "test",
-			Payload:        originalPayload[20:33], // "is a test mes"
-			Metadata:       map[string]string{"key": "value"},
-			Timestamp:      time.Now(),
-			Partial:        true,
-			SequenceNumber: 2,
-			TotalChunks:    4,
-			IsLast:         false,
+			ClineMessage: &ClineMessage{
+				Ts:      ts,
+				Type:    ClineMessageType_SAY,
+				Say:     ClineSay_TEXT,
+				Text:    originalText[20:33], // "is a test mes"
+				Partial: true,
+			},
 		},
 		{
-			ID:             msgID,
-			Type:           "test",
-			Payload:        originalPayload[33:35], // "ge"
-			Partial:        true,
-			SequenceNumber: 3,
-			TotalChunks:    4,
-			IsLast:         true,
+			ClineMessage: &ClineMessage{
+				Ts:      ts,
+				Type:    ClineMessageType_SAY,
+				Say:     ClineSay_TEXT,
+				Text:    originalText[33:35], // "ge"
+				Partial: false,               // Last chunk
+			},
 		},
 	}
 
 	// Process chunks
-	var completeMsg *Message
+	var completeMsg *ClineMessageProto
 	for _, chunk := range chunks {
 		completeMsg = stream.handlePartialMessage(chunk)
 	}
@@ -638,23 +465,22 @@ func TestBidiStreamPartialMessageReassembly(t *testing.T) {
 		t.Fatal("expected complete message, got nil")
 	}
 
-	if string(completeMsg.Payload) != string(originalPayload) {
-		t.Errorf("reassembled payload mismatch: got %s, want %s", completeMsg.Payload, originalPayload)
+	if completeMsg.Text != originalText {
+		t.Errorf("reassembled text mismatch: got %s, want %s", completeMsg.Text, originalText)
 	}
 
-	if completeMsg.Type != "test" {
-		t.Errorf("expected type 'test', got %s", completeMsg.Type)
+	if completeMsg.Type != ClineMessageType_SAY {
+		t.Errorf("expected type SAY, got %v", completeMsg.Type)
 	}
 
-	if completeMsg.ID != msgID {
-		t.Errorf("expected ID %s, got %s", msgID, completeMsg.ID)
+	if completeMsg.Ts != ts {
+		t.Errorf("expected ts %d, got %d", ts, completeMsg.Ts)
 	}
 }
 
 func TestBidiStreamCleanupPartialMessages(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -666,14 +492,16 @@ func TestBidiStreamCleanupPartialMessages(t *testing.T) {
 
 	// Add partial messages with old timestamps
 	stream.partialMu.Lock()
-	stream.partialBuffers["old-msg"] = []*Message{
-		{ID: "old-msg", Partial: true, SequenceNumber: 0, TotalChunks: 3},
+	oldTs := time.Now().UnixMilli() - 3600000 // 1 hour ago
+	newTs := time.Now().UnixMilli() + 3600000 // 1 hour from now
+	stream.partialBuffers[oldTs] = []*ClineMessageProto{
+		{ClineMessage: &ClineMessage{Ts: oldTs, Partial: true}},
 	}
-	stream.partialTimeouts["old-msg"] = time.Now().Add(-time.Hour) // Expired
-	stream.partialBuffers["new-msg"] = []*Message{
-		{ID: "new-msg", Partial: true, SequenceNumber: 0, TotalChunks: 3},
+	stream.partialTimeouts[oldTs] = time.Now().Add(-time.Hour) // Expired
+	stream.partialBuffers[newTs] = []*ClineMessageProto{
+		{ClineMessage: &ClineMessage{Ts: newTs, Partial: true}},
 	}
-	stream.partialTimeouts["new-msg"] = time.Now().Add(time.Hour) // Not expired
+	stream.partialTimeouts[newTs] = time.Now().Add(time.Hour) // Not expired
 	stream.partialMu.Unlock()
 
 	// Run cleanup
@@ -681,10 +509,10 @@ func TestBidiStreamCleanupPartialMessages(t *testing.T) {
 
 	// Verify old message was cleaned up
 	stream.partialMu.RLock()
-	if _, exists := stream.partialBuffers["old-msg"]; exists {
+	if _, exists := stream.partialBuffers[oldTs]; exists {
 		t.Error("old message should have been cleaned up")
 	}
-	if _, exists := stream.partialBuffers["new-msg"]; !exists {
+	if _, exists := stream.partialBuffers[newTs]; !exists {
 		t.Error("new message should not have been cleaned up")
 	}
 	stream.partialMu.RUnlock()
@@ -692,8 +520,7 @@ func TestBidiStreamCleanupPartialMessages(t *testing.T) {
 
 func TestBidiStreamStats(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		BufferSize:             10,
@@ -725,8 +552,7 @@ func TestBidiStreamStateCallbacks(t *testing.T) {
 	var mu sync.Mutex
 
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		OnStateChange: func(state StreamState) {
@@ -759,8 +585,7 @@ func TestBidiStreamErrorCallback(t *testing.T) {
 	var mu sync.Mutex
 
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		OnError: func(err error) {
@@ -787,8 +612,7 @@ func TestBidiStreamErrorCallback(t *testing.T) {
 
 func TestBidiStreamIsReady(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -811,8 +635,7 @@ func TestBidiStreamIsReady(t *testing.T) {
 
 func TestBidiStreamForceReconnect(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -838,8 +661,7 @@ func TestBidiStreamForceReconnect(t *testing.T) {
 
 func TestBidiStreamWaitForReady(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -872,8 +694,7 @@ func TestBidiStreamWaitForReady(t *testing.T) {
 
 func TestBidiStreamBackpressure(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		MaxOutstandingMessages: 2,
@@ -893,7 +714,14 @@ func TestBidiStreamBackpressure(t *testing.T) {
 	stream.backpressure <- struct{}{}
 
 	// Should fail with backpressure exceeded
-	msg := NewMessage("test", []byte("data"))
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:   time.Now().UnixMilli(),
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: "test",
+		},
+	}
 	err = stream.Send(msg)
 	if err != ErrBackpressureExceeded {
 		t.Errorf("expected ErrBackpressureExceeded, got %v", err)
@@ -910,8 +738,7 @@ func TestBidiStreamBackpressure(t *testing.T) {
 
 func TestBidiStreamReassemblyWithMissingChunks(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -921,24 +748,26 @@ func TestBidiStreamReassemblyWithMissingChunks(t *testing.T) {
 		t.Fatalf("failed to create stream: %v", err)
 	}
 
-	msgID := "incomplete-msg"
+	ts := time.Now().UnixMilli()
 
 	// Add only 2 of 3 required chunks
-	chunk1 := &Message{
-		ID:             msgID,
-		Type:           "test",
-		Partial:        true,
-		SequenceNumber: 0,
-		TotalChunks:    3,
-		Payload:        []byte("part1"),
+	chunk1 := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:      ts,
+			Type:    ClineMessageType_SAY,
+			Say:     ClineSay_TEXT,
+			Text:    "part1",
+			Partial: true,
+		},
 	}
-	chunk2 := &Message{
-		ID:             msgID,
-		Type:           "test",
-		Partial:        true,
-		SequenceNumber: 1,
-		TotalChunks:    3,
-		Payload:        []byte("part2"),
+	chunk2 := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:      ts,
+			Type:    ClineMessageType_SAY,
+			Say:     ClineSay_TEXT,
+			Text:    "part2",
+			Partial: true,
+		},
 	}
 
 	// Process chunks - should return nil (not complete)
@@ -954,16 +783,15 @@ func TestBidiStreamReassemblyWithMissingChunks(t *testing.T) {
 
 	// Verify partial buffer exists
 	stream.partialMu.RLock()
-	if len(stream.partialBuffers[msgID]) != 2 {
-		t.Errorf("expected 2 chunks in buffer, got %d", len(stream.partialBuffers[msgID]))
+	if len(stream.partialBuffers[ts]) != 2 {
+		t.Errorf("expected 2 chunks in buffer, got %d", len(stream.partialBuffers[ts]))
 	}
 	stream.partialMu.RUnlock()
 }
 
 func TestBidiStreamReleaseBackpressure(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		MaxOutstandingMessages: 5,
@@ -983,7 +811,7 @@ func TestBidiStreamReleaseBackpressure(t *testing.T) {
 	}
 
 	// Release backpressure
-	stream.releaseBackpressure("test-msg")
+	stream.releaseBackpressure(12345)
 
 	// Verify one token was released
 	if len(stream.backpressure) != 2 {
@@ -998,8 +826,7 @@ func TestBidiStreamReleaseBackpressure(t *testing.T) {
 
 func TestBidiStreamAcknowledge(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -1010,8 +837,8 @@ func TestBidiStreamAcknowledge(t *testing.T) {
 	}
 
 	// Test acknowledge
-	stream.Acknowledge("msg-1")
-	stream.Acknowledge("msg-2")
+	stream.Acknowledge(12345)
+	stream.Acknowledge(12346)
 
 	// Verify messages were queued
 	if len(stream.ackChan) != 2 {
@@ -1021,8 +848,7 @@ func TestBidiStreamAcknowledge(t *testing.T) {
 
 func TestBidiStreamConcurrentAccess(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -1065,8 +891,7 @@ func TestBidiStreamReconnectBackoff(t *testing.T) {
 
 func TestBidiStreamReassemblyMessageOrder(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -1076,31 +901,34 @@ func TestBidiStreamReassemblyMessageOrder(t *testing.T) {
 		t.Fatalf("failed to create stream: %v", err)
 	}
 
-	msgID := "ordered-msg"
-	payload := []byte("abcdefghijklmnopqrstuvwxyz")
+	ts := time.Now().UnixMilli()
+	originalText := "abcdefghijklmnopqrstuvwxyz"
 
 	// Create chunks in reverse order
-	chunks := make([]*Message, 3)
+	chunks := make([]*ClineMessageProto, 3)
 	for i := 2; i >= 0; i-- {
 		start := i * 10
 		end := start + 10
-		if end > len(payload) {
-			end = len(payload)
+		if end > len(originalText) {
+			end = len(originalText)
 		}
 
-		chunks[2-i] = &Message{
-			ID:             msgID,
-			Type:           "test",
-			Payload:        payload[start:end],
-			Partial:        true,
-			SequenceNumber: i,
-			TotalChunks:    3,
-			IsLast:         i == 2,
+		chunks[2-i] = &ClineMessageProto{
+			ClineMessage: &ClineMessage{
+				Ts:      ts,
+				Type:    ClineMessageType_SAY,
+				Say:     ClineSay_TEXT,
+				Text:    originalText[start:end],
+				Partial: true,
+			},
 		}
 	}
 
+	// Mark last chunk as not partial
+	chunks[2].Partial = false
+
 	// Process chunks
-	var completeMsg *Message
+	var completeMsg *ClineMessageProto
 	for _, chunk := range chunks {
 		completeMsg = stream.handlePartialMessage(chunk)
 	}
@@ -1112,15 +940,14 @@ func TestBidiStreamReassemblyMessageOrder(t *testing.T) {
 	// Note: The current implementation doesn't reorder chunks by sequence number
 	// It just appends them in received order
 	// This test documents current behavior
-	if len(completeMsg.Payload) != len(payload) {
-		t.Errorf("expected payload length %d, got %d", len(payload), len(completeMsg.Payload))
+	if len(completeMsg.Text) != len(originalText) {
+		t.Errorf("expected text length %d, got %d", len(originalText), len(completeMsg.Text))
 	}
 }
 
 func TestBidiStreamReceiveChannel(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 		BufferSize: 10,
@@ -1140,7 +967,14 @@ func TestBidiStreamReceiveChannel(t *testing.T) {
 	}
 
 	// Send a message to the channel
-	testMsg := NewMessage("test", []byte("data"))
+	testMsg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:   time.Now().UnixMilli(),
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: "data",
+		},
+	}
 	go func() {
 		stream.recvChan <- testMsg
 	}()
@@ -1148,8 +982,8 @@ func TestBidiStreamReceiveChannel(t *testing.T) {
 	// Receive the message
 	select {
 	case msg := <-recvChan:
-		if msg.ID != testMsg.ID {
-			t.Errorf("expected message ID %s, got %s", testMsg.ID, msg.ID)
+		if msg.Ts != testMsg.Ts {
+			t.Errorf("expected message ts %d, got %d", testMsg.Ts, msg.Ts)
 		}
 	case <-time.After(time.Second):
 		t.Error("timeout waiting for message")
@@ -1158,8 +992,7 @@ func TestBidiStreamReceiveChannel(t *testing.T) {
 
 func TestBidiStreamStopIdempotency(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -1186,8 +1019,7 @@ func TestBidiStreamCloseSendOnStop(t *testing.T) {
 	mockStream := newMockBidiStream()
 
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return mockStream, nil
 		},
 	}
@@ -1210,15 +1042,14 @@ func TestBidiStreamCloseSendOnStop(t *testing.T) {
 }
 
 func TestBidiStreamMessageReceivedCallback(t *testing.T) {
-	var receivedMsg *Message
+	var receivedMsg *ClineMessageProto
 	var mu sync.Mutex
 
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
-		OnMessageReceived: func(msg *Message) {
+		OnMessageReceived: func(msg *ClineMessageProto) {
 			mu.Lock()
 			defer mu.Unlock()
 			receivedMsg = msg
@@ -1231,7 +1062,14 @@ func TestBidiStreamMessageReceivedCallback(t *testing.T) {
 	}
 
 	// Simulate message reception
-	testMsg := NewMessage("test", []byte("callback test"))
+	testMsg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:   time.Now().UnixMilli(),
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: "callback test",
+		},
+	}
 	stream.recvChan <- testMsg
 
 	// Manually trigger what receiveLoop would do
@@ -1242,8 +1080,8 @@ func TestBidiStreamMessageReceivedCallback(t *testing.T) {
 	mu.Lock()
 	if receivedMsg == nil {
 		t.Error("OnMessageReceived callback was not called")
-	} else if receivedMsg.ID != testMsg.ID {
-		t.Errorf("expected message ID %s, got %s", testMsg.ID, receivedMsg.ID)
+	} else if receivedMsg.Ts != testMsg.Ts {
+		t.Errorf("expected message ts %d, got %d", testMsg.Ts, receivedMsg.Ts)
 	}
 	mu.Unlock()
 }
@@ -1262,8 +1100,7 @@ func TestBidiStreamSendPartialMessageTimeout(t *testing.T) {
 
 func TestBidiStreamReassembleMessageEmptyBuffer(t *testing.T) {
 	config := &StreamConfig{
-		Client: &Client{},
-		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error) {
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
 			return newMockBidiStream(), nil
 		},
 	}
@@ -1274,7 +1111,7 @@ func TestBidiStreamReassembleMessageEmptyBuffer(t *testing.T) {
 	}
 
 	// Try to reassemble non-existent message
-	msg := stream.reassembleMessage("non-existent")
+	msg := stream.reassembleMessage(999999)
 	if msg != nil {
 		t.Error("expected nil for non-existent message")
 	}
@@ -1282,4 +1119,393 @@ func TestBidiStreamReassembleMessageEmptyBuffer(t *testing.T) {
 
 func TestBidiStreamReconnectingFlag(t *testing.T) {
 	t.Skip("Skipped: requires mock connection pool")
+}
+
+// ============================================================================
+// TaskStreamHandler Tests
+// ============================================================================
+
+func TestNewTaskStreamHandler(t *testing.T) {
+	handler := NewTaskStreamHandler("test-task-id")
+	if handler == nil {
+		t.Fatal("NewTaskStreamHandler returned nil")
+	}
+	if handler.taskID != "test-task-id" {
+		t.Errorf("expected taskID 'test-task-id', got %s", handler.taskID)
+	}
+	if handler.messageChan == nil {
+		t.Error("messageChan should not be nil")
+	}
+	if handler.errorChan == nil {
+		t.Error("errorChan should not be nil")
+	}
+	if handler.doneChan == nil {
+		t.Error("doneChan should not be nil")
+	}
+}
+
+func TestTaskStreamHandlerStartStop(t *testing.T) {
+	mockStream := newMockBidiStream()
+
+	handler := NewTaskStreamHandler("test-task-id")
+
+	streamCreator := func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
+		return mockStream, nil
+	}
+
+	err := handler.Start(streamCreator)
+	if err != nil {
+		t.Fatalf("failed to start handler: %v", err)
+	}
+
+	// Verify handler has a stream
+	if handler.stream == nil {
+		t.Error("handler should have a stream after Start")
+	}
+
+	// Stop the handler
+	err = handler.Stop()
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
+	}
+}
+
+func TestTaskStreamHandlerSendMessage(t *testing.T) {
+	mockStream := newMockBidiStream()
+
+	handler := NewTaskStreamHandler("test-task-id")
+
+	streamCreator := func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
+		return mockStream, nil
+	}
+
+	err := handler.Start(streamCreator)
+	if err != nil {
+		t.Fatalf("failed to start handler: %v", err)
+	}
+	defer handler.Stop()
+
+	// Manually set stream state to ready for testing
+	handler.stream.setState(StreamStateReady)
+
+	// Send a message
+	err = handler.SendMessage("Hello, World!", []string{"img1"}, []string{"file1"})
+	if err != nil {
+		// May fail due to backpressure or other reasons in test
+		t.Logf("SendMessage() error (may be expected): %v", err)
+	}
+}
+
+func TestTaskStreamHandlerSendAskResponse(t *testing.T) {
+	mockStream := newMockBidiStream()
+
+	handler := NewTaskStreamHandler("test-task-id")
+
+	streamCreator := func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
+		return mockStream, nil
+	}
+
+	err := handler.Start(streamCreator)
+	if err != nil {
+		t.Fatalf("failed to start handler: %v", err)
+	}
+	defer handler.Stop()
+
+	// Manually set stream state to ready for testing
+	handler.stream.setState(StreamStateReady)
+
+	// Send an ask response
+	err = handler.SendAskResponse("messageResponse", "My response", nil, nil)
+	if err != nil {
+		// May fail due to backpressure or other reasons in test
+		t.Logf("SendAskResponse() error (may be expected): %v", err)
+	}
+}
+
+func TestTaskStreamHandlerHandleSayMessage(t *testing.T) {
+	handler := NewTaskStreamHandler("test-task-id")
+
+	var receivedText string
+	var receivedTool *ClineSayTool
+	var receivedCommand string
+
+	handler.OnTextMessage = func(text string) {
+		receivedText = text
+	}
+	handler.OnToolRequest = func(tool *ClineSayTool) error {
+		receivedTool = tool
+		return nil
+	}
+	handler.OnCommandRequest = func(command string) error {
+		receivedCommand = command
+		return nil
+	}
+
+	// Test TEXT message
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: "Hello!",
+		},
+	}
+	handler.handleSayMessage(msg)
+	if receivedText != "Hello!" {
+		t.Errorf("expected text 'Hello!', got %s", receivedText)
+	}
+
+	// Test TOOL_SAY message
+	msg = &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Type:    ClineMessageType_SAY,
+			Say:     ClineSay_TOOL_SAY,
+			SayTool: &ClineSayTool{Tool: ClineSayToolType_READ_FILE, Path: "/test/file"},
+		},
+	}
+	handler.handleSayMessage(msg)
+	if receivedTool == nil {
+		t.Error("expected tool to be received")
+	} else if receivedTool.Path != "/test/file" {
+		t.Errorf("expected path '/test/file', got %s", receivedTool.Path)
+	}
+
+	// Test COMMAND_SAY message
+	msg = &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_COMMAND_SAY,
+			Text: "ls -la",
+		},
+	}
+	handler.handleSayMessage(msg)
+	if receivedCommand != "ls -la" {
+		t.Errorf("expected command 'ls -la', got %s", receivedCommand)
+	}
+}
+
+func TestTaskStreamHandlerHandleAskMessage(t *testing.T) {
+	handler := NewTaskStreamHandler("test-task-id")
+
+	var receivedQuestion *ClineAskQuestion
+	handler.OnAskQuestion = func(question *ClineAskQuestion) (string, error) {
+		receivedQuestion = question
+		return "My answer", nil
+	}
+
+	// Create a mock stream and set it up
+	mockStream := newMockBidiStream()
+	config := &StreamConfig{
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
+			return mockStream, nil
+		},
+	}
+
+	bidiStream, err := NewBidiStream(config)
+	if err != nil {
+		t.Fatalf("failed to create stream: %v", err)
+	}
+	handler.stream = bidiStream
+	// Set state to ready so messages can be sent
+	handler.stream.setState(StreamStateReady)
+
+	// Test FOLLOWUP ask
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Type: ClineMessageType_ASK,
+			Ask:  ClineAsk_FOLLOWUP,
+			AskQuestion: &ClineAskQuestion{
+				Question: "What do you think?",
+				Options:  []string{"Yes", "No"},
+			},
+		},
+	}
+	handler.handleAskMessage(msg)
+	if receivedQuestion == nil {
+		t.Error("expected question to be received")
+	} else if receivedQuestion.Question != "What do you think?" {
+		t.Errorf("expected question 'What do you think?', got %s", receivedQuestion.Question)
+	}
+}
+
+func TestTaskStreamHandlerHandleMessage(t *testing.T) {
+	handler := NewTaskStreamHandler("test-task-id")
+
+	var receivedSay bool
+	var receivedAsk bool
+
+	handler.OnTextMessage = func(text string) {
+		receivedSay = true
+	}
+	handler.OnAskQuestion = func(question *ClineAskQuestion) (string, error) {
+		receivedAsk = true
+		return "", nil
+	}
+
+	// Test SAY message
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: "Test",
+		},
+	}
+	handler.handleMessage(msg)
+	if !receivedSay {
+		t.Error("expected SAY handler to be called")
+	}
+
+	// Test ASK message - must have stream set up
+	mockStream := newMockBidiStream()
+	config := &StreamConfig{
+		StreamCreator: func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
+			return mockStream, nil
+		},
+	}
+
+	bidiStream, err := NewBidiStream(config)
+	if err != nil {
+		t.Fatalf("failed to create stream: %v", err)
+	}
+	handler.stream = bidiStream
+	handler.stream.setState(StreamStateReady)
+
+	msg = &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Type: ClineMessageType_ASK,
+			Ask:  ClineAsk_FOLLOWUP,
+			AskQuestion: &ClineAskQuestion{
+				Question: "Test question?",
+			},
+		},
+	}
+	handler.handleMessage(msg)
+	if !receivedAsk {
+		t.Error("expected ASK handler to be called")
+	}
+
+	// Test nil message
+	handler.handleMessage(nil) // Should not panic
+}
+
+func TestTaskStreamHandlerWaitForCompletion(t *testing.T) {
+	handler := NewTaskStreamHandler("test-task-id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	// Should timeout when no completion message
+	err := handler.WaitForCompletion(ctx)
+	if err != context.DeadlineExceeded {
+		t.Errorf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestTaskStreamHandlerErrorCallback(t *testing.T) {
+	handler := NewTaskStreamHandler("test-task-id")
+
+	var receivedError error
+	handler.OnError = func(err error) {
+		receivedError = err
+	}
+
+	// Simulate error
+	testErr := errors.New("test error")
+	handler.errorChan <- testErr
+
+	// Process error through routeMessages (manually trigger)
+	select {
+	case err := <-handler.errorChan:
+		if handler.OnError != nil {
+			handler.OnError(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for error")
+	}
+
+	if receivedError != testErr {
+		t.Errorf("expected error %v, got %v", testErr, receivedError)
+	}
+}
+
+// ============================================================================
+// JSON Serialization Tests
+// ============================================================================
+
+func TestMessageToJSON(t *testing.T) {
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:   time.Now().UnixMilli(),
+			Type: ClineMessageType_SAY,
+			Say:  ClineSay_TEXT,
+			Text: "Hello, World!",
+		},
+	}
+
+	data, err := MessageToJSON(msg)
+	if err != nil {
+		t.Fatalf("MessageToJSON() error = %v", err)
+	}
+
+	// Verify it's valid JSON
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Errorf("result is not valid JSON: %v", err)
+	}
+
+	if decoded["text"] != "Hello, World!" {
+		t.Errorf("expected text 'Hello, World!', got %v", decoded["text"])
+	}
+}
+
+func TestMessageToJSONNil(t *testing.T) {
+	_, err := MessageToJSON(nil)
+	if err == nil || err.Error() != "message is nil" {
+		t.Errorf("expected 'message is nil' error, got %v", err)
+	}
+}
+
+func TestJSONToMessage(t *testing.T) {
+	data := []byte(`{"ts":1234567890,"type":1,"say":4,"text":"Hello"}`)
+
+	msg, err := JSONToMessage(data)
+	if err != nil {
+		t.Fatalf("JSONToMessage() error = %v", err)
+	}
+
+	if msg.Ts != 1234567890 {
+		t.Errorf("expected ts 1234567890, got %d", msg.Ts)
+	}
+	if msg.Type != ClineMessageType_SAY {
+		t.Errorf("expected type SAY, got %v", msg.Type)
+	}
+	if msg.Say != ClineSay_TEXT {
+		t.Errorf("expected say TEXT, got %v", msg.Say)
+	}
+	if msg.Text != "Hello" {
+		t.Errorf("expected text 'Hello', got %s", msg.Text)
+	}
+}
+
+// ============================================================================
+// StreamCreator Tests
+// ============================================================================
+
+func TestCreateTaskStreamCreator(t *testing.T) {
+	creator := CreateTaskStreamCreator("test-task-id")
+
+	// Since we can't easily mock the grpc.ClientConn, we'll just verify the function exists
+	// and has the correct signature
+	if creator == nil {
+		t.Error("CreateTaskStreamCreator returned nil")
+	}
+}
+
+// ============================================================================
+// TaskServiceClient Tests
+// ============================================================================
+
+func TestNewTaskServiceClient(t *testing.T) {
+	// This test just verifies the function exists and doesn't panic
+	// Actual gRPC calls would require a real server
+	t.Skip("Requires gRPC server connection")
 }

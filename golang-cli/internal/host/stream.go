@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -51,48 +52,10 @@ func (s StreamState) String() string {
 	}
 }
 
-// Message represents a generic message for bidirectional streaming
-type Message struct {
-	ID        string
-	Type      string
-	Payload   []byte
-	Metadata  map[string]string
-	Timestamp time.Time
-	// Partial indicates this is a chunk of a larger message
-	Partial bool
-	// SequenceNumber is used for ordering partial messages
-	SequenceNumber int
-	// TotalChunks is the total number of chunks for this message
-	TotalChunks int
-	// IsLast indicates this is the final chunk
-	IsLast bool
-}
-
-// NewMessage creates a new message with the given type and payload
-func NewMessage(msgType string, payload []byte) *Message {
-	return &Message{
-		ID:        generateMessageID(),
-		Type:      msgType,
-		Payload:   payload,
-		Metadata:  make(map[string]string),
-		Timestamp: time.Now(),
-		Partial:   false,
-		TotalChunks: 1,
-		IsLast:    true,
-	}
-}
-
-// generateMessageID generates a unique message ID
-func generateMessageID() string {
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), time.Now().UnixMicro())
-}
-
 // StreamConfig contains configuration for a bidirectional stream
 type StreamConfig struct {
-	// Client is the gRPC client to use for the stream
-	Client *Client
 	// StreamCreator is a function that creates the actual gRPC stream
-	StreamCreator func(ctx context.Context, conn *grpc.ClientConn) (grpc.BidiStreamingClient[Message, Message], error)
+	StreamCreator func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error)
 	// BufferSize is the size of the send/receive buffers
 	BufferSize int
 	// MaxOutstandingMessages is the maximum number of messages allowed in flight
@@ -110,7 +73,9 @@ type StreamConfig struct {
 	// OnError is called when an error occurs
 	OnError func(error)
 	// OnMessageReceived is called when a message is received
-	OnMessageReceived func(*Message)
+	OnMessageReceived func(*ClineMessageProto)
+	// TaskID is the ID of the task for this stream
+	TaskID string
 }
 
 // DefaultStreamConfig returns a default stream configuration
@@ -133,9 +98,9 @@ type BidiStream struct {
 	state atomic.Int32
 
 	// Channels for message flow
-	sendChan    chan *Message
-	recvChan    chan *Message
-	ackChan     chan string
+	sendChan    chan *ClineMessageProto
+	recvChan    chan *ClineMessageProto
+	ackChan     chan int64
 	controlChan chan controlMessage
 
 	// Flow control
@@ -144,11 +109,11 @@ type BidiStream struct {
 
 	// Partial message handling
 	partialMu       sync.RWMutex
-	partialBuffers  map[string][]*Message
-	partialTimeouts map[string]time.Time
+	partialBuffers  map[int64][]*ClineMessageProto
+	partialTimeouts map[int64]time.Time
 
 	// Stream management
-	stream     grpc.BidiStreamingClient[Message, Message]
+	stream     TaskService_StreamClient
 	streamMu   sync.RWMutex
 	cancelFunc context.CancelFunc
 
@@ -175,10 +140,6 @@ type controlMessage struct {
 func NewBidiStream(config *StreamConfig) (*BidiStream, error) {
 	if config == nil {
 		config = DefaultStreamConfig()
-	}
-
-	if config.Client == nil {
-		return nil, errors.New("client is required")
 	}
 
 	if config.StreamCreator == nil {
@@ -209,13 +170,13 @@ func NewBidiStream(config *StreamConfig) (*BidiStream, error) {
 
 	s := &BidiStream{
 		config:          config,
-		sendChan:        make(chan *Message, config.BufferSize),
-		recvChan:        make(chan *Message, config.BufferSize),
-		ackChan:         make(chan string, config.BufferSize),
+		sendChan:        make(chan *ClineMessageProto, config.BufferSize),
+		recvChan:        make(chan *ClineMessageProto, config.BufferSize),
+		ackChan:         make(chan int64, config.BufferSize),
 		controlChan:     make(chan controlMessage, 10),
 		backpressure:    make(chan struct{}, config.MaxOutstandingMessages),
-		partialBuffers:  make(map[string][]*Message),
-		partialTimeouts: make(map[string]time.Time),
+		partialBuffers:  make(map[int64][]*ClineMessageProto),
+		partialTimeouts: make(map[int64]time.Time),
 		ctx:             ctx,
 		cancel:          cancel,
 	}
@@ -290,7 +251,7 @@ func (s *BidiStream) Stop() error {
 }
 
 // Send sends a message through the stream
-func (s *BidiStream) Send(msg *Message) error {
+func (s *BidiStream) Send(msg *ClineMessageProto) error {
 	if msg == nil {
 		return errors.New("message is nil")
 	}
@@ -308,7 +269,7 @@ func (s *BidiStream) Send(msg *Message) error {
 	}
 
 	// Handle partial messages
-	if s.config.EnablePartialMessages && len(msg.Payload) > s.config.MaxChunkSize {
+	if s.config.EnablePartialMessages && len(msg.Text) > s.config.MaxChunkSize {
 		return s.sendPartialMessage(msg)
 	}
 
@@ -325,7 +286,7 @@ func (s *BidiStream) Send(msg *Message) error {
 }
 
 // sendPartialMessage breaks a large message into chunks and sends them
-func (s *BidiStream) sendPartialMessage(msg *Message) error {
+func (s *BidiStream) sendPartialMessage(msg *ClineMessageProto) error {
 	chunks := chunkMessage(msg, s.config.MaxChunkSize)
 
 	for _, chunk := range chunks {
@@ -343,58 +304,54 @@ func (s *BidiStream) sendPartialMessage(msg *Message) error {
 }
 
 // chunkMessage breaks a message into chunks
-func chunkMessage(msg *Message, chunkSize int) []*Message {
-	if len(msg.Payload) <= chunkSize {
-		msg.IsLast = true
-		msg.TotalChunks = 1
-		return []*Message{msg}
+func chunkMessage(msg *ClineMessageProto, chunkSize int) []*ClineMessageProto {
+	text := msg.Text
+	if len(text) <= chunkSize {
+		return []*ClineMessageProto{msg}
 	}
 
-	numChunks := (len(msg.Payload) + chunkSize - 1) / chunkSize
-	chunks := make([]*Message, numChunks)
+	numChunks := (len(text) + chunkSize - 1) / chunkSize
+	chunks := make([]*ClineMessageProto, numChunks)
 
 	for i := 0; i < numChunks; i++ {
 		start := i * chunkSize
 		end := start + chunkSize
-		if end > len(msg.Payload) {
-			end = len(msg.Payload)
+		if end > len(text) {
+			end = len(text)
 		}
 
-		chunk := &Message{
-			ID:             msg.ID,
-			Type:           msg.Type,
-			Payload:        msg.Payload[start:end],
-			Metadata:       copyMetadata(msg.Metadata),
-			Timestamp:      msg.Timestamp,
-			Partial:        true,
-			SequenceNumber: i,
-			TotalChunks:    numChunks,
-			IsLast:         i == numChunks-1,
+		chunk := &ClineMessageProto{
+			ClineMessage: &ClineMessage{
+				Ts:      msg.Ts,
+				Type:    msg.Type,
+				Ask:     msg.Ask,
+				Say:     msg.Say,
+				Text:    text[start:end],
+				Images:  msg.Images,
+				Files:   msg.Files,
+				Partial: true,
+			},
 		}
 		chunks[i] = chunk
+	}
+
+	// Mark the last chunk as not partial
+	if len(chunks) > 0 {
+		chunks[len(chunks)-1].Partial = false
 	}
 
 	return chunks
 }
 
-// copyMetadata creates a copy of the metadata map
-func copyMetadata(src map[string]string) map[string]string {
-	dst := make(map[string]string, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
-
 // Receive returns a channel for receiving messages
-func (s *BidiStream) Receive() <-chan *Message {
+func (s *BidiStream) Receive() <-chan *ClineMessageProto {
 	return s.recvChan
 }
 
 // Acknowledge acknowledges receipt of a message
-func (s *BidiStream) Acknowledge(msgID string) {
+func (s *BidiStream) Acknowledge(ts int64) {
 	select {
-	case s.ackChan <- msgID:
+	case s.ackChan <- ts:
 	case <-s.ctx.Done():
 	}
 }
@@ -433,12 +390,8 @@ func (s *BidiStream) connect() error {
 	ctx, cancel := context.WithCancel(s.ctx)
 	s.cancelFunc = cancel
 
-	conn, err := s.config.Client.GetPool().GetConnection()
-	if err != nil {
-		return fmt.Errorf("failed to get connection: %w", err)
-	}
-
-	stream, err := s.config.StreamCreator(ctx, conn)
+	// Pass nil for connection - StreamCreator is responsible for establishing the connection
+	stream, err := s.config.StreamCreator(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create stream: %w", err)
 	}
@@ -462,14 +415,14 @@ func (s *BidiStream) sendLoop() {
 
 			if err := s.sendMessage(msg); err != nil {
 				s.handleError(fmt.Errorf("send error: %w", err))
-				s.releaseBackpressure(msg.ID)
+				s.releaseBackpressure(msg.Ts)
 			}
 		}
 	}
 }
 
 // sendMessage sends a single message to the stream
-func (s *BidiStream) sendMessage(msg *Message) error {
+func (s *BidiStream) sendMessage(msg *ClineMessageProto) error {
 	s.streamMu.RLock()
 	stream := s.stream
 	s.streamMu.RUnlock()
@@ -531,12 +484,12 @@ func (s *BidiStream) receiveLoop() {
 		}
 
 		// Release backpressure for acknowledged messages
-		s.releaseBackpressure(msg.ID)
+		s.releaseBackpressure(msg.Ts)
 	}
 }
 
 // receiveMessage receives a single message from the stream
-func (s *BidiStream) receiveMessage() (*Message, error) {
+func (s *BidiStream) receiveMessage() (*ClineMessageProto, error) {
 	s.streamMu.RLock()
 	stream := s.stream
 	s.streamMu.RUnlock()
@@ -549,25 +502,27 @@ func (s *BidiStream) receiveMessage() (*Message, error) {
 }
 
 // handlePartialMessage processes partial message chunks
-func (s *BidiStream) handlePartialMessage(chunk *Message) *Message {
+func (s *BidiStream) handlePartialMessage(chunk *ClineMessageProto) *ClineMessageProto {
 	s.partialMu.Lock()
 	defer s.partialMu.Unlock()
 
+	ts := chunk.Ts
+
 	// Initialize buffer for this message
-	if _, exists := s.partialBuffers[chunk.ID]; !exists {
-		s.partialBuffers[chunk.ID] = make([]*Message, 0, chunk.TotalChunks)
-		s.partialTimeouts[chunk.ID] = time.Now().Add(30 * time.Second)
+	if _, exists := s.partialBuffers[ts]; !exists {
+		s.partialBuffers[ts] = make([]*ClineMessageProto, 0)
+		s.partialTimeouts[ts] = time.Now().Add(30 * time.Second)
 	}
 
 	// Add chunk to buffer
-	s.partialBuffers[chunk.ID] = append(s.partialBuffers[chunk.ID], chunk)
+	s.partialBuffers[ts] = append(s.partialBuffers[ts], chunk)
 
-	// Check if message is complete
-	if len(s.partialBuffers[chunk.ID]) == chunk.TotalChunks {
+	// Check if we have all chunks (simple heuristic: non-partial chunk marks completion)
+	if !chunk.Partial {
 		// Reassemble message
-		msg := s.reassembleMessage(chunk.ID)
-		delete(s.partialBuffers, chunk.ID)
-		delete(s.partialTimeouts, chunk.ID)
+		msg := s.reassembleMessage(ts)
+		delete(s.partialBuffers, ts)
+		delete(s.partialTimeouts, ts)
 		return msg
 	}
 
@@ -575,34 +530,31 @@ func (s *BidiStream) handlePartialMessage(chunk *Message) *Message {
 }
 
 // reassembleMessage combines chunks into a complete message
-func (s *BidiStream) reassembleMessage(msgID string) *Message {
-	chunks := s.partialBuffers[msgID]
+func (s *BidiStream) reassembleMessage(ts int64) *ClineMessageProto {
+	chunks := s.partialBuffers[ts]
 	if len(chunks) == 0 {
 		return nil
 	}
 
-	// Calculate total payload size
-	totalSize := 0
+	// Reassemble text
+	var fullText string
 	for _, chunk := range chunks {
-		totalSize += len(chunk.Payload)
-	}
-
-	// Reassemble payload
-	payload := make([]byte, 0, totalSize)
-	for _, chunk := range chunks {
-		payload = append(payload, chunk.Payload...)
+		fullText += chunk.Text
 	}
 
 	// Create complete message from first chunk
 	first := chunks[0]
-	return &Message{
-		ID:        msgID,
-		Type:      first.Type,
-		Payload:   payload,
-		Metadata:  first.Metadata,
-		Timestamp: first.Timestamp,
-		Partial:   false,
-		IsLast:    true,
+	return &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:      first.Ts,
+			Type:    first.Type,
+			Ask:     first.Ask,
+			Say:     first.Say,
+			Text:    fullText,
+			Images:  first.Images,
+			Files:   first.Files,
+			Partial: false,
+		},
 	}
 }
 
@@ -629,10 +581,10 @@ func (s *BidiStream) cleanupPartialMessages() {
 	defer s.partialMu.Unlock()
 
 	now := time.Now()
-	for msgID, timeout := range s.partialTimeouts {
+	for ts, timeout := range s.partialTimeouts {
 		if now.After(timeout) {
-			delete(s.partialBuffers, msgID)
-			delete(s.partialTimeouts, msgID)
+			delete(s.partialBuffers, ts)
+			delete(s.partialTimeouts, ts)
 		}
 	}
 }
@@ -687,7 +639,7 @@ func (s *BidiStream) handleError(err error) {
 }
 
 // releaseBackpressure releases a backpressure token
-func (s *BidiStream) releaseBackpressure(msgID string) {
+func (s *BidiStream) releaseBackpressure(ts int64) {
 	select {
 	case <-s.backpressure:
 		s.outstandingMsgs.Add(-1)
@@ -698,11 +650,11 @@ func (s *BidiStream) releaseBackpressure(msgID string) {
 // Stats returns stream statistics
 func (s *BidiStream) Stats() StreamStats {
 	return StreamStats{
-		State:              s.getState(),
+		State:               s.getState(),
 		OutstandingMessages: int(s.outstandingMsgs.Load()),
-		ReconnectCount:     int(s.reconnectCount.Load()),
-		SendQueueLen:       len(s.sendChan),
-		RecvQueueLen:       len(s.recvChan),
+		ReconnectCount:      int(s.reconnectCount.Load()),
+		SendQueueLen:        len(s.sendChan),
+		RecvQueueLen:        len(s.recvChan),
 	}
 }
 
@@ -743,4 +695,556 @@ func (s *BidiStream) ForceReconnect() error {
 
 	s.triggerReconnection()
 	return nil
+}
+
+// ============================================================================
+// TaskServiceClient Implementation
+// ============================================================================
+
+// taskServiceClient implements TaskServiceClient
+type taskServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+// NewTaskServiceClient creates a new TaskServiceClient
+func NewTaskServiceClient(cc grpc.ClientConnInterface) TaskServiceClient {
+	return &taskServiceClient{cc}
+}
+
+func (c *taskServiceClient) CancelTask(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/CancelTask", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) CancelBackgroundCommand(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/CancelBackgroundCommand", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) ClearTask(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/ClearTask", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) GetTotalTasksSize(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*Int64, error) {
+	out := new(Int64)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/GetTotalTasksSize", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) DeleteTasksWithIds(ctx context.Context, in *StringArrayRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/DeleteTasksWithIds", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) NewTask(ctx context.Context, in *NewTaskRequest, opts ...grpc.CallOption) (*String, error) {
+	out := new(String)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/NewTask", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) ShowTaskWithId(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*TaskResponse, error) {
+	out := new(TaskResponse)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/ShowTaskWithId", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) ExportTaskWithId(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/ExportTaskWithId", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) ToggleTaskFavorite(ctx context.Context, in *TaskFavoriteRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/ToggleTaskFavorite", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) GetTaskHistory(ctx context.Context, in *GetTaskHistoryRequest, opts ...grpc.CallOption) (*TaskHistoryArray, error) {
+	out := new(TaskHistoryArray)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/GetTaskHistory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) AskResponse(ctx context.Context, in *AskResponseRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/AskResponse", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) TaskFeedback(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/TaskFeedback", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) TaskCompletionViewChanges(ctx context.Context, in *Int64Request, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/TaskCompletionViewChanges", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) ExecuteQuickWin(ctx context.Context, in *ExecuteQuickWinRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/ExecuteQuickWin", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) DeleteAllTaskHistory(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DeleteAllTaskHistoryCount, error) {
+	out := new(DeleteAllTaskHistoryCount)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/DeleteAllTaskHistory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) ExplainChanges(ctx context.Context, in *ExplainChangesRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/cline.TaskService/ExplainChanges", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) Stream(ctx context.Context, opts ...grpc.CallOption) (TaskService_StreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &TaskService_ServiceDesc.Streams[0], "/cline.TaskService/Stream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &taskServiceStreamClient{stream}
+	return x, nil
+}
+
+// TaskService_ServiceDesc is the grpc.ServiceDesc for TaskService service
+var TaskService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "cline.TaskService",
+	HandlerType: (*interface{})(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CancelTask",
+			Handler:    nil,
+		},
+		{
+			MethodName: "CancelBackgroundCommand",
+			Handler:    nil,
+		},
+		{
+			MethodName: "ClearTask",
+			Handler:    nil,
+		},
+		{
+			MethodName: "GetTotalTasksSize",
+			Handler:    nil,
+		},
+		{
+			MethodName: "DeleteTasksWithIds",
+			Handler:    nil,
+		},
+		{
+			MethodName: "NewTask",
+			Handler:    nil,
+		},
+		{
+			MethodName: "ShowTaskWithId",
+			Handler:    nil,
+		},
+		{
+			MethodName: "ExportTaskWithId",
+			Handler:    nil,
+		},
+		{
+			MethodName: "ToggleTaskFavorite",
+			Handler:    nil,
+		},
+		{
+			MethodName: "GetTaskHistory",
+			Handler:    nil,
+		},
+		{
+			MethodName: "AskResponse",
+			Handler:    nil,
+		},
+		{
+			MethodName: "TaskFeedback",
+			Handler:    nil,
+		},
+		{
+			MethodName: "TaskCompletionViewChanges",
+			Handler:    nil,
+		},
+		{
+			MethodName: "ExecuteQuickWin",
+			Handler:    nil,
+		},
+		{
+			MethodName: "DeleteAllTaskHistory",
+			Handler:    nil,
+		},
+		{
+			MethodName: "ExplainChanges",
+			Handler:    nil,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Stream",
+			Handler:       nil,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "cline/task.proto",
+}
+
+// taskServiceStreamClient implements TaskService_StreamClient
+type taskServiceStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *taskServiceStreamClient) Send(m *ClineMessageProto) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *taskServiceStreamClient) Recv() (*ClineMessageProto, error) {
+	m := new(ClineMessageProto)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ============================================================================
+// Message Routing and Task Stream Handler
+// ============================================================================
+
+// TaskStreamHandler handles bidirectional communication for a task
+type TaskStreamHandler struct {
+	stream      *BidiStream
+	taskID      string
+	messageChan chan *ClineMessageProto
+	errorChan   chan error
+	doneChan    chan struct{}
+
+	// Callbacks for different message types
+	OnTextMessage    func(text string)
+	OnToolRequest    func(tool *ClineSayTool) error
+	OnCommandRequest func(command string) error
+	OnCompletion     func(result string)
+	OnError          func(err error)
+	OnAskQuestion    func(question *ClineAskQuestion) (string, error)
+}
+
+// NewTaskStreamHandler creates a new task stream handler
+func NewTaskStreamHandler(taskID string) *TaskStreamHandler {
+	return &TaskStreamHandler{
+		taskID:      taskID,
+		messageChan: make(chan *ClineMessageProto, 100),
+		errorChan:   make(chan error, 10),
+		doneChan:    make(chan struct{}),
+	}
+}
+
+// Start starts the task stream handler with the given client
+func (h *TaskStreamHandler) Start(streamCreator func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error)) error {
+	config := &StreamConfig{
+		StreamCreator: streamCreator,
+		TaskID:        h.taskID,
+		OnMessageReceived: func(msg *ClineMessageProto) {
+			select {
+			case h.messageChan <- msg:
+			case <-h.doneChan:
+			}
+		},
+		OnError: func(err error) {
+			select {
+			case h.errorChan <- err:
+			case <-h.doneChan:
+			}
+		},
+	}
+
+	stream, err := NewBidiStream(config)
+	if err != nil {
+		return fmt.Errorf("failed to create bidirectional stream: %w", err)
+	}
+
+	h.stream = stream
+
+	if err := stream.Start(); err != nil {
+		return fmt.Errorf("failed to start stream: %w", err)
+	}
+
+	// Start message routing goroutine
+	go h.routeMessages()
+
+	return nil
+}
+
+// Stop stops the task stream handler
+func (h *TaskStreamHandler) Stop() error {
+	close(h.doneChan)
+	if h.stream != nil {
+		return h.stream.Stop()
+	}
+	return nil
+}
+
+// SendMessage sends a user message to the task
+func (h *TaskStreamHandler) SendMessage(text string, images []string, files []string) error {
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:     time.Now().UnixMilli(),
+			Type:   ClineMessageType_SAY,
+			Say:    ClineSay_TEXT,
+			Text:   text,
+			Images: images,
+			Files:  files,
+		},
+	}
+	return h.stream.Send(msg)
+}
+
+// SendAskResponse sends a response to an ask
+func (h *TaskStreamHandler) SendAskResponse(responseType string, text string, images []string, files []string) error {
+	msg := &ClineMessageProto{
+		ClineMessage: &ClineMessage{
+			Ts:     time.Now().UnixMilli(),
+			Type:   ClineMessageType_SAY,
+			Say:    ClineSay_USER_FEEDBACK,
+			Text:   text,
+			Images: images,
+			Files:  files,
+		},
+	}
+	return h.stream.Send(msg)
+}
+
+// routeMessages routes incoming messages to appropriate handlers
+func (h *TaskStreamHandler) routeMessages() {
+	for {
+		select {
+		case <-h.doneChan:
+			return
+		case msg := <-h.messageChan:
+			h.handleMessage(msg)
+		case err := <-h.errorChan:
+			if h.OnError != nil {
+				h.OnError(err)
+			}
+		}
+	}
+}
+
+// handleMessage handles a single incoming message
+func (h *TaskStreamHandler) handleMessage(msg *ClineMessageProto) {
+	if msg == nil {
+		return
+	}
+
+	switch msg.Type {
+	case ClineMessageType_SAY:
+		h.handleSayMessage(msg)
+	case ClineMessageType_ASK:
+		h.handleAskMessage(msg)
+	}
+}
+
+// handleSayMessage handles say messages from the core extension
+func (h *TaskStreamHandler) handleSayMessage(msg *ClineMessageProto) {
+	switch msg.Say {
+	case ClineSay_TEXT:
+		if h.OnTextMessage != nil {
+			h.OnTextMessage(msg.Text)
+		}
+	case ClineSay_TOOL_SAY:
+		if msg.SayTool != nil && h.OnToolRequest != nil {
+			if err := h.OnToolRequest(msg.SayTool); err != nil {
+				if h.OnError != nil {
+					h.OnError(err)
+				}
+			}
+		}
+	case ClineSay_COMMAND_SAY:
+		if h.OnCommandRequest != nil {
+			if err := h.OnCommandRequest(msg.Text); err != nil {
+				if h.OnError != nil {
+					h.OnError(err)
+				}
+			}
+		}
+	case ClineSay_COMPLETION_RESULT_SAY:
+		if h.OnCompletion != nil {
+			h.OnCompletion(msg.Text)
+		}
+	case ClineSay_ERROR:
+		if h.OnError != nil {
+			h.OnError(errors.New(msg.Text))
+		}
+	}
+}
+
+// handleAskMessage handles ask messages from the core extension
+func (h *TaskStreamHandler) handleAskMessage(msg *ClineMessageProto) {
+	switch msg.Ask {
+	case ClineAsk_FOLLOWUP, ClineAsk_PLAN_MODE_RESPOND, ClineAsk_ACT_MODE_RESPOND:
+		// These are questions that need responses
+		if msg.AskQuestion != nil && h.OnAskQuestion != nil {
+			response, err := h.OnAskQuestion(msg.AskQuestion)
+			if err != nil {
+				if h.OnError != nil {
+					h.OnError(err)
+				}
+				return
+			}
+			// Send response back
+			h.SendAskResponse("messageResponse", response, nil, nil)
+		}
+	case ClineAsk_COMMAND:
+		// Command approval request
+		if h.OnCommandRequest != nil {
+			// For now, auto-approve in non-interactive mode
+			// TODO: Add interactive approval
+			h.SendAskResponse("yesButtonClicked", "", nil, nil)
+		}
+	case ClineAsk_TOOL:
+		// Tool approval request
+		if msg.SayTool != nil && h.OnToolRequest != nil {
+			// For now, auto-approve in non-interactive mode
+			// TODO: Add interactive approval
+			h.SendAskResponse("yesButtonClicked", "", nil, nil)
+		}
+	case ClineAsk_COMPLETION_RESULT:
+		if h.OnCompletion != nil {
+			h.OnCompletion(msg.Text)
+		}
+	}
+}
+
+// WaitForCompletion blocks until the task completes or an error occurs
+func (h *TaskStreamHandler) WaitForCompletion(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-h.doneChan:
+			return nil
+		case err := <-h.errorChan:
+			return err
+		case msg := <-h.messageChan:
+			if msg != nil {
+				// Check for completion
+				if msg.Type == ClineMessageType_SAY && msg.Say == ClineSay_COMPLETION_RESULT_SAY {
+					return nil
+				}
+				if msg.Type == ClineMessageType_ASK && msg.Ask == ClineAsk_COMPLETION_RESULT {
+					return nil
+				}
+			}
+		}
+	}
+}
+
+// ============================================================================
+// JSON Serialization Helpers
+// ============================================================================
+
+// MessageToJSON converts a ClineMessageProto to JSON
+func MessageToJSON(msg *ClineMessageProto) ([]byte, error) {
+	if msg == nil {
+		return nil, errors.New("message is nil")
+	}
+	return json.Marshal(msg)
+}
+
+// JSONToMessage converts JSON to a ClineMessageProto
+func JSONToMessage(data []byte) (*ClineMessageProto, error) {
+	var msg ClineMessage
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return nil, err
+	}
+	return &ClineMessageProto{ClineMessage: &msg}, nil
+}
+
+// ============================================================================
+// StreamCreator Function
+// ============================================================================
+
+// CreateTaskStreamCreator creates a StreamCreator function for task communication
+// This function returns a configured StreamCreator that uses the generated TaskService_StreamClient
+func CreateTaskStreamCreator(taskID string) func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
+	return func(ctx context.Context, conn *grpc.ClientConn) (TaskService_StreamClient, error) {
+		// Create a new TaskService client
+		client := NewTaskServiceClient(conn)
+
+		// Establish the bidirectional stream
+		stream, err := client.Stream(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to establish task stream: %w", err)
+		}
+
+		// Send initial task ID message to identify this stream
+		initMsg := &ClineMessageProto{
+			ClineMessage: &ClineMessage{
+				Ts:   time.Now().UnixMilli(),
+				Type: ClineMessageType_SAY,
+				Say:  ClineSay_TEXT,
+				Text: taskID,
+			},
+		}
+
+		if err := stream.Send(initMsg); err != nil {
+			return nil, fmt.Errorf("failed to send task ID: %w", err)
+		}
+
+		return stream, nil
+	}
 }

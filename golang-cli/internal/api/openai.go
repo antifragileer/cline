@@ -451,6 +451,17 @@ func (p *OpenAIProvider) ValidateModel(model string) error {
 	return fmt.Errorf("%w: %s", ErrOpenAIModelNotFound, model)
 }
 
+// GetModel returns the current default model
+func (p *OpenAIProvider) GetModel() string {
+	return string(GPT4o)
+}
+
+// SetModel sets the default model
+func (p *OpenAIProvider) SetModel(model string) {
+	// This is a no-op since OpenAI uses the model from the request
+	// The implementation could be extended to store a default model
+}
+
 // toOpenAIInternalRequest converts a OpenAICompletionRequest to an OpenAI-specific request
 func (p *OpenAIProvider) toOpenAIInternalRequest(req OpenAICompletionRequest, stream bool) openAIInternalRequest {
 	messages := make([]openAIInternalMessage, len(req.Messages))

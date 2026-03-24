@@ -1,119 +1,151 @@
 package tui
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// TUIKeyMap defines the key bindings for the TUI.
-type TUIKeyMap struct {
-	// Quit exits the application.
-	Quit []string
-}
-
-// DefaultTUIKeyMap returns the default key bindings.
-func DefaultTUIKeyMap() TUIKeyMap {
-	return TUIKeyMap{
-		Quit: []string{"q", "ctrl+c", "esc"},
-	}
-}
-
-// Message types for TUI events
-
-// InitMsg is sent when the TUI is initialized.
-type InitMsg struct{}
-
-// ErrorMsg wraps an error for transmission through the TUI.
-type ErrorMsg struct {
-	Err error
-}
-
-// ContentMsg updates the content display.
-type ContentMsg struct {
-	Content string
-}
-
-// ShutdownMsg triggers graceful shutdown.
-type ShutdownMsg struct{}
-
-// Update implements the bubbletea.Model interface.
-// It handles incoming messages and updates the model state.
+// Update handles messages and updates the model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
-
-	// Window resize events (SIGWINCH)
 	case tea.WindowSizeMsg:
-		m.dimensions.Width = msg.Width
-		m.dimensions.Height = msg.Height
-		if !m.ready {
-			m.ready = true
-		}
+		m.width = msg.Width
+		m.height = msg.Height
+		m.viewport.Width = msg.Width
+		m.viewport.Height = msg.Height - 3 // Reserve space for input
 
-	// Custom window size message for testing
-	case WindowSizeMsg:
-		m.dimensions.Width = msg.Width
-		m.dimensions.Height = msg.Height
-
-	// Keyboard events
 	case tea.KeyMsg:
-		return m.handleKeyMsg(msg)
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyCtrlD:
+			return m, tea.Quit
 
-	// Initialization message
-	case InitMsg:
-		m.ready = true
-		return m, nil
+		case tea.KeyEnter:
+			if m.inputFocused && m.textInput.Value() != "" {
+				// Add user message
+				m.messages = append(m.messages, Message{
+					Role:    "user",
+					Content: m.textInput.Value(),
+				})
+				
+				// Add to history
+				m.inputHistory = append(m.inputHistory, m.textInput.Value())
+				m.inputHistoryIndex = -1
+				
+				// Clear input
+				m.textInput.SetValue("")
+				
+				// TODO: Send to backend
+			}
 
-	// Error message
+		case tea.KeyUp:
+			if m.inputFocused && len(m.inputHistory) > 0 {
+				if m.inputHistoryIndex < len(m.inputHistory)-1 {
+					m.inputHistoryIndex++
+					m.textInput.SetValue(m.inputHistory[len(m.inputHistory)-1-m.inputHistoryIndex])
+				}
+			}
+
+		case tea.KeyDown:
+			if m.inputFocused && m.inputHistoryIndex >= 0 {
+				m.inputHistoryIndex--
+				if m.inputHistoryIndex < 0 {
+					m.textInput.SetValue("")
+				} else {
+					m.textInput.SetValue(m.inputHistory[len(m.inputHistory)-1-m.inputHistoryIndex])
+				}
+			}
+
+		case tea.KeyTab:
+			m.inputFocused = !m.inputFocused
+			if m.inputFocused {
+				m.textInput.Focus()
+			} else {
+				m.textInput.Blur()
+			}
+
+		case tea.KeyEsc:
+			if m.currentView == settingsView {
+				m.currentView = chatView
+			}
+
+		case tea.KeyRunes:
+			switch msg.String() {
+			case "q":
+				if !m.inputFocused && m.currentView == welcomeView {
+					return m, tea.Quit
+				}
+			case "n":
+				if m.currentView == welcomeView {
+					m.currentView = chatView
+					m.showWelcome = false
+					m.inputFocused = true
+					m.textInput.Focus()
+				}
+			case "s":
+				if m.currentView == welcomeView {
+					m.currentView = settingsView
+				}
+			case "y":
+				if m.pendingApproval != nil {
+					// Handle approval
+					m.pendingApproval = nil
+				}
+			case "n":
+				if m.pendingApproval != nil {
+					// Handle rejection
+					m.pendingApproval = nil
+				}
+			}
+
+		case tea.KeyPgUp:
+			// Scroll up in viewport
+			m.viewport.LineUp(3)
+
+		case tea.KeyPgDown:
+			// Scroll down in viewport
+			m.viewport.LineDown(3)
+
+		case tea.KeyHome:
+			if m.inputFocused {
+				m.textInput.SetCursor(0)
+			}
+
+		case tea.KeyEnd:
+			if m.inputFocused {
+				m.textInput.SetCursor(len(m.textInput.Value()))
+			}
+
+		case tea.KeyCtrlL:
+			// Clear screen - reset messages
+			m.messages = []Message{}
+		}
+
+	case AddMessageMsg:
+		m.messages = append(m.messages, Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+		m.viewport.GotoBottom()
+
 	case ErrorMsg:
-		m.err = msg.Err
-		return m, nil
-
-	// Content update message
-	case ContentMsg:
-		m.content = msg.Content
-		return m, nil
-
-	// Shutdown message
-	case ShutdownMsg:
-		return m, tea.Quit
-	}
-
-	return m, nil
-}
-
-// handleKeyMsg processes keyboard input.
-func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := msg.String()
-
-	// Handle quit keys
-	if m.isQuitKey(key) {
-		m.Shutdown()
-		return m, tea.Quit
-	}
-
-	return m, nil
-}
-
-// isQuitKey checks if the key is a quit key.
-func (m Model) isQuitKey(key string) bool {
-	keys := DefaultTUIKeyMap().Quit
-	for _, k := range keys {
-		if key == k {
-			return true
+		if msg.Err != nil {
+			m.errorMsg = msg.Err.Error()
 		}
 	}
-	return false
-}
 
-// SetupSignalHandling sets up a signal handler for graceful shutdown.
-// It listens for SIGINT and SIGTERM signals.
-func SetupSignalHandling() chan os.Signal {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGWINCH)
-	return sigChan
+	// Update components
+	var cmd tea.Cmd
+	m.spinner, cmd = m.spinner.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.textInput, cmd = m.textInput.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 // SignalCmd creates a command that listens for system signals.

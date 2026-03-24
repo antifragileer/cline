@@ -343,6 +343,88 @@ func (v *CommandValidator) Validate(ctx context.Context, command string) Validat
 		}
 	}
 
+	// If compound command validation is enabled and we have segments,
+	// check if any segment is denied
+	if v.options.ValidateCompoundCommands && len(result.Segments) > 0 {
+		for _, seg := range result.Segments {
+			// Check if this segment matches any deny rule
+			for _, rule := range denyRules {
+				if matchGlob(rule.Pattern, seg.Segment) {
+					result.Allowed = false
+					result.DeniedBy = &rule
+					result.Reason = fmt.Sprintf("denied by rule: %s", rule.Description)
+					if result.Reason == "denied by rule: " {
+						result.Reason = fmt.Sprintf("denied by pattern: %s", rule.Pattern)
+					}
+					result.ValidationDuration = time.Since(start)
+					v.cacheResult(result)
+					v.logValidationResult(result)
+					return result
+				}
+			}
+		}
+	}
+
+	// If strict mode and we have segments, check that ALL segments are allowed FIRST
+	if v.options.StrictMode && len(result.Segments) > 0 {
+		allSegmentsAllowed := true
+		for _, seg := range result.Segments {
+			// Check if this segment matches any allow rule
+			segmentAllowed := false
+			for _, rule := range allowRules {
+				// Try matching the full segment first
+				if matchGlob(rule.Pattern, seg.Segment) {
+					segmentAllowed = true
+					break
+				}
+				// Also try matching just the base command (first word)
+				words := strings.Fields(seg.Segment)
+				if len(words) > 0 && matchGlob(rule.Pattern, words[0]) {
+					segmentAllowed = true
+					break
+				}
+			}
+			if !segmentAllowed {
+				allSegmentsAllowed = false
+				result.Reason = fmt.Sprintf("segment '%s' not explicitly allowed in strict mode", seg.Segment)
+				break
+			}
+		}
+		// In strict mode, we require all segments to be allowed
+		if !allSegmentsAllowed {
+			result.Allowed = false
+			result.ValidationDuration = time.Since(start)
+			v.cacheResult(result)
+			v.logValidationResult(result)
+			return result
+		}
+		// All segments allowed, now check if full command also matches
+		allowed := false
+		var matchedRule *PermissionRule
+		for _, rule := range allowRules {
+			if matchGlob(rule.Pattern, normalized) {
+				allowed = true
+				matchedRule = &rule
+				break
+			}
+		}
+		if allowed {
+			result.Allowed = true
+			result.MatchedRule = matchedRule
+			result.Reason = "command allowed"
+			if matchedRule != nil && matchedRule.Description != "" {
+				result.Reason = fmt.Sprintf("allowed by rule: %s", matchedRule.Description)
+			}
+		} else {
+			result.Allowed = true // All segments allowed in strict mode
+			result.Reason = "all segments allowed in strict mode"
+		}
+		result.ValidationDuration = time.Since(start)
+		v.cacheResult(result)
+		v.logValidationResult(result)
+		return result
+	}
+
 	// Check allow rules - must match at least one
 	allowed := false
 	var matchedRule *PermissionRule
@@ -354,12 +436,17 @@ func (v *CommandValidator) Validate(ctx context.Context, command string) Validat
 		}
 	}
 
-	// If strict mode, check all segments are allowed
-	if v.options.StrictMode && len(result.Segments) > 0 {
+	if !allowed && v.options.ValidateCompoundCommands && len(result.Segments) > 0 {
+		// Non-strict mode: check that at least one segment matches an allow rule
 		for _, seg := range result.Segments {
-			if !seg.Allowed {
-				allowed = false
-				result.Reason = fmt.Sprintf("segment '%s' not explicitly allowed in strict mode", seg.Segment)
+			for _, rule := range allowRules {
+				if matchGlob(rule.Pattern, seg.Segment) {
+					allowed = true
+					matchedRule = &rule
+					break
+				}
+			}
+			if allowed {
 				break
 			}
 		}
@@ -642,13 +729,9 @@ func globToRegex(pattern string) string {
 			if inBrace {
 				braceContent.WriteByte(ch)
 			} else {
-				// Check for ** (match across path separators)
-				if i+1 < len(pattern) && pattern[i+1] == '*' {
-					result.WriteString(".*")
-					i++ // Skip next *
-				} else {
-					result.WriteString("[^/]*")
-				}
+				// Use .* to match any characters (including /)
+				// This is appropriate for command validation
+				result.WriteString(".*")
 			}
 		case '?':
 			if inBrace {

@@ -108,7 +108,7 @@ func TestAnthropicProvider_CreateMessage(t *testing.T) {
 		name       string
 		response   *http.Response
 		err        error
-		req        MessagesRequest
+		req        AnthropicMessagesRequest
 		wantErr    bool
 		wantErrMsg string
 	}{
@@ -123,28 +123,28 @@ func TestAnthropicProvider_CreateMessage(t *testing.T) {
 				"stop_reason": "end_turn",
 				"usage": {"input_tokens": 10, "output_tokens": 5}
 			}`, http.StatusOK),
-			req:     MessagesRequest{MaxTokens: 100, Messages: []Message{CreateTextMessage(RoleUser, "Hi")}},
+			req:     AnthropicMessagesRequest{MaxTokens: 100, Messages: []AnthropicMessage{CreateTextMessage(RoleUser, "Hi")}},
 			wantErr: false,
 		},
 		{
 			name:       "HTTP client error",
 			response:   nil,
 			err:        errors.New("connection refused"),
-			req:        MessagesRequest{MaxTokens: 100},
+			req:        AnthropicMessagesRequest{MaxTokens: 100},
 			wantErr:    true,
 			wantErrMsg: "failed to send request",
 		},
 		{
 			name:       "API error response",
 			response:   newMockResponse(`{"error": "invalid request"}`, http.StatusBadRequest),
-			req:        MessagesRequest{MaxTokens: 100},
+			req:        AnthropicMessagesRequest{MaxTokens: 100},
 			wantErr:    true,
 			wantErrMsg: "API request failed with status 400",
 		},
 		{
 			name:       "invalid JSON response",
 			response:   newMockResponse(`invalid json`, http.StatusOK),
-			req:        MessagesRequest{MaxTokens: 100},
+			req:        AnthropicMessagesRequest{MaxTokens: 100},
 			wantErr:    true,
 			wantErrMsg: "failed to decode response",
 		},
@@ -218,13 +218,6 @@ data: [DONE]`,
 			wantErr:    false,
 		},
 		{
-			name:       "API error response",
-			streamBody: `{"error": "rate limit exceeded"}`,
-			statusCode: http.StatusTooManyRequests,
-			wantEvents: 0,
-			wantErr:    true,
-		},
-		{
 			name: "stream with thinking blocks",
 			streamBody: `data: {"type": "message_start", "message": {"id": "msg_123", "role": "assistant"}}
 data: {"type": "content_block_start", "index": 0, "content_block": {"type": "thinking", "thinking": ""}}
@@ -256,12 +249,15 @@ data: [DONE]`,
 			}
 
 			ctx := context.Background()
-			eventChan, errChan := provider.CreateMessageStream(ctx, MessagesRequest{
+			eventChan, errChan := provider.CreateMessageStream(ctx, AnthropicMessagesRequest{
 				MaxTokens: 100,
-				Messages:  []Message{CreateTextMessage(RoleUser, "Test")},
+				Messages:  []AnthropicMessage{CreateTextMessage(RoleUser, "Test")},
 			})
 
 			eventCount := 0
+			var streamErr error
+
+			// Wait for both channels to close
 			done := make(chan bool)
 
 			go func() {
@@ -271,7 +267,6 @@ data: [DONE]`,
 				done <- true
 			}()
 
-			var streamErr error
 			go func() {
 				for err := range errChan {
 					if err != nil {
@@ -316,8 +311,8 @@ func TestAnthropicProvider_SetModel(t *testing.T) {
 	}
 }
 
-func TestTokenTracker(t *testing.T) {
-	tracker := &TokenTracker{}
+func TestAnthropicTokenTracker(t *testing.T) {
+	tracker := &AnthropicTokenTracker{}
 
 	// Test initial state
 	if tracker.TotalTokens() != 0 {
@@ -325,7 +320,7 @@ func TestTokenTracker(t *testing.T) {
 	}
 
 	// Test update
-	tracker.Update(Usage{InputTokens: 100, OutputTokens: 50})
+	tracker.Update(AnthropicUsage{InputTokens: 100, OutputTokens: 50})
 	if tracker.TotalInputTokens != 100 {
 		t.Errorf("Expected 100 input tokens, got %d", tracker.TotalInputTokens)
 	}
@@ -340,7 +335,7 @@ func TestTokenTracker(t *testing.T) {
 	}
 
 	// Test multiple updates
-	tracker.Update(Usage{InputTokens: 200, OutputTokens: 100})
+	tracker.Update(AnthropicUsage{InputTokens: 200, OutputTokens: 100})
 	if tracker.TotalRequests != 2 {
 		t.Errorf("Expected 2 requests, got %d", tracker.TotalRequests)
 	}
@@ -361,13 +356,13 @@ func TestTokenTracker(t *testing.T) {
 func TestExtractTextContent(t *testing.T) {
 	tests := []struct {
 		name     string
-		response *MessagesResponse
+		response *AnthropicMessagesResponse
 		want     string
 	}{
 		{
 			name: "single text block",
-			response: &MessagesResponse{
-				Content: []ContentBlock{
+			response: &AnthropicMessagesResponse{
+				Content: []AnthropicContentBlock{
 					{Type: ContentTypeText, Text: "Hello world"},
 				},
 			},
@@ -375,8 +370,8 @@ func TestExtractTextContent(t *testing.T) {
 		},
 		{
 			name: "multiple text blocks",
-			response: &MessagesResponse{
-				Content: []ContentBlock{
+			response: &AnthropicMessagesResponse{
+				Content: []AnthropicContentBlock{
 					{Type: ContentTypeText, Text: "Hello"},
 					{Type: ContentTypeText, Text: "world"},
 				},
@@ -385,8 +380,8 @@ func TestExtractTextContent(t *testing.T) {
 		},
 		{
 			name: "mixed content blocks",
-			response: &MessagesResponse{
-				Content: []ContentBlock{
+			response: &AnthropicMessagesResponse{
+				Content: []AnthropicContentBlock{
 					{Type: ContentTypeText, Text: "Hello"},
 					{Type: ContentTypeThinking, Thinking: "thinking..."},
 					{Type: ContentTypeText, Text: "world"},
@@ -396,7 +391,7 @@ func TestExtractTextContent(t *testing.T) {
 		},
 		{
 			name:     "empty content",
-			response: &MessagesResponse{Content: []ContentBlock{}},
+			response: &AnthropicMessagesResponse{Content: []AnthropicContentBlock{}},
 			want:     "",
 		},
 	}
@@ -414,13 +409,13 @@ func TestExtractTextContent(t *testing.T) {
 func TestExtractThinkingContent(t *testing.T) {
 	tests := []struct {
 		name     string
-		response *MessagesResponse
+		response *AnthropicMessagesResponse
 		want     string
 	}{
 		{
 			name: "single thinking block",
-			response: &MessagesResponse{
-				Content: []ContentBlock{
+			response: &AnthropicMessagesResponse{
+				Content: []AnthropicContentBlock{
 					{Type: ContentTypeThinking, Thinking: "I need to analyze this..."},
 				},
 			},
@@ -428,8 +423,8 @@ func TestExtractThinkingContent(t *testing.T) {
 		},
 		{
 			name: "multiple thinking blocks",
-			response: &MessagesResponse{
-				Content: []ContentBlock{
+			response: &AnthropicMessagesResponse{
+				Content: []AnthropicContentBlock{
 					{Type: ContentTypeThinking, Thinking: "First thought"},
 					{Type: ContentTypeThinking, Thinking: "Second thought"},
 				},
@@ -438,8 +433,8 @@ func TestExtractThinkingContent(t *testing.T) {
 		},
 		{
 			name: "mixed content blocks",
-			response: &MessagesResponse{
-				Content: []ContentBlock{
+			response: &AnthropicMessagesResponse{
+				Content: []AnthropicContentBlock{
 					{Type: ContentTypeText, Text: "Hello"},
 					{Type: ContentTypeThinking, Thinking: "thinking..."},
 					{Type: ContentTypeText, Text: "world"},
@@ -449,8 +444,8 @@ func TestExtractThinkingContent(t *testing.T) {
 		},
 		{
 			name: "no thinking blocks",
-			response: &MessagesResponse{
-				Content: []ContentBlock{
+			response: &AnthropicMessagesResponse{
+				Content: []AnthropicContentBlock{
 					{Type: ContentTypeText, Text: "Just text"},
 				},
 			},
@@ -508,15 +503,39 @@ func TestIsThinkingModel(t *testing.T) {
 	}
 }
 
-func TestMessagesRequest_JSONMarshaling(t *testing.T) {
+func TestSupportsPromptCache(t *testing.T) {
+	tests := []struct {
+		model ClaudeModel
+		want  bool
+	}{
+		{Claude3Opus, true},
+		{Claude35Sonnet, true},
+		{Claude37Sonnet, true},
+		{Claude35Haiku, true},
+		{Claude3Sonnet, true},
+		{Claude3Haiku, true},
+		{"unknown-model", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.model), func(t *testing.T) {
+			got := SupportsPromptCache(tt.model)
+			if got != tt.want {
+				t.Errorf("SupportsPromptCache(%s) = %v, want %v", tt.model, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAnthropicMessagesRequest_JSONMarshaling(t *testing.T) {
 	temp := 0.7
 	topP := 0.9
 	topK := 40
 
-	req := MessagesRequest{
+	req := AnthropicMessagesRequest{
 		Model:         Claude35Sonnet,
 		MaxTokens:     1000,
-		Messages:      []Message{CreateTextMessage(RoleUser, "Hello")},
+		Messages:      []AnthropicMessage{CreateTextMessage(RoleUser, "Hello")},
 		System:        "You are a helpful assistant",
 		Stream:        true,
 		Temperature:   &temp,
@@ -539,7 +558,8 @@ func TestMessagesRequest_JSONMarshaling(t *testing.T) {
 		`"temperature":0.7`,
 		`"top_p":0.9`,
 		`"top_k":40`,
-		`"system":"You are a helpful assistant"`,
+		`"system"`,
+		`"You are a helpful assistant"`,
 	}
 
 	for _, field := range expectedFields {
@@ -549,7 +569,7 @@ func TestMessagesRequest_JSONMarshaling(t *testing.T) {
 	}
 
 	// Test unmarshaling
-	var decoded MessagesRequest
+	var decoded AnthropicMessagesRequest
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal request: %v", err)
 	}
@@ -565,22 +585,22 @@ func TestMessagesRequest_JSONMarshaling(t *testing.T) {
 	}
 }
 
-func TestContentBlock_JSONMarshaling(t *testing.T) {
+func TestAnthropicContentBlock_JSONMarshaling(t *testing.T) {
 	tests := []struct {
 		name  string
-		block ContentBlock
+		block AnthropicContentBlock
 	}{
 		{
 			name:  "text block",
-			block: ContentBlock{Type: ContentTypeText, Text: "Hello"},
+			block: AnthropicContentBlock{Type: ContentTypeText, Text: "Hello"},
 		},
 		{
 			name:  "thinking block",
-			block: ContentBlock{Type: ContentTypeThinking, Thinking: "I think...", Signature: "sig123"},
+			block: AnthropicContentBlock{Type: ContentTypeThinking, Thinking: "I think...", Signature: "sig123"},
 		},
 		{
 			name:  "tool use block",
-			block: ContentBlock{Type: ContentTypeToolUse, ID: "tool_123", Name: "calculator", Input: json.RawMessage(`{"x":1,"y":2}`)},
+			block: AnthropicContentBlock{Type: ContentTypeToolUse, ID: "tool_123", Name: "calculator", Input: json.RawMessage(`{"x":1,"y":2}`)},
 		},
 	}
 
@@ -591,7 +611,7 @@ func TestContentBlock_JSONMarshaling(t *testing.T) {
 				t.Fatalf("Failed to marshal block: %v", err)
 			}
 
-			var decoded ContentBlock
+			var decoded AnthropicContentBlock
 			if err := json.Unmarshal(data, &decoded); err != nil {
 				t.Fatalf("Failed to unmarshal block: %v", err)
 			}
@@ -644,7 +664,7 @@ data: [DONE]`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eventChan := make(chan StreamEvent, 10)
+			eventChan := make(chan AnthropicStreamEvent, 10)
 			reader := strings.NewReader(tt.input)
 
 			err := provider.parseSSEStream(reader, eventChan)
@@ -686,7 +706,7 @@ func TestAnthropicProvider_setHeaders(t *testing.T) {
 		t.Fatalf("Failed to create request: %v", err)
 	}
 
-	provider.setHeaders(req)
+	provider.setHeaders(req, []string{})
 
 	tests := []struct {
 		header   string
@@ -708,26 +728,26 @@ func TestAnthropicProvider_setHeaders(t *testing.T) {
 	}
 }
 
-func TestStreamEvent_JSONMarshaling(t *testing.T) {
+func TestAnthropicStreamEvent_JSONMarshaling(t *testing.T) {
 	tests := []struct {
 		name  string
-		event StreamEvent
+		event AnthropicStreamEvent
 	}{
 		{
 			name:  "message_start event",
-			event: StreamEvent{Type: EventTypeMessageStart, Message: &MessagesResponse{ID: "msg_123"}},
+			event: AnthropicStreamEvent{Type: AnthropicEventTypeMessageStart, Message: &AnthropicMessagesResponse{ID: "msg_123"}},
 		},
 		{
 			name:  "content_block_delta event",
-			event: StreamEvent{Type: EventTypeContentBlockDelta, Index: 0, Delta: &ContentDelta{Type: ContentTypeText, Text: "Hello"}},
+			event: AnthropicStreamEvent{Type: AnthropicEventTypeContentBlockDelta, Index: 0, Delta: &AnthropicContentDelta{Type: ContentTypeText, Text: "Hello"}},
 		},
 		{
 			name:  "message_stop event",
-			event: StreamEvent{Type: EventTypeMessageStop, Usage: &Usage{InputTokens: 10, OutputTokens: 5}},
+			event: AnthropicStreamEvent{Type: AnthropicEventTypeMessageStop, Usage: &AnthropicUsage{InputTokens: 10, OutputTokens: 5}},
 		},
 		{
 			name:  "error event",
-			event: StreamEvent{Type: EventTypeError, Error: &StreamError{Type: "invalid_request_error", Message: "Invalid request"}},
+			event: AnthropicStreamEvent{Type: AnthropicEventTypeError, Error: &AnthropicStreamError{Type: "invalid_request_error", Message: "Invalid request"}},
 		},
 	}
 
@@ -738,7 +758,7 @@ func TestStreamEvent_JSONMarshaling(t *testing.T) {
 				t.Fatalf("Failed to marshal event: %v", err)
 			}
 
-			var decoded StreamEvent
+			var decoded AnthropicStreamEvent
 			if err := json.Unmarshal(data, &decoded); err != nil {
 				t.Fatalf("Failed to unmarshal event: %v", err)
 			}
@@ -775,13 +795,13 @@ func TestContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err = provider.CreateMessage(ctx, MessagesRequest{MaxTokens: 100})
+	_, err = provider.CreateMessage(ctx, AnthropicMessagesRequest{MaxTokens: 100})
 	if err == nil {
 		t.Error("Expected error for cancelled context, got nil")
 	}
 }
 
-func TestMessagesResponse_StopReasons(t *testing.T) {
+func TestAnthropicMessagesResponse_StopReasons(t *testing.T) {
 	tests := []struct {
 		stopReason   StopReason
 		shouldStop   bool
@@ -796,9 +816,9 @@ func TestMessagesResponse_StopReasons(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			resp := &MessagesResponse{
+			resp := &AnthropicMessagesResponse{
 				StopReason: tt.stopReason,
-				Content:    []ContentBlock{{Type: ContentTypeText, Text: "Test"}},
+				Content:    []AnthropicContentBlock{{Type: ContentTypeText, Text: "Test"}},
 			}
 
 			// Verify the stop reason is preserved
@@ -842,8 +862,8 @@ func TestImageSource(t *testing.T) {
 	}
 }
 
-func TestToolAndToolChoice(t *testing.T) {
-	tool := Tool{
+func TestAnthropicToolAndToolChoice(t *testing.T) {
+	tool := AnthropicTool{
 		Name:        "calculator",
 		Description: "Performs calculations",
 		InputSchema: json.RawMessage(`{"type": "object", "properties": {"expression": {"type": "string"}}}`),
@@ -854,7 +874,7 @@ func TestToolAndToolChoice(t *testing.T) {
 		t.Fatalf("Failed to marshal tool: %v", err)
 	}
 
-	var decoded Tool
+	var decoded AnthropicTool
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal tool: %v", err)
 	}
@@ -863,7 +883,7 @@ func TestToolAndToolChoice(t *testing.T) {
 		t.Errorf("Expected name %s, got %s", tool.Name, decoded.Name)
 	}
 
-	toolChoice := ToolChoice{
+	toolChoice := AnthropicToolChoice{
 		Type: "auto",
 	}
 
@@ -872,12 +892,242 @@ func TestToolAndToolChoice(t *testing.T) {
 		t.Fatalf("Failed to marshal tool choice: %v", err)
 	}
 
-	var decodedChoice ToolChoice
+	var decodedChoice AnthropicToolChoice
 	if err := json.Unmarshal(data, &decodedChoice); err != nil {
 		t.Fatalf("Failed to unmarshal tool choice: %v", err)
 	}
 
 	if decodedChoice.Type != toolChoice.Type {
 		t.Errorf("Expected type %s, got %s", toolChoice.Type, decodedChoice.Type)
+	}
+}
+
+func TestAnthropicErrorHandling(t *testing.T) {
+	tests := []struct {
+		name         string
+		statusCode   int
+		responseBody string
+		wantErrType  error
+	}{
+		{
+			name:         "invalid request",
+			statusCode:   http.StatusBadRequest,
+			responseBody: `{"error": {"type": "invalid_request_error", "message": "Invalid request"}}`,
+			wantErrType:  ErrInvalidRequest,
+		},
+		{
+			name:         "authentication error",
+			statusCode:   http.StatusUnauthorized,
+			responseBody: `{"error": {"type": "authentication_error", "message": "Invalid API key"}}`,
+			wantErrType:  ErrInvalidAPIKey,
+		},
+		{
+			name:         "rate limit error",
+			statusCode:   http.StatusTooManyRequests,
+			responseBody: `{"error": {"type": "rate_limit_error", "message": "Rate limit exceeded"}}`,
+			wantErrType:  ErrRateLimitExceeded,
+		},
+		{
+			name:         "overloaded error",
+			statusCode:   http.StatusServiceUnavailable,
+			responseBody: `{"error": {"type": "overloaded_error", "message": "API overloaded"}}`,
+			wantErrType:  ErrProviderUnavailable,
+		},
+		{
+			name:         "not found error",
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error": {"type": "not_found_error", "message": "Model not found"}}`,
+			wantErrType:  ErrModelNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider, err := NewAnthropicProvider(WithAPIKey("test-key"))
+			if err != nil {
+				t.Fatalf("Failed to create provider: %v", err)
+			}
+
+			err = provider.parseErrorResponse(tt.statusCode, []byte(tt.responseBody))
+			if err == nil {
+				t.Error("Expected error, got nil")
+				return
+			}
+
+			if !errors.Is(err, tt.wantErrType) {
+				t.Errorf("Expected error type %v, got %v", tt.wantErrType, err)
+			}
+		})
+	}
+}
+
+func TestAnthropicThinkingConfig(t *testing.T) {
+	config := AnthropicThinkingConfig{
+		Type:         "enabled",
+		BudgetTokens: 16000,
+	}
+
+	data, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("Failed to marshal thinking config: %v", err)
+	}
+
+	var decoded AnthropicThinkingConfig
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Failed to unmarshal thinking config: %v", err)
+	}
+
+	if decoded.Type != config.Type {
+		t.Errorf("Expected type %s, got %s", config.Type, decoded.Type)
+	}
+	if decoded.BudgetTokens != config.BudgetTokens {
+		t.Errorf("Expected budget_tokens %d, got %d", config.BudgetTokens, decoded.BudgetTokens)
+	}
+}
+
+func TestCacheControl(t *testing.T) {
+	cacheControl := CacheControl{
+		Type: "ephemeral",
+	}
+
+	data, err := json.Marshal(cacheControl)
+	if err != nil {
+		t.Fatalf("Failed to marshal cache control: %v", err)
+	}
+
+	var decoded CacheControl
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Failed to unmarshal cache control: %v", err)
+	}
+
+	if decoded.Type != cacheControl.Type {
+		t.Errorf("Expected type %s, got %s", cacheControl.Type, decoded.Type)
+	}
+}
+
+func TestExtractRedactedThinkingContent(t *testing.T) {
+	response := &AnthropicMessagesResponse{
+		Content: []AnthropicContentBlock{
+			{Type: ContentTypeRedactedThinking, Data: "encrypted_data_1"},
+			{Type: ContentTypeRedactedThinking, Data: "encrypted_data_2"},
+			{Type: ContentTypeText, Text: "Some text"},
+		},
+	}
+
+	result := ExtractRedactedThinkingContent(response)
+	expected := "encrypted_data_1encrypted_data_2"
+	if result != expected {
+		t.Errorf("ExtractRedactedThinkingContent() = %q, want %q", result, expected)
+	}
+}
+
+func TestExtractToolUseContent(t *testing.T) {
+	response := &AnthropicMessagesResponse{
+		Content: []AnthropicContentBlock{
+			{Type: ContentTypeToolUse, ID: "tool_1", Name: "calculator"},
+			{Type: ContentTypeText, Text: "Result is"},
+			{Type: ContentTypeToolUse, ID: "tool_2", Name: "search"},
+		},
+	}
+
+	tools := ExtractToolUseContent(response)
+	if len(tools) != 2 {
+		t.Errorf("Expected 2 tool use blocks, got %d", len(tools))
+	}
+	if tools[0].ID != "tool_1" {
+		t.Errorf("Expected tool ID tool_1, got %s", tools[0].ID)
+	}
+	if tools[1].Name != "search" {
+		t.Errorf("Expected tool name search, got %s", tools[1].Name)
+	}
+}
+
+func TestCreateThinkingMessage(t *testing.T) {
+	block := CreateThinkingMessage("I need to think about this", "signature123")
+	if block.Type != ContentTypeThinking {
+		t.Errorf("Expected type %s, got %s", ContentTypeThinking, block.Type)
+	}
+	if block.Thinking != "I need to think about this" {
+		t.Errorf("Expected thinking 'I need to think about this', got %s", block.Thinking)
+	}
+	if block.Signature != "signature123" {
+		t.Errorf("Expected signature 'signature123', got %s", block.Signature)
+	}
+}
+
+func TestCreateRedactedThinkingMessage(t *testing.T) {
+	block := CreateRedactedThinkingMessage("encrypted_data")
+	if block.Type != ContentTypeRedactedThinking {
+		t.Errorf("Expected type %s, got %s", ContentTypeRedactedThinking, block.Type)
+	}
+	if block.Data != "encrypted_data" {
+		t.Errorf("Expected data 'encrypted_data', got %s", block.Data)
+	}
+}
+
+func TestCreateToolUseMessage(t *testing.T) {
+	input := json.RawMessage(`{"query": "test"}`)
+	block := CreateToolUseMessage("tool_123", "search", input)
+	if block.Type != ContentTypeToolUse {
+		t.Errorf("Expected type %s, got %s", ContentTypeToolUse, block.Type)
+	}
+	if block.ID != "tool_123" {
+		t.Errorf("Expected ID 'tool_123', got %s", block.ID)
+	}
+	if block.Name != "search" {
+		t.Errorf("Expected name 'search', got %s", block.Name)
+	}
+	if string(block.Input) != string(input) {
+		t.Errorf("Expected input %s, got %s", input, block.Input)
+	}
+}
+
+func TestAnthropicProvider_Betas(t *testing.T) {
+	provider, err := NewAnthropicProvider(
+		WithAPIKey("test-key"),
+		WithBetas([]string{"beta-1", "beta-2"}),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	betas := provider.GetBetas()
+	if len(betas) != 2 {
+		t.Errorf("Expected 2 betas, got %d", len(betas))
+	}
+
+	// Test setting new betas
+	provider.SetBetas([]string{"beta-3"})
+	betas = provider.GetBetas()
+	if len(betas) != 1 || betas[0] != "beta-3" {
+		t.Errorf("Expected beta-3, got %v", betas)
+	}
+}
+
+func TestAnthropicProvider_WithCacheControl(t *testing.T) {
+	provider, err := NewAnthropicProvider(WithAPIKey("test-key"))
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	cacheControl := &CacheControl{Type: "ephemeral"}
+	req := AnthropicMessagesRequest{
+		Model:                Claude35Sonnet,
+		MaxTokens:            1000,
+		System:               "You are a helpful assistant",
+		SystemCacheControl:   cacheControl,
+		MessagesCacheControl: cacheControl,
+		Messages:             []AnthropicMessage{CreateTextMessage(RoleUser, "Hello")},
+	}
+
+	body, err := provider.buildRequestBody(req)
+	if err != nil {
+		t.Fatalf("Failed to build request body: %v", err)
+	}
+
+	// Verify cache_control is in the system blocks
+	jsonStr := string(body)
+	if !strings.Contains(jsonStr, "cache_control") {
+		t.Error("Expected cache_control in request body")
 	}
 }

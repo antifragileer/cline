@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -61,6 +62,23 @@ func TestExecute_HelpFlag(t *testing.T) {
 		"cline",
 		"Usage:",
 		"Flags:",
+		"--act",
+		"--plan",
+		"--yolo",
+		"--auto-approve-all",
+		"--timeout",
+		"--model",
+		"--thinking",
+		"--reasoning-effort",
+		"--max-consecutive-mistakes",
+		"--json",
+		"--double-check-completion",
+		"--auto-condense",
+		"--hooks-dir",
+		"--acp",
+		"--kanban",
+		"--taskId",
+		"--continue",
 	}
 
 	for _, expected := range expectedStrings {
@@ -153,42 +171,15 @@ func TestInitLogger(t *testing.T) {
 	}
 }
 
-func TestRunRoot_VersionFlag(t *testing.T) {
-	resetFlags()
-
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	version = true
-
-	err := runRoot(rootCmd, []string{})
-	if err != nil {
-		t.Errorf("runRoot() with version flag returned error: %v", err)
-	}
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	if !strings.Contains(output, Version) {
-		t.Errorf("Expected version output to contain %q, got: %s", Version, output)
-	}
-}
-
 func TestRunRoot_TaskModeWithArgs(t *testing.T) {
 	resetFlags()
+	initLogger()
 
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	version = false
 	err := runRoot(rootCmd, []string{"test prompt"})
 
 	if err != nil {
@@ -202,20 +193,20 @@ func TestRunRoot_TaskModeWithArgs(t *testing.T) {
 	buf.ReadFrom(r)
 	output := buf.String()
 
-	if !strings.Contains(output, "Task mode not yet implemented") {
+	if !strings.Contains(output, "Task: test prompt") {
 		t.Errorf("Expected task mode output, got: %s", output)
 	}
 }
 
 func TestRunRoot_InteractiveModeNoArgs(t *testing.T) {
 	resetFlags()
+	initLogger()
 
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	version = false
 	err := runRoot(rootCmd, []string{})
 
 	if err != nil {
@@ -229,7 +220,7 @@ func TestRunRoot_InteractiveModeNoArgs(t *testing.T) {
 	buf.ReadFrom(r)
 	output := buf.String()
 
-	if !strings.Contains(output, "Interactive mode not yet implemented") {
+	if !strings.Contains(output, "Interactive mode starting") {
 		t.Errorf("Expected interactive mode output, got: %s", output)
 	}
 }
@@ -265,9 +256,39 @@ func TestRootCommandStructure(t *testing.T) {
 		t.Errorf("Expected verbose flag shorthand to be 'v', got %q", verboseFlag.Shorthand)
 	}
 
-	versionFlag := rootCmd.PersistentFlags().Lookup("version")
-	if versionFlag == nil {
-		t.Error("Expected --version flag to exist")
+	// Verify all new flags exist
+	flags := []struct {
+		name      string
+		shorthand string
+	}{
+		{"act", "a"},
+		{"plan", "p"},
+		{"yolo", "y"},
+		{"auto-approve-all", ""},
+		{"timeout", "t"},
+		{"model", "m"},
+		{"thinking", ""},
+		{"reasoning-effort", ""},
+		{"max-consecutive-mistakes", ""},
+		{"json", ""},
+		{"double-check-completion", ""},
+		{"auto-condense", ""},
+		{"hooks-dir", ""},
+		{"acp", ""},
+		{"kanban", ""},
+		{"taskId", "T"},
+		{"continue", ""},
+	}
+
+	for _, flag := range flags {
+		f := rootCmd.Flags().Lookup(flag.name)
+		if f == nil {
+			t.Errorf("Expected --%s flag to exist", flag.name)
+			continue
+		}
+		if flag.shorthand != "" && f.Shorthand != flag.shorthand {
+			t.Errorf("Expected %s flag shorthand to be %q, got %q", flag.name, flag.shorthand, f.Shorthand)
+		}
 	}
 }
 
@@ -275,43 +296,28 @@ func TestRootCommandStructure(t *testing.T) {
 func resetFlags() {
 	cfgFile = ""
 	verbose = false
-	version = false
+	actFlag = false
+	planFlag = false
+	yoloFlag = false
+	autoApproveAllFlag = false
+	timeoutFlag = ""
+	modelFlag = ""
+	thinkingFlag = ""
+	reasoningEffortFlag = ""
+	maxConsecutiveMistakesFlag = ""
+	doubleCheckCompletionFlag = false
+	autoCondenseFlag = false
+	jsonFlag = false
+	hooksDirFlag = ""
+	cwdFlag = ""
+	acpFlag = false
+	kanbanFlag = false
+	taskIdFlag = ""
+	continueFlag = false
 	viper.Reset()
 	rootCmd.SetArgs([]string{})
 	rootCmd.SetOut(&bytes.Buffer{})
 	rootCmd.SetErr(&bytes.Buffer{})
-}
-
-// Test runTaskMode directly
-func TestRunTaskMode(t *testing.T) {
-	// Initialize logger for the test
-	verbose = false
-	initLogger()
-
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := runTaskMode("test prompt")
-	if err != nil {
-		t.Errorf("runTaskMode() returned error: %v", err)
-	}
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	output := buf.String()
-
-	expected := "Task mode not yet implemented"
-	if !strings.Contains(output, expected) {
-		t.Errorf("Expected output to contain %q, got: %s", expected, output)
-	}
-	if !strings.Contains(output, "test prompt") {
-		t.Errorf("Expected output to contain prompt, got: %s", output)
-	}
 }
 
 // Test runInteractiveMode directly
@@ -325,7 +331,8 @@ func TestRunInteractiveMode(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runInteractiveMode()
+	opts := &RootOptions{}
+	err := runInteractiveMode(opts)
 	if err != nil {
 		t.Errorf("runInteractiveMode() returned error: %v", err)
 	}
@@ -337,7 +344,7 @@ func TestRunInteractiveMode(t *testing.T) {
 	buf.ReadFrom(r)
 	output := buf.String()
 
-	expected := "Interactive mode not yet implemented"
+	expected := "Interactive mode starting"
 	if !strings.Contains(output, expected) {
 		t.Errorf("Expected output to contain %q, got: %s", expected, output)
 	}
@@ -413,17 +420,17 @@ func TestRootCmdType(t *testing.T) {
 	var _ *cobra.Command = rootCmd
 }
 
-// Test multiple prompts (should only use first one)
+// Test multiple prompts (all args are joined as a single prompt)
 func TestExecute_MultipleArgs(t *testing.T) {
 	resetFlags()
+	initLogger()
 
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Set version to false and test with runRoot directly
-	version = false
+	// Test with runRoot directly - all args are joined as a single prompt
 	err := runRoot(rootCmd, []string{"first prompt", "second prompt", "third prompt"})
 	if err != nil {
 		t.Errorf("runRoot() with multiple args returned error: %v", err)
@@ -436,13 +443,15 @@ func TestExecute_MultipleArgs(t *testing.T) {
 	buf.ReadFrom(r)
 	output := buf.String()
 
-	// Should only use the first prompt
+	// All args are joined as a single prompt
 	if !strings.Contains(output, "first prompt") {
 		t.Errorf("Expected output to contain first prompt, got: %s", output)
 	}
-	// Should not contain the other prompts
-	if strings.Contains(output, "second prompt") {
-		t.Errorf("Expected output NOT to contain second prompt, got: %s", output)
+	if !strings.Contains(output, "second prompt") {
+		t.Errorf("Expected output to contain second prompt, got: %s", output)
+	}
+	if !strings.Contains(output, "third prompt") {
+		t.Errorf("Expected output to contain third prompt, got: %s", output)
 	}
 }
 
@@ -459,4 +468,493 @@ func TestInitConfig_NonExistentFile(t *testing.T) {
 	if viper.ConfigFileUsed() != cfgFile {
 		t.Errorf("Expected config file to be %q, got %q", cfgFile, viper.ConfigFileUsed())
 	}
+}
+
+// ==================== NEW FLAG TESTS ====================
+
+func TestValidateRootOptions_ActAndPlanMutuallyExclusive(t *testing.T) {
+	resetFlags()
+	actFlag = true
+	planFlag = true
+
+	cmd := &cobra.Command{}
+	_, err := validateRootOptions(cmd, []string{})
+
+	if err == nil {
+		t.Error("Expected error when both --act and --plan are set")
+	}
+
+	if !strings.Contains(err.Error(), "cannot use both --act and --plan") {
+		t.Errorf("Expected error message about mutually exclusive flags, got: %v", err)
+	}
+}
+
+func TestValidateRootOptions_ReasoningEffort(t *testing.T) {
+	tests := []struct {
+		name          string
+		value         string
+		wantErr       bool
+		expectedValue string
+	}{
+		{"valid low", "low", false, "low"},
+		{"valid medium", "medium", false, "medium"},
+		{"valid high", "high", false, "high"},
+		{"valid xhigh", "xhigh", false, "xhigh"},
+		{"valid none", "none", false, "none"},
+		{"valid uppercase", "HIGH", false, "high"},
+		{"valid mixed case", "Medium", false, "medium"},
+		{"invalid value", "invalid", true, ""},
+		{"empty", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetFlags()
+			reasoningEffortFlag = tt.value
+
+			cmd := &cobra.Command{}
+			opts, err := validateRootOptions(cmd, []string{})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error for value %q, got nil", tt.value)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error for value %q: %v", tt.value, err)
+				return
+			}
+
+			if opts.ReasoningEffort != tt.expectedValue {
+				t.Errorf("Expected value %q, got %q", tt.expectedValue, opts.ReasoningEffort)
+			}
+		})
+	}
+}
+
+func TestValidateRootOptions_Timeout(t *testing.T) {
+	tests := []struct {
+		name        string
+		value       string
+		wantErr     bool
+		expectedDur time.Duration
+	}{
+		{"seconds integer", "30", false, 30 * time.Second},
+		{"duration seconds", "30s", false, 30 * time.Second},
+		{"duration minutes", "5m", false, 5 * time.Minute},
+		{"duration hours", "1h", false, 1 * time.Hour},
+		{"complex duration", "1h30m", false, 90 * time.Minute},
+		{"invalid", "invalid", true, 0},
+		{"empty", "", false, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetFlags()
+			timeoutFlag = tt.value
+
+			cmd := &cobra.Command{}
+			opts, err := validateRootOptions(cmd, []string{})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error for value %q, got nil", tt.value)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error for value %q: %v", tt.value, err)
+				return
+			}
+
+			if opts.Timeout != tt.expectedDur {
+				t.Errorf("Expected duration %v, got %v", tt.expectedDur, opts.Timeout)
+			}
+		})
+	}
+}
+
+func TestValidateRootOptions_Thinking(t *testing.T) {
+	tests := []struct {
+		name         string
+		value        string
+		changed      bool
+		wantErr      bool
+		expectedVal  *int
+		expectDefault bool
+	}{
+		{"flag not set", "", false, false, nil, false},
+		{"flag set no value", "", true, false, nil, true},
+		{"valid tokens", "2048", true, false, intPtr(2048), false},
+		{"valid zero", "0", true, false, intPtr(0), false},
+		{"invalid negative", "-1", true, true, nil, false},
+		{"invalid string", "abc", true, true, nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetFlags()
+			thinkingFlag = tt.value
+
+			cmd := &cobra.Command{}
+			cmd.Flags().StringVar(&thinkingFlag, "thinking", "", "")
+			if tt.changed {
+				cmd.Flags().Set("thinking", tt.value)
+			}
+
+			opts, err := validateRootOptions(cmd, []string{})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error for value %q, got nil", tt.value)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error for value %q: %v", tt.value, err)
+				return
+			}
+
+			if tt.expectDefault {
+				if opts.Thinking == nil || *opts.Thinking != 1024 {
+					t.Errorf("Expected default 1024, got %v", opts.Thinking)
+				}
+				return
+			}
+
+			if tt.expectedVal == nil {
+				if opts.Thinking != nil {
+					t.Errorf("Expected nil, got %v", *opts.Thinking)
+				}
+				return
+			}
+
+			if opts.Thinking == nil {
+				t.Errorf("Expected %d, got nil", *tt.expectedVal)
+				return
+			}
+
+			if *opts.Thinking != *tt.expectedVal {
+				t.Errorf("Expected %d, got %d", *tt.expectedVal, *opts.Thinking)
+			}
+		})
+	}
+}
+
+func TestValidateRootOptions_MaxConsecutiveMistakes(t *testing.T) {
+	tests := []struct {
+		name        string
+		value       string
+		wantErr     bool
+		expectedVal *int
+	}{
+		{"valid", "5", false, intPtr(5)},
+		{"valid one", "1", false, intPtr(1)},
+		{"invalid zero", "0", true, nil},
+		{"invalid negative", "-1", true, nil},
+		{"invalid string", "abc", true, nil},
+		{"empty", "", false, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetFlags()
+			maxConsecutiveMistakesFlag = tt.value
+
+			cmd := &cobra.Command{}
+			opts, err := validateRootOptions(cmd, []string{})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error for value %q, got nil", tt.value)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error for value %q: %v", tt.value, err)
+				return
+			}
+
+			if tt.expectedVal == nil && opts.MaxConsecutiveMistakes != nil {
+				t.Errorf("Expected nil, got %v", *opts.MaxConsecutiveMistakes)
+				return
+			}
+
+			if tt.expectedVal != nil {
+				if opts.MaxConsecutiveMistakes == nil {
+					t.Errorf("Expected %d, got nil", *tt.expectedVal)
+					return
+				}
+				if *opts.MaxConsecutiveMistakes != *tt.expectedVal {
+					t.Errorf("Expected %d, got %d", *tt.expectedVal, *opts.MaxConsecutiveMistakes)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateRootOptions_TaskIdAndContinueMutuallyExclusive(t *testing.T) {
+	resetFlags()
+	taskIdFlag = "task-123"
+	continueFlag = true
+
+	cmd := &cobra.Command{}
+	_, err := validateRootOptions(cmd, []string{})
+
+	if err == nil {
+		t.Error("Expected error when both --taskId and --continue are set")
+	}
+
+	if !strings.Contains(err.Error(), "cannot use both --taskId and --continue") {
+		t.Errorf("Expected error message about mutually exclusive flags, got: %v", err)
+	}
+}
+
+func TestValidateRootOptions_KanbanWithPrompt(t *testing.T) {
+	resetFlags()
+	kanbanFlag = true
+
+	cmd := &cobra.Command{}
+	_, err := validateRootOptions(cmd, []string{"some prompt"})
+
+	if err == nil {
+		t.Error("Expected error when --kanban is used with a prompt")
+	}
+
+	if !strings.Contains(err.Error(), "use --kanban without a prompt") {
+		t.Errorf("Expected error message about kanban not taking prompt, got: %v", err)
+	}
+}
+
+func TestValidateRootOptions_ContinueWithPrompt(t *testing.T) {
+	resetFlags()
+	continueFlag = true
+
+	cmd := &cobra.Command{}
+	_, err := validateRootOptions(cmd, []string{"some prompt"})
+
+	if err == nil {
+		t.Error("Expected error when --continue is used with a prompt")
+	}
+
+	if !strings.Contains(err.Error(), "use --continue without a prompt") {
+		t.Errorf("Expected error message about continue not taking prompt, got: %v", err)
+	}
+}
+
+func TestValidateRootOptions_AllFlags(t *testing.T) {
+	resetFlags()
+	actFlag = true
+	yoloFlag = true
+	autoApproveAllFlag = true
+	timeoutFlag = "30m"
+	modelFlag = "claude-sonnet-4-6"
+	thinkingFlag = "2048"
+	reasoningEffortFlag = "high"
+	maxConsecutiveMistakesFlag = "5"
+	doubleCheckCompletionFlag = true
+	autoCondenseFlag = true
+	jsonFlag = true
+	hooksDirFlag = "/path/to/hooks"
+	cwdFlag = "/path/to/cwd"
+	acpFlag = false
+	kanbanFlag = false
+	taskIdFlag = ""
+	continueFlag = false
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&thinkingFlag, "thinking", "", "")
+	cmd.Flags().Set("thinking", "2048")
+
+	opts, err := validateRootOptions(cmd, []string{"test prompt"})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Verify all flags were parsed correctly
+	if !opts.Act {
+		t.Error("Expected Act to be true")
+	}
+	if !opts.Yolo {
+		t.Error("Expected Yolo to be true")
+	}
+	if !opts.AutoApproveAll {
+		t.Error("Expected AutoApproveAll to be true")
+	}
+	if opts.Timeout != 30*time.Minute {
+		t.Errorf("Expected Timeout to be 30m, got %v", opts.Timeout)
+	}
+	if opts.Model != "claude-sonnet-4-6" {
+		t.Errorf("Expected Model to be claude-sonnet-4-6, got %s", opts.Model)
+	}
+	if opts.Thinking == nil || *opts.Thinking != 2048 {
+		t.Errorf("Expected Thinking to be 2048, got %v", opts.Thinking)
+	}
+	if opts.ReasoningEffort != "high" {
+		t.Errorf("Expected ReasoningEffort to be high, got %s", opts.ReasoningEffort)
+	}
+	if opts.MaxConsecutiveMistakes == nil || *opts.MaxConsecutiveMistakes != 5 {
+		t.Errorf("Expected MaxConsecutiveMistakes to be 5, got %v", opts.MaxConsecutiveMistakes)
+	}
+	if !opts.DoubleCheckCompletion {
+		t.Error("Expected DoubleCheckCompletion to be true")
+	}
+	if !opts.AutoCondense {
+		t.Error("Expected AutoCondense to be true")
+	}
+	if !opts.JSON {
+		t.Error("Expected JSON to be true")
+	}
+	if opts.HooksDir != "/path/to/hooks" {
+		t.Errorf("Expected HooksDir to be /path/to/hooks, got %s", opts.HooksDir)
+	}
+	if opts.Cwd != "/path/to/cwd" {
+		t.Errorf("Expected Cwd to be /path/to/cwd, got %s", opts.Cwd)
+	}
+	if opts.Prompt != "test prompt" {
+		t.Errorf("Expected Prompt to be 'test prompt', got %s", opts.Prompt)
+	}
+}
+
+func TestGetTaskMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		opts     *RootOptions
+		expected TaskMode
+	}{
+		{"act mode", &RootOptions{Act: true, Plan: false}, TaskModeAct},
+		{"plan mode", &RootOptions{Act: false, Plan: true}, TaskModePlan},
+		{"default to act", &RootOptions{Act: false, Plan: false}, TaskModeAct},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getTaskMode(tt.opts)
+			if result != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestRunKanbanMode(t *testing.T) {
+	verbose = false
+	initLogger()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runKanbanMode()
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Errorf("runKanbanMode() returned error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Kanban mode") {
+		t.Errorf("Expected output to contain 'Kanban mode', got: %s", output)
+	}
+}
+
+func TestRunAcpMode(t *testing.T) {
+	verbose = false
+	initLogger()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	opts := &RootOptions{
+		Cwd:      "/test/dir",
+		HooksDir: "/test/hooks",
+	}
+	err := runAcpMode(opts)
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Errorf("runAcpMode() returned error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "ACP mode") {
+		t.Errorf("Expected output to contain 'ACP mode', got: %s", output)
+	}
+}
+
+func TestRunContinueMode(t *testing.T) {
+	verbose = false
+	initLogger()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	opts := &RootOptions{}
+	err := runContinueMode(opts)
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Errorf("runContinueMode() returned error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Continue mode") {
+		t.Errorf("Expected output to contain 'Continue mode', got: %s", output)
+	}
+}
+
+func TestRunResumeTask(t *testing.T) {
+	verbose = false
+	initLogger()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	opts := &RootOptions{
+		TaskID: "task-123",
+	}
+	err := runResumeTask(opts)
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Errorf("runResumeTask() returned error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "task-123") {
+		t.Errorf("Expected output to contain task ID, got: %s", output)
+	}
+}
+
+// Helper function to create int pointer
+func intPtr(i int) *int {
+	return &i
 }

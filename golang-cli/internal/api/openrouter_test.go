@@ -168,6 +168,7 @@ func TestOpenRouterProvider_GetSupportedModels(t *testing.T) {
 		"google/gemini-flash-1.5",
 		"mistralai/mistral-large",
 		"mistralai/mistral-medium",
+		"deepseek/deepseek-r1",
 	}
 
 	if len(models) != len(expectedModels) {
@@ -191,6 +192,8 @@ func TestOpenRouterProvider_Complete(t *testing.T) {
 		expectedErr    error
 		wantContent    string
 		wantUsage      Usage
+		wantReasoning  string
+		wantToolCalls  int
 	}{
 		{
 			name:           "successful completion",
@@ -228,6 +231,89 @@ func TestOpenRouterProvider_Complete(t *testing.T) {
 				PromptTokens:     10,
 				CompletionTokens: 5,
 				TotalTokens:      15,
+			},
+		},
+		{
+			name:           "completion with reasoning",
+			responseStatus: http.StatusOK,
+			responseBody: `{
+				"id": "gen-test",
+				"model": "anthropic/claude-sonnet-4.5",
+				"choices": [
+					{
+						"message": {
+							"role": "assistant",
+							"content": "The answer is 42",
+							"reasoning": "Let me think about this..."
+						},
+						"finish_reason": "stop"
+					}
+				],
+				"usage": {
+					"prompt_tokens": 20,
+					"completion_tokens": 10,
+					"total_tokens": 30
+				}
+			}`,
+			request: CompletionRequest{
+				Model: "anthropic/claude-sonnet-4.5",
+				Messages: []OpenRouterMessage{
+					{Role: "user", Content: "What is the answer?"},
+				},
+			},
+			wantErr:       false,
+			wantContent:   "The answer is 42",
+			wantReasoning: "Let me think about this...",
+			wantUsage: Usage{
+				PromptTokens:     20,
+				CompletionTokens: 10,
+				TotalTokens:      30,
+			},
+		},
+		{
+			name:           "completion with tool calls",
+			responseStatus: http.StatusOK,
+			responseBody: `{
+				"id": "gen-test",
+				"model": "openai/gpt-4o",
+				"choices": [
+					{
+						"message": {
+							"role": "assistant",
+							"content": "",
+							"tool_calls": [
+								{
+									"id": "call_123",
+									"type": "function",
+									"function": {
+										"name": "get_weather",
+										"arguments": "{\"location\":\"NYC\"}"
+									}
+								}
+							]
+						},
+						"finish_reason": "tool_calls"
+					}
+				],
+				"usage": {
+					"prompt_tokens": 25,
+					"completion_tokens": 15,
+					"total_tokens": 40
+				}
+			}`,
+			request: CompletionRequest{
+				Model: "openai/gpt-4o",
+				Messages: []OpenRouterMessage{
+					{Role: "user", Content: "What's the weather?"},
+				},
+			},
+			wantErr:       false,
+			wantContent:   "",
+			wantToolCalls: 1,
+			wantUsage: Usage{
+				PromptTokens:     25,
+				CompletionTokens: 15,
+				TotalTokens:      40,
 			},
 		},
 		{
@@ -380,6 +466,14 @@ func TestOpenRouterProvider_Complete(t *testing.T) {
 				t.Errorf("Complete() content = %s, want %s", resp.Content, tt.wantContent)
 			}
 
+			if tt.wantReasoning != "" && resp.Reasoning != tt.wantReasoning {
+				t.Errorf("Complete() reasoning = %s, want %s", resp.Reasoning, tt.wantReasoning)
+			}
+
+			if tt.wantToolCalls > 0 && len(resp.ToolCalls) != tt.wantToolCalls {
+				t.Errorf("Complete() tool calls = %d, want %d", len(resp.ToolCalls), tt.wantToolCalls)
+			}
+
 			if resp.Usage != tt.wantUsage {
 				t.Errorf("Complete() usage = %+v, want %+v", resp.Usage, tt.wantUsage)
 			}
@@ -395,6 +489,8 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 		wantErr      bool
 		expectedErr  error
 		wantChunks   int
+		wantContent  string
+		wantReasoning string
 	}{
 		{
 			name: "successful streaming",
@@ -408,6 +504,43 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 				Model: "anthropic/claude-3.5-sonnet",
 				Messages: []OpenRouterMessage{
 					{Role: "user", Content: "Hello"},
+				},
+			},
+			wantErr:    false,
+			wantChunks: 3,
+			wantContent: "Hello world!",
+		},
+		{
+			name: "streaming with reasoning",
+			streamChunks: []string{
+				`data: {"id":"gen-test","choices":[{"index":0,"delta":{"reasoning":"Let me think"}}]}`,
+				`data: {"id":"gen-test","choices":[{"index":0,"delta":{"reasoning":" about this","content":"The answer"}}]}`,
+				`data: {"id":"gen-test","choices":[{"index":0,"delta":{"content":" is 42"},"finish_reason":"stop"}]}`,
+				"data: [DONE]",
+			},
+			request: CompletionRequest{
+				Model: "anthropic/claude-sonnet-4.5",
+				Messages: []OpenRouterMessage{
+					{Role: "user", Content: "What is the answer?"},
+				},
+			},
+			wantErr:       false,
+			wantChunks:    3,
+			wantContent:   "The answer is 42",
+			wantReasoning: "Let me think about this",
+		},
+		{
+			name: "streaming with tool calls",
+			streamChunks: []string{
+				`data: {"id":"gen-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_123","type":"function","function":{"name":"get_weather"}}]}}]}`,
+				`data: {"id":"gen-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"location\""}}]}}]}`,
+				`data: {"id":"gen-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":":\"NYC\"}"}}]},"finish_reason":"tool_calls"}]}`,
+				"data: [DONE]",
+			},
+			request: CompletionRequest{
+				Model: "openai/gpt-4o",
+				Messages: []OpenRouterMessage{
+					{Role: "user", Content: "What's the weather?"},
 				},
 			},
 			wantErr:    false,
@@ -442,6 +575,35 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 				},
 			},
 			wantErr: true,
+		},
+		{
+			name: "mid-stream error",
+			streamChunks: []string{
+				`data: {"id":"gen-test","choices":[{"index":0,"delta":{"content":"Hello"}}]}`,
+				`data: {"id":"gen-test","choices":[{"index":0,"error":{"message":"Provider error","code":"provider_error"}}]}`,
+			},
+			request: CompletionRequest{
+				Model: "anthropic/claude-3.5-sonnet",
+				Messages: []OpenRouterMessage{
+					{Role: "user", Content: "Hello"},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrProviderUnavailable,
+		},
+		{
+			name: "top-level error in stream",
+			streamChunks: []string{
+				`data: {"error":{"message":"Rate limit exceeded","code":"rate_limit_exceeded"}}`,
+			},
+			request: CompletionRequest{
+				Model: "anthropic/claude-3.5-sonnet",
+				Messages: []OpenRouterMessage{
+					{Role: "user", Content: "Hello"},
+				},
+			},
+			wantErr:     true,
+			expectedErr: ErrRateLimitExceeded,
 		},
 	}
 
@@ -479,7 +641,15 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 
 			if tt.wantErr {
 				if err == nil {
-					t.Error("CompleteStream() expected error, got nil")
+					// Wait for error from channel
+					select {
+					case err := <-errChan:
+						if err == nil {
+							t.Error("CompleteStream() expected error, got nil")
+						}
+					case <-time.After(1 * time.Second):
+						t.Error("CompleteStream() expected error, got nil")
+					}
 				}
 				return
 			}
@@ -491,6 +661,7 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 
 			// Collect chunks
 			chunkCount := 0
+			var lastContent, lastReasoning string
 			done := false
 
 			for !done {
@@ -501,6 +672,8 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 						break
 					}
 					chunkCount++
+					lastContent = chunk.Content
+					lastReasoning = chunk.Reasoning
 					if chunk.FinishReason != "" {
 						t.Logf("Final chunk with finish_reason=%s", chunk.FinishReason)
 					}
@@ -516,6 +689,14 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 
 			if chunkCount != tt.wantChunks {
 				t.Errorf("CompleteStream() received %d chunks, want %d", chunkCount, tt.wantChunks)
+			}
+
+			if tt.wantContent != "" && lastContent != tt.wantContent {
+				t.Errorf("CompleteStream() final content = %s, want %s", lastContent, tt.wantContent)
+			}
+
+			if tt.wantReasoning != "" && !strings.Contains(lastReasoning, tt.wantReasoning) {
+				t.Errorf("CompleteStream() final reasoning = %s, want to contain %s", lastReasoning, tt.wantReasoning)
 			}
 		})
 	}
@@ -596,6 +777,7 @@ func TestOpenRouterProvider_estimateUsage(t *testing.T) {
 		name       string
 		messages   []OpenRouterMessage
 		completion string
+		reasoning  string
 		minTokens  int // Minimum expected tokens (rough estimate)
 	}{
 		{
@@ -604,6 +786,7 @@ func TestOpenRouterProvider_estimateUsage(t *testing.T) {
 				{Role: "user", Content: "Hello"},
 			},
 			completion: "Hi there!",
+			reasoning:  "",
 			minTokens:  1,
 		},
 		{
@@ -613,19 +796,30 @@ func TestOpenRouterProvider_estimateUsage(t *testing.T) {
 				{Role: "user", Content: "Hello, how are you?"},
 			},
 			completion: "I'm doing well, thank you for asking!",
+			reasoning:  "",
+			minTokens:  5,
+		},
+		{
+			name: "with reasoning",
+			messages: []OpenRouterMessage{
+				{Role: "user", Content: "Hello"},
+			},
+			completion: "The answer is 42",
+			reasoning:  "Let me think about this problem step by step...",
 			minTokens:  5,
 		},
 		{
 			name:       "empty completion",
 			messages:   []OpenRouterMessage{{Role: "user", Content: "Hello"}},
 			completion: "",
+			reasoning:  "",
 			minTokens:  1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usage := provider.estimateUsage(tt.messages, tt.completion)
+			usage := provider.estimateUsage(tt.messages, tt.completion, tt.reasoning)
 
 			if usage.PromptTokens < 1 {
 				t.Error("Expected at least 1 prompt token")
@@ -649,14 +843,14 @@ func TestOpenRouterProvider_toOpenRouterRequest(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		req          CompletionRequest
-		stream       bool
-		wantModel    string
-		wantStream   bool
-		wantTemp     float64
-		wantMaxTok   int
-		wantTopP     float64
+		name               string
+		req                CompletionRequest
+		stream             bool
+		wantModel          string
+		wantStream         bool
+		wantTools          bool
+		wantParallelTools  bool
+		wantReasoning      bool
 	}{
 		{
 			name: "default values",
@@ -669,9 +863,6 @@ func TestOpenRouterProvider_toOpenRouterRequest(t *testing.T) {
 			stream:     false,
 			wantModel:  "anthropic/claude-3.5-sonnet",
 			wantStream: false,
-			wantTemp:   0.7,
-			wantMaxTok: 4096,
-			wantTopP:   1.0,
 		},
 		{
 			name: "custom values",
@@ -686,9 +877,50 @@ func TestOpenRouterProvider_toOpenRouterRequest(t *testing.T) {
 			stream:     true,
 			wantModel:  "openai/gpt-4o",
 			wantStream: true,
-			wantTemp:   0.5,
-			wantMaxTok: 100,
-			wantTopP:   0.9,
+		},
+		{
+			name: "with tools",
+			req: CompletionRequest{
+				Model:    "openai/gpt-4o",
+				Messages: []OpenRouterMessage{{Role: "user", Content: "Hello"}},
+				Tools: []Tool{
+					{
+						Type: "function",
+						Function: ToolFunction{
+							Name:        "get_weather",
+							Description: "Get the weather",
+							Parameters:  json.RawMessage(`{"type":"object"}`),
+						},
+					},
+				},
+				EnableParallelToolCalling: true,
+			},
+			stream:            false,
+			wantModel:         "openai/gpt-4o",
+			wantTools:         true,
+			wantParallelTools: true,
+		},
+		{
+			name: "with thinking budget",
+			req: CompletionRequest{
+				Model:                "anthropic/claude-sonnet-4.5",
+				Messages:             []OpenRouterMessage{{Role: "user", Content: "Hello"}},
+				ThinkingBudgetTokens: 1024,
+				IncludeReasoning:     true,
+			},
+			stream:        false,
+			wantModel:     "anthropic/claude-sonnet-4.5",
+			wantReasoning: true,
+		},
+		{
+			name: "deepseek model with reasoning",
+			req: CompletionRequest{
+				Model:           "deepseek/deepseek-r1",
+				Messages:        []OpenRouterMessage{{Role: "user", Content: "Hello"}},
+				ReasoningEffort: "high",
+			},
+			stream:    false,
+			wantModel: "deepseek/deepseek-r1",
 		},
 	}
 
@@ -702,17 +934,88 @@ func TestOpenRouterProvider_toOpenRouterRequest(t *testing.T) {
 			if result.Stream != tt.wantStream {
 				t.Errorf("Stream = %v, want %v", result.Stream, tt.wantStream)
 			}
-			if result.Temperature != tt.wantTemp {
-				t.Errorf("Temperature = %f, want %f", result.Temperature, tt.wantTemp)
+			if tt.wantTools && len(result.Tools) == 0 {
+				t.Errorf("Expected tools, got none")
 			}
-			if result.MaxTokens != tt.wantMaxTok {
-				t.Errorf("MaxTokens = %d, want %d", result.MaxTokens, tt.wantMaxTok)
+			if tt.wantParallelTools && !result.ParallelToolCalls {
+				t.Errorf("Expected parallel tool calls, got false")
 			}
-			if result.TopP != tt.wantTopP {
-				t.Errorf("TopP = %f, want %f", result.TopP, tt.wantTopP)
+			if tt.wantReasoning && result.Reasoning == nil {
+				t.Errorf("Expected reasoning config, got nil")
 			}
 			if len(result.Messages) != len(tt.req.Messages) {
 				t.Errorf("Messages length = %d, want %d", len(result.Messages), len(tt.req.Messages))
+			}
+		})
+	}
+}
+
+func TestOpenRouterProvider_getModelSpecificSettings(t *testing.T) {
+	provider, err := NewOpenRouterProvider(OpenRouterConfig{
+		APIKey: "test-api-key",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	tests := []struct {
+		name            string
+		modelID         string
+		userTemp        float64
+		userTopP        float64
+		wantTempSet     bool
+		wantTopPSet     bool
+		wantTempValue   float64
+		wantTopPValue   float64
+	}{
+		{
+			name:        "deepseek r1 with defaults",
+			modelID:     "deepseek/deepseek-r1",
+			userTemp:    0,
+			userTopP:    0,
+			wantTempSet: true,
+			wantTopPSet: true,
+			wantTempValue: 0.7,
+			wantTopPValue: 0.95,
+		},
+		{
+			name:        "gemini 3 with defaults",
+			modelID:     "google/gemini-3.5-pro",
+			userTemp:    0,
+			userTopP:    0,
+			wantTempSet: true,
+			wantTopPSet: false,
+			wantTempValue: 1.0,
+		},
+		{
+			name:        "claude with user temp",
+			modelID:     "anthropic/claude-3.5-sonnet",
+			userTemp:    0.5,
+			userTopP:    0,
+			wantTempSet: true,
+			wantTopPSet: false,
+			wantTempValue: 0.5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			temp, topP := provider.getModelSpecificSettings(tt.modelID, tt.userTemp, tt.userTopP)
+
+			if tt.wantTempSet {
+				if temp == nil {
+					t.Error("Expected temperature to be set, got nil")
+				} else if *temp != tt.wantTempValue {
+					t.Errorf("Temperature = %f, want %f", *temp, tt.wantTempValue)
+				}
+			}
+
+			if tt.wantTopPSet {
+				if topP == nil {
+					t.Error("Expected topP to be set, got nil")
+				} else if *topP != tt.wantTopPValue {
+					t.Errorf("TopP = %f, want %f", *topP, tt.wantTopPValue)
+				}
 			}
 		})
 	}
@@ -960,15 +1263,16 @@ func TestOpenRouterProvider_ModelManagement(t *testing.T) {
 		t.Fatalf("Failed to create provider: %v", err)
 	}
 
-	// Test default model
-	if provider.GetModel() != OpenRouterClaude35Sonnet {
-		t.Errorf("Expected default model %s, got %s", OpenRouterClaude35Sonnet, provider.GetModel())
+	// Test default model (should be claude-sonnet-4.5)
+	expectedDefault := string(OpenRouterDefaultModel)
+	if provider.GetModel() != expectedDefault {
+		t.Errorf("Expected model %s, got %s", expectedDefault, provider.GetModel())
 	}
 
-	// Test setting model
-	provider.SetModel(OpenRouterGPT4o)
-	if provider.GetModel() != OpenRouterGPT4o {
-		t.Errorf("Expected model %s, got %s", OpenRouterGPT4o, provider.GetModel())
+	// Test SetModel
+	provider.SetModel("openai/gpt-4o")
+	if provider.GetModel() != "openai/gpt-4o" {
+		t.Errorf("Expected model %s, got %s", "openai/gpt-4o", provider.GetModel())
 	}
 }
 
@@ -1214,7 +1518,7 @@ func TestOpenRouterProvider_ParseModelID(t *testing.T) {
 	}
 
 	tests := []struct {
-		modelID     string
+		modelID      string
 		wantProvider string
 		wantModel    string
 		wantError    bool
@@ -1323,6 +1627,183 @@ func TestOpenRouterProvider_ProviderPreferencesInRequest(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("Complete() unexpected error: %v", err)
+	}
+}
+
+func TestOpenRouterProvider_GetGenerationDetails(t *testing.T) {
+	server := mockOpenRouterServer(t, func(w http.ResponseWriter, r *http.Request) {
+		// Verify request path and method
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected GET, got %s", r.Method)
+		}
+		if !strings.HasPrefix(r.URL.Path, "/generation") {
+			t.Errorf("Expected /generation, got %s", r.URL.Path)
+		}
+
+		// Verify query parameter
+		genID := r.URL.Query().Get("id")
+		if genID != "gen_123" {
+			t.Errorf("Expected gen_id=gen_123, got %s", genID)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"data": {
+				"total_cost": 0.0025,
+				"native_tokens_prompt": 100,
+				"native_tokens_completion": 50,
+				"native_tokens_cached": 20,
+				"native_tokens_cache_write": 10
+			}
+		}`))
+	})
+
+	provider, err := NewOpenRouterProvider(OpenRouterConfig{
+		APIKey:  "test-api-key",
+		BaseURL: server.URL,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	ctx := context.Background()
+	details, err := provider.GetGenerationDetails(ctx, "gen_123")
+	if err != nil {
+		t.Fatalf("GetGenerationDetails() error: %v", err)
+	}
+
+	if details.TotalCost != 0.0025 {
+		t.Errorf("TotalCost = %f, want 0.0025", details.TotalCost)
+	}
+	if details.NativeTokensPrompt != 100 {
+		t.Errorf("NativeTokensPrompt = %d, want 100", details.NativeTokensPrompt)
+	}
+	if details.NativeTokensCompletion != 50 {
+		t.Errorf("NativeTokensCompletion = %d, want 50", details.NativeTokensCompletion)
+	}
+	if details.NativeTokensCached != 20 {
+		t.Errorf("NativeTokensCached = %d, want 20", details.NativeTokensCached)
+	}
+	if details.NativeTokensCacheWrite != 10 {
+		t.Errorf("NativeTokensCacheWrite = %d, want 10", details.NativeTokensCacheWrite)
+	}
+
+	// Test ToUsage conversion
+	usage := details.ToUsage()
+	if usage.PromptTokens != 80 { // 100 - 20 cached
+		t.Errorf("PromptTokens = %d, want 80", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 50 {
+		t.Errorf("CompletionTokens = %d, want 50", usage.CompletionTokens)
+	}
+	if usage.TotalTokens != 150 { // 100 + 50
+		t.Errorf("TotalTokens = %d, want 150", usage.TotalTokens)
+	}
+}
+
+func TestIsClaude1MModel(t *testing.T) {
+	tests := []struct {
+		modelID string
+		want    bool
+	}{
+		{"anthropic/claude-sonnet-4.5:1m", true},
+		{"anthropic/claude-opus-4.6-1m", true},
+		{"anthropic/claude-3.5-sonnet", false},
+		{"anthropic/claude-sonnet-4.5", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.modelID, func(t *testing.T) {
+			got := IsClaude1MModel(tt.modelID)
+			if got != tt.want {
+				t.Errorf("IsClaude1MModel(%q) = %v, want %v", tt.modelID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStrip1MSuffix(t *testing.T) {
+	tests := []struct {
+		modelID string
+		want    string
+	}{
+		{"anthropic/claude-sonnet-4.5:1m", "anthropic/claude-sonnet-4.5"},
+		{"anthropic/claude-opus-4.6-1m", "anthropic/claude-opus-4.6"},
+		{"anthropic/claude-3.5-sonnet", "anthropic/claude-3.5-sonnet"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.modelID, func(t *testing.T) {
+			got := Strip1MSuffix(tt.modelID)
+			if got != tt.want {
+				t.Errorf("Strip1MSuffix(%q) = %v, want %v", tt.modelID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldSkipReasoning(t *testing.T) {
+	tests := []struct {
+		modelID string
+		want    bool
+	}{
+		{"x-ai/grok-4", true},
+		{"x-ai/grok-4-mini", true},
+		{"x-ai/grok-4-turbo", true},
+		{"anthropic/claude-sonnet-4.5", false},
+		{"openai/gpt-4o", false},
+		{"x-ai/grok-3", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.modelID, func(t *testing.T) {
+			got := ShouldSkipReasoning(tt.modelID)
+			if got != tt.want {
+				t.Errorf("ShouldSkipReasoning(%q) = %v, want %v", tt.modelID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsGeminiFlashModel(t *testing.T) {
+	tests := []struct {
+		modelID string
+		want    bool
+	}{
+		{"google/gemini-flash-1.5", true},
+		{"google/gemini-2.5-flash", true},
+		{"google/gemini-pro", false},
+		{"google/gemini-2.5-pro", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.modelID, func(t *testing.T) {
+			got := IsGeminiFlashModel(tt.modelID)
+			if got != tt.want {
+				t.Errorf("IsGeminiFlashModel(%q) = %v, want %v", tt.modelID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSupportsReasoningEffort(t *testing.T) {
+	tests := []struct {
+		modelID string
+		want    bool
+	}{
+		{"openai/o1", true},
+		{"openai/o3-mini", true},
+		{"anthropic/claude-sonnet-4.5", false},
+		{"openai/gpt-4o", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.modelID, func(t *testing.T) {
+			got := SupportsReasoningEffort(tt.modelID)
+			if got != tt.want {
+				t.Errorf("SupportsReasoningEffort(%q) = %v, want %v", tt.modelID, got, tt.want)
+			}
+		})
 	}
 }
 

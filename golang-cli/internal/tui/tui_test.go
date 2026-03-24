@@ -2,9 +2,7 @@ package tui
 
 import (
 	"bytes"
-	"errors"
-	"os"
-	"os/signal"
+	"io"
 	"strings"
 	"testing"
 
@@ -13,599 +11,423 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewModel(t *testing.T) {
-	model := NewModel("Test App")
-
-	assert.Equal(t, "Test App", model.Title())
-	assert.Equal(t, ModeTUI, model.Mode())
-	assert.True(t, model.IsTUI())
-	assert.False(t, model.IsPlain())
-	assert.Equal(t, 80, model.Width())
-	assert.Equal(t, 24, model.Height())
-	assert.Empty(t, model.Content())
-	assert.False(t, model.Ready())
-	assert.NoError(t, model.Error())
-}
-
-func TestNewPlainModel(t *testing.T) {
-	model := NewPlainModel()
-
-	assert.Empty(t, model.Title())
-	assert.Equal(t, ModePlain, model.Mode())
-	assert.False(t, model.IsTUI())
-	assert.True(t, model.IsPlain())
-	assert.Equal(t, 80, model.Width())
-	assert.Equal(t, 24, model.Height())
-}
-
-func TestModelSettersAndGetters(t *testing.T) {
-	model := NewModel("Test")
-
-	// Test SetContent/GetContent
-	model.SetContent("Hello World")
-	assert.Equal(t, "Hello World", model.Content())
-
-	// Test SetTitle
-	model.SetTitle("New Title")
-	assert.Equal(t, "New Title", model.Title())
-
-	// Test SetError
-	err := errors.New("test error")
-	model.SetError(err)
-	assert.Equal(t, err, model.Error())
-}
-
-func TestModelDimensions(t *testing.T) {
-	model := NewModel("Test")
-
-	// Update dimensions via WindowSizeMsg
-	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-
-	m, ok := updatedModel.(Model)
-	require.True(t, ok)
-	assert.Equal(t, 120, m.Width())
-	assert.Equal(t, 40, m.Height())
-	assert.True(t, m.Ready())
-}
-
-func TestCustomWindowSizeMsg(t *testing.T) {
-	model := NewModel("Test")
-
-	// Update dimensions via custom WindowSizeMsg
-	updatedModel, _ := model.Update(WindowSizeMsg{Width: 100, Height: 30})
-
-	m, ok := updatedModel.(Model)
-	require.True(t, ok)
-	assert.Equal(t, 100, m.Width())
-	assert.Equal(t, 30, m.Height())
-}
-
-func TestModelInit(t *testing.T) {
-	model := NewModel("Test")
-	cmd := model.Init()
-	assert.Nil(t, cmd)
-}
-
-func TestKeyHandling(t *testing.T) {
-	tests := []struct {
-		name     string
-		key      string
-		wantQuit bool
-	}{
-		{"quit with q", "q", true},
-		{"quit with ctrl+c", "ctrl+c", true},
-		{"quit with esc", "esc", true},
-		{"other key", "a", false},
-		{"enter key", "enter", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			model := NewModel("Test")
-
-			updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{[]rune(tt.key)[0]}})
-
-			// Check if the key is recognized as quit key
-			isQuit := model.isQuitKey(tt.key)
-
-			if tt.wantQuit {
-				assert.True(t, isQuit, "key %q should be a quit key", tt.key)
-			} else {
-				assert.False(t, isQuit, "key %q should not be a quit key", tt.key)
-			}
-
-			// Just verify the update doesn't panic
-			_ = updatedModel
-			_ = cmd
-		})
-	}
-}
-
-func TestContentMsg(t *testing.T) {
-	model := NewModel("Test")
-	model.SetContent("Initial")
-
-	updatedModel, _ := model.Update(ContentMsg{Content: "Updated"})
-
-	m, ok := updatedModel.(Model)
-	require.True(t, ok)
-	assert.Equal(t, "Updated", m.Content())
-}
-
-func TestErrorMsg(t *testing.T) {
-	model := NewModel("Test")
-	testErr := errors.New("test error")
-
-	updatedModel, _ := model.Update(ErrorMsg{Err: testErr})
-
-	m, ok := updatedModel.(Model)
-	require.True(t, ok)
-	assert.Equal(t, testErr, m.Error())
-}
-
-func TestShutdownMsg(t *testing.T) {
-	model := NewModel("Test")
-
-	_, cmd := model.Update(ShutdownMsg{})
-
-	// ShutdownMsg should return tea.Quit command
-	// We can't directly compare commands, but we can verify it's not nil
-	assert.NotNil(t, cmd)
-}
-
-func TestInitMsg(t *testing.T) {
-	model := NewModel("Test")
-
-	updatedModel, _ := model.Update(InitMsg{})
-
-	m, ok := updatedModel.(Model)
-	require.True(t, ok)
-	assert.True(t, m.Ready())
-}
-
-func TestRegisterShutdownCallback(t *testing.T) {
-	model := NewModel("Test")
-
-	called := false
-	callback := func() {
-		called = true
-	}
-
-	model.RegisterShutdownCallback(callback)
-	model.Shutdown()
-
-	assert.True(t, called, "shutdown callback should have been called")
-}
-
-func TestMultipleShutdownCallbacks(t *testing.T) {
-	model := NewModel("Test")
-
-	callOrder := []int{}
-	callback1 := func() { callOrder = append(callOrder, 1) }
-	callback2 := func() { callOrder = append(callOrder, 2) }
-	callback3 := func() { callOrder = append(callOrder, 3) }
-
-	model.RegisterShutdownCallback(callback1)
-	model.RegisterShutdownCallback(callback2)
-	model.RegisterShutdownCallback(callback3)
-
-	model.Shutdown()
-
-	assert.Equal(t, []int{1, 2, 3}, callOrder)
-}
-
-func TestDefaultTUIKeyMap(t *testing.T) {
-	km := DefaultTUIKeyMap()
-
-	assert.Contains(t, km.Quit, "q")
-	assert.Contains(t, km.Quit, "ctrl+c")
-	assert.Contains(t, km.Quit, "esc")
-}
-
-func TestSetupSignalHandling(t *testing.T) {
-	sigChan := SetupSignalHandling()
-	require.NotNil(t, sigChan)
-
-	// Clean up
-	signal.Reset()
-}
-
-func TestUpdateContent(t *testing.T) {
-	cmd := UpdateContent("new content")
-	require.NotNil(t, cmd)
-
-	msg := cmd()
-	require.NotNil(t, msg)
-
-	contentMsg, ok := msg.(ContentMsg)
-	require.True(t, ok)
-	assert.Equal(t, "new content", contentMsg.Content)
-}
-
-func TestShutdownCmd(t *testing.T) {
-	cmd := ShutdownCmd()
-	require.NotNil(t, cmd)
-
-	msg := cmd()
-	require.NotNil(t, msg)
-
-	_, ok := msg.(ShutdownMsg)
-	assert.True(t, ok)
-}
-
-func TestRenderPlain(t *testing.T) {
-	result := RenderPlain("test content")
-	assert.Equal(t, "test content\n", result)
-}
-
-func TestRenderError(t *testing.T) {
-	err := errors.New("test error")
-
-	// With ANSI colors
-	resultANSI := RenderError(err, true)
-	assert.Contains(t, resultANSI, "Error: test error")
-	assert.Contains(t, resultANSI, "\033[31m")
-
-	// Without ANSI colors
-	resultPlain := RenderError(err, false)
-	assert.Equal(t, "Error: test error\n", resultPlain)
-
-	// Nil error
-	resultNil := RenderError(nil, true)
-	assert.Empty(t, resultNil)
-}
-
-func TestDefaultStyles(t *testing.T) {
-	styles := DefaultStyles()
-
-	assert.Equal(t, "cyan", styles.BorderColor)
-	assert.Equal(t, "yellow", styles.TitleColor)
-	assert.Equal(t, "white", styles.TextColor)
-	assert.Equal(t, "red", styles.ErrorColor)
-	assert.True(t, styles.UseANSI)
-}
-
-func TestCenterText(t *testing.T) {
-	tests := []struct {
-		text   string
-		width  int
-		expect string
-	}{
-		{"hi", 10, "    hi    "},
-		{"hello", 10, "  hello   "},
-		{"toolong", 5, "toolo"},
-		{"", 5, "     "},
-		{"exact", 5, "exact"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.text, func(t *testing.T) {
-			result := centerText(tt.text, tt.width)
-			assert.Equal(t, tt.expect, result)
-			assert.Equal(t, tt.width, len(result))
-		})
-	}
-}
-
-func TestWrapText(t *testing.T) {
-	tests := []struct {
-		text   string
-		width  int
-		expect []string
-	}{
-		{"hello world", 20, []string{"hello world"}},
-		{"hello world test", 11, []string{"hello world", "test"}},
-		{"a b c d e", 5, []string{"a b c", "d e"}},
-		{"", 10, []string{""}},
-		{"word", 0, []string{"word"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.text, func(t *testing.T) {
-			result := wrapText(tt.text, tt.width)
-			assert.Equal(t, tt.expect, result)
-		})
-	}
-}
-
-func TestPlainView(t *testing.T) {
-	// Plain model with content
-	model := NewPlainModel()
-	model.SetContent("plain content")
-
-	view := model.View()
-	assert.Equal(t, "plain content\n", view)
-
-	// Plain model with error
-	model.SetError(errors.New("plain error"))
-	view = model.View()
-	assert.Contains(t, view, "Error: plain error")
-}
-
-func TestTUIView(t *testing.T) {
-	model := NewModel("Test Title")
-
-	// Not ready - should show initializing
-	view := model.View()
-	assert.Equal(t, "Initializing...", view)
-
-	// Ready - should show full UI
-	model.ready = true
-	view = model.View()
-
-	// Check that the view contains expected elements
-	assert.Contains(t, view, "Test Title")
-	assert.Contains(t, view, "q/ctrl+c: quit")
-}
-
-func TestDefaultProgramOptions(t *testing.T) {
-	opts := DefaultProgramOptions()
-
-	assert.Equal(t, "Cline", opts.Title)
-	assert.Equal(t, ModeTUI, opts.Mode)
-	assert.Equal(t, os.Stdin, opts.Input)
-	assert.Equal(t, os.Stdout, opts.Output)
-	assert.True(t, opts.AltScreen)
-	assert.False(t, opts.Mouse)
-}
-
+// TestNewProgram tests program initialization
 func TestNewProgram(t *testing.T) {
-	opts := DefaultProgramOptions()
-	opts.Title = "Test Program"
+	t.Run("initializes with default options", func(t *testing.T) {
+		// Create a new program with io.Discard for testing
+		var buf bytes.Buffer
+		p := tea.NewProgram(
+			initialModel(),
+			tea.WithOutput(&buf),
+			tea.WithInput(nil),
+		)
 
-	program, err := NewProgram(opts)
-	require.NoError(t, err)
-	require.NotNil(t, program)
-
-	assert.Equal(t, "Test Program", program.model.Title())
-	assert.Equal(t, ModeTUI, program.model.Mode())
-}
-
-func TestNewProgramPlainMode(t *testing.T) {
-	opts := DefaultProgramOptions()
-	opts.Mode = ModePlain
-
-	program, err := NewProgram(opts)
-	require.NoError(t, err)
-	require.NotNil(t, program)
-
-	assert.Equal(t, ModePlain, program.model.Mode())
-}
-
-func TestProgramRunPlain(t *testing.T) {
-	var output bytes.Buffer
-
-	opts := DefaultProgramOptions()
-	opts.Mode = ModePlain
-	opts.Output = &output
-	opts.InitialContent = "Hello Plain World"
-
-	program, err := NewProgram(opts)
-	require.NoError(t, err)
-
-	finalModel, err := program.Start()
-	require.NoError(t, err)
-
-	assert.Equal(t, "Hello Plain World", finalModel.Content())
-	assert.Contains(t, output.String(), "Hello Plain World")
-}
-
-func TestProgramShutdown(t *testing.T) {
-	opts := DefaultProgramOptions()
-	opts.Mode = ModePlain
-
-	program, err := NewProgram(opts)
-	require.NoError(t, err)
-
-	shutdownCalled := false
-	program.model.RegisterShutdownCallback(func() {
-		shutdownCalled = true
+		require.NotNil(t, p)
 	})
 
-	program.Shutdown()
+	t.Run("initializes with custom input", func(t *testing.T) {
+		input := strings.NewReader("test input\n")
+		var buf bytes.Buffer
+		
+		p := tea.NewProgram(
+			initialModel(),
+			tea.WithOutput(&buf),
+			tea.WithInput(input),
+		)
 
-	assert.True(t, shutdownCalled)
+		require.NotNil(t, p)
+	})
+
+	t.Run("initializes with alt screen", func(t *testing.T) {
+		var buf bytes.Buffer
+		p := tea.NewProgram(
+			initialModel(),
+			tea.WithOutput(&buf),
+			tea.WithAltScreen(),
+		)
+
+		require.NotNil(t, p)
+	})
+
+	t.Run("initializes with mouse support", func(t *testing.T) {
+		var buf bytes.Buffer
+		p := tea.NewProgram(
+			initialModel(),
+			tea.WithOutput(&buf),
+			tea.WithMouseCellMotion(),
+		)
+
+		require.NotNil(t, p)
+	})
 }
 
-func TestProgramWithShutdownCallback(t *testing.T) {
-	opts := DefaultProgramOptions()
-	opts.Mode = ModePlain
+// TestInitialModel tests model creation
+func TestInitialModel(t *testing.T) {
+	t.Run("creates model with default state", func(t *testing.T) {
+		m := initialModel()
 
-	shutdownCalled := false
-	opts.OnShutdown = func() {
-		shutdownCalled = true
-	}
+		assert.NotNil(t, m)
+		assert.Equal(t, welcomeView, m.currentView)
+		assert.NotNil(t, m.messages)
+		assert.Empty(t, m.messages)
+		assert.NotNil(t, m.inputHistory)
+		assert.Empty(t, m.inputHistory)
+		assert.Equal(t, 0, m.inputHistoryIndex)
+		assert.False(t, m.inputFocused)
+		assert.False(t, m.showWelcome)
+	})
 
-	program, err := NewProgram(opts)
-	require.NoError(t, err)
+	t.Run("creates model with initialized components", func(t *testing.T) {
+		m := initialModel()
 
-	_, err = program.Start()
-	require.NoError(t, err)
+		// Check that all components are initialized
+		assert.NotNil(t, m.viewport)
+		assert.NotNil(t, m.textInput)
+		assert.NotNil(t, m.spinner)
+		assert.NotNil(t, m.help)
+	})
 
-	assert.True(t, shutdownCalled)
+	t.Run("creates model with correct dimensions", func(t *testing.T) {
+		m := initialModel()
+
+		assert.Equal(t, defaultWidth, m.width)
+		assert.Equal(t, defaultHeight, m.height)
+	})
 }
 
-func TestGetTerminalDimensions(t *testing.T) {
-	// This test may fail if not running in a terminal
-	// We're mainly checking it doesn't panic
-	width, height, err := GetTerminalDimensions()
+// TestUpdateHandling tests update handling
+func TestUpdateHandling(t *testing.T) {
+	t.Run("handles window size message", func(t *testing.T) {
+		m := initialModel()
+		newModel, cmd := m.Update(tea.WindowSizeMsg{Width: 100, Height: 50})
 
-	// If we're in a terminal, we should get valid dimensions
-	if IsTerminal() {
-		require.NoError(t, err)
-		assert.Greater(t, width, 0)
-		assert.Greater(t, height, 0)
-	}
+		updatedModel := newModel.(Model)
+		assert.Equal(t, 100, updatedModel.width)
+		assert.Equal(t, 50, updatedModel.height)
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("handles key message", func(t *testing.T) {
+		m := initialModel()
+		m.inputFocused = true
+		
+		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+		newModel, cmd := m.Update(keyMsg)
+
+		updatedModel := newModel.(Model)
+		// Key should be handled by input component when focused
+		assert.NotNil(t, updatedModel)
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("handles enter key when input focused", func(t *testing.T) {
+		m := initialModel()
+		m.inputFocused = true
+		m.textInput.SetValue("test message")
+		
+		keyMsg := tea.KeyMsg{Type: tea.KeyEnter}
+		newModel, cmd := m.Update(keyMsg)
+
+		updatedModel := newModel.(Model)
+		assert.NotNil(t, updatedModel)
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("handles ctrl+c", func(t *testing.T) {
+		m := initialModel()
+		
+		keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+		newModel, cmd := m.Update(keyMsg)
+
+		updatedModel := newModel.(Model)
+		// Should trigger quit
+		assert.NotNil(t, updatedModel)
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("handles ctrl+d", func(t *testing.T) {
+		m := initialModel()
+		
+		keyMsg := tea.KeyMsg{Type: tea.KeyCtrlD}
+		newModel, cmd := m.Update(keyMsg)
+
+		updatedModel := newModel.(Model)
+		assert.NotNil(t, updatedModel)
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("handles spinner tick", func(t *testing.T) {
+		m := initialModel()
+		m.loading = true
+		
+		tickMsg := m.spinner.Tick()
+		newModel, cmd := m.Update(tickMsg)
+
+		updatedModel := newModel.(Model)
+		assert.NotNil(t, updatedModel)
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("handles custom message", func(t *testing.T) {
+		m := initialModel()
+		
+		msg := AddMessageMsg{
+			Role:    "user",
+			Content: "test content",
+		}
+		newModel, cmd := m.Update(msg)
+
+		updatedModel := newModel.(Model)
+		assert.Len(t, updatedModel.messages, 1)
+		assert.Equal(t, "user", updatedModel.messages[0].Role)
+		assert.Equal(t, "test content", updatedModel.messages[0].Content)
+		assert.NotNil(t, cmd)
+	})
 }
 
-func TestIsTerminal(t *testing.T) {
-	// Should return true when stdout is a terminal
-	result := IsTerminal()
-	// We can't assert the exact value without controlling the environment
-	// but we can verify it doesn't panic
-	_ = result
+// TestViewRendering tests view rendering
+func TestViewRendering(t *testing.T) {
+	t.Run("renders welcome view", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = welcomeView
+		m.showWelcome = true
+
+		view := m.View()
+		assert.Contains(t, view, "Welcome")
+		assert.Contains(t, view, "Cline")
+	})
+
+	t.Run("renders chat view", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.width = 80
+		m.height = 24
+
+		view := m.View()
+		assert.NotEmpty(t, view)
+	})
+
+	t.Run("renders chat view with messages", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.width = 80
+		m.height = 24
+		m.messages = []Message{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "Hi there!"},
+		}
+
+		view := m.View()
+		assert.Contains(t, view, "Hello")
+		assert.Contains(t, view, "Hi there!")
+	})
+
+	t.Run("renders loading state", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.loading = true
+
+		view := m.View()
+		assert.NotEmpty(t, view)
+		// Should contain spinner indicator
+	})
+
+	t.Run("renders error state", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.errorMsg = "Something went wrong"
+
+		view := m.View()
+		assert.Contains(t, view, "Something went wrong")
+	})
 }
 
-func TestSupportsTUI(t *testing.T) {
-	// Should return true when stdout is a terminal and TERM is not "dumb"
-	result := SupportsTUI()
-	// We can't assert the exact value without controlling the environment
-	_ = result
+// TestModelStateTransitions tests model state transitions
+func TestModelStateTransitions(t *testing.T) {
+	t.Run("transitions from welcome to chat", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = welcomeView
 
-	// Test with TERM=dumb
-	origTerm := os.Getenv("TERM")
-	os.Setenv("TERM", "dumb")
-	defer os.Setenv("TERM", origTerm)
+		// Simulate starting a chat
+		m.currentView = chatView
+		m.showWelcome = false
 
-	// Even in a terminal, TERM=dumb should affect SupportsTUI
-	if IsTerminal() {
-		assert.False(t, SupportsTUI())
-	}
+		assert.Equal(t, chatView, m.currentView)
+		assert.False(t, m.showWelcome)
+	})
+
+	t.Run("transitions to settings view", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+
+		m.currentView = settingsView
+
+		assert.Equal(t, settingsView, m.currentView)
+	})
+
+	t.Run("returns to chat from settings", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = settingsView
+
+		m.currentView = chatView
+
+		assert.Equal(t, chatView, m.currentView)
+	})
 }
 
-func TestRunPlain(t *testing.T) {
-	var output bytes.Buffer
+// TestCommandExecution tests command execution
+func TestCommandExecution(t *testing.T) {
+	t.Run("quit command", func(t *testing.T) {
+		m := initialModel()
+		
+		cmd := quitCmd()
+		msg := cmd()
+		
+		quitMsg, ok := msg.(tea.QuitMsg)
+		assert.True(t, ok)
+		assert.NotNil(t, quitMsg)
+	})
 
-	// Save original stdout and restore after test
-	origStdout := os.Stdout
-	defer func() { os.Stdout = origStdout }()
-
-	// Redirect stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	// Run in plain mode
-	err := RunPlain("test plain output")
-
-	// Close pipe and read output
-	w.Close()
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-
-	require.NoError(t, err)
-	outputStr := buf.String()
-	// Plain mode doesn't write to stdout in test environment,
-	// but we can verify no panic occurred
-	assert.NotNil(t, outputStr)
-	_ = output
+	t.Run("batch command execution", func(t *testing.T) {
+		m := initialModel()
+		
+		cmds := []tea.Cmd{
+			tea.Batch(),
+			tea.Batch(func() tea.Msg { return nil }),
+		}
+		
+		batchCmd := tea.Batch(cmds...)
+		assert.NotNil(t, batchCmd)
+	})
 }
 
-func TestModelWithEmptyTitle(t *testing.T) {
-	model := NewModel("")
-	model.ready = true
+// TestProgramOptions tests various program options
+func TestProgramOptions(t *testing.T) {
+	t.Run("without output", func(t *testing.T) {
+		p := tea.NewProgram(
+			initialModel(),
+			tea.WithOutput(io.Discard),
+		)
+		require.NotNil(t, p)
+	})
 
-	view := model.View()
-
-	// When title is empty, header should be minimal or empty
-	// Just verify it doesn't panic and returns something
-	assert.NotNil(t, view)
+	t.Run("with startup options", func(t *testing.T) {
+		var buf bytes.Buffer
+		p := tea.NewProgram(
+			initialModel(),
+			tea.WithOutput(&buf),
+			tea.WithoutSignalHandler(),
+		)
+		require.NotNil(t, p)
+	})
 }
 
-func TestModelWithError(t *testing.T) {
-	model := NewModel("Test")
-	model.ready = true
-	model.SetError(errors.New("test error"))
+// TestErrorHandling tests error handling in the TUI
+func TestErrorHandling(t *testing.T) {
+	t.Run("handles error message", func(t *testing.T) {
+		m := initialModel()
+		
+		errMsg := ErrorMsg{Err: assert.AnError}
+		newModel, cmd := m.Update(errMsg)
 
-	view := model.View()
+		updatedModel := newModel.(Model)
+		assert.NotNil(t, updatedModel.errorMsg)
+		assert.NotNil(t, cmd)
+	})
 
-	// View should contain error message
-	assert.Contains(t, view, "Error: test error")
+	t.Run("handles nil error gracefully", func(t *testing.T) {
+		m := initialModel()
+		
+		errMsg := ErrorMsg{Err: nil}
+		newModel, cmd := m.Update(errMsg)
+
+		updatedModel := newModel.(Model)
+		assert.NotNil(t, updatedModel)
+		assert.NotNil(t, cmd)
+	})
 }
 
-func TestUpdateContentCmdIntegration(t *testing.T) {
-	model := NewModel("Test")
+// TestInit tests the init function
+func TestInit(t *testing.T) {
+	t.Run("returns initial command", func(t *testing.T) {
+		m := initialModel()
+		cmd := m.Init()
 
-	// Create update content command
-	cmd := UpdateContent("new content")
-	msg := cmd()
-
-	// Apply the message
-	updatedModel, _ := model.Update(msg)
-
-	m, ok := updatedModel.(Model)
-	require.True(t, ok)
-	assert.Equal(t, "new content", m.Content())
+		// Should return a command (typically batch or nil)
+		assert.NotNil(t, cmd)
+	})
 }
 
-func TestBatchCmd(t *testing.T) {
-	// Test with messages
-	cmd := BatchCmd(ContentMsg{Content: "test"}, ShutdownMsg{})
-	msg := cmd()
-	require.NotNil(t, msg)
+// TestViewportUpdates tests viewport update handling
+func TestViewportUpdates(t *testing.T) {
+	t.Run("updates viewport on resize", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		
+		// Initial size
+		assert.Equal(t, defaultWidth, m.width)
+		assert.Equal(t, defaultHeight, m.height)
 
-	// Should return first message
-	contentMsg, ok := msg.(ContentMsg)
-	require.True(t, ok)
-	assert.Equal(t, "test", contentMsg.Content)
+		// Resize
+		newModel, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+		updatedModel := newModel.(Model)
 
-	// Test with no messages
-	emptyCmd := BatchCmd()
-	emptyMsg := emptyCmd()
-	assert.Nil(t, emptyMsg)
+		assert.Equal(t, 120, updatedModel.width)
+		assert.Equal(t, 40, updatedModel.height)
+	})
+
+	t.Run("adjusts viewport height with input", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.height = 30
+
+		view := m.View()
+		// Viewport should account for input area
+		assert.NotEmpty(t, view)
+	})
 }
 
-func TestSignalCmd(t *testing.T) {
-	// Create a signal channel
-	sigChan := make(chan os.Signal, 1)
+// TestMessageBuffer tests message buffer management
+func TestMessageBuffer(t *testing.T) {
+	t.Run("adds message to buffer", func(t *testing.T) {
+		m := initialModel()
+		
+		msg := Message{
+			Role:    "user",
+			Content: "Test message",
+		}
+		
+		m.messages = append(m.messages, msg)
+		assert.Len(t, m.messages, 1)
+		assert.Equal(t, "Test message", m.messages[0].Content)
+	})
 
-	// Create command
-	cmd := SignalCmd(sigChan)
+	t.Run("handles streaming message updates", func(t *testing.T) {
+		m := initialModel()
+		
+		// Add initial message
+		m.messages = append(m.messages, Message{
+			Role:      "assistant",
+			Content:   "Hello",
+			Streaming: true,
+		})
 
-	// Send a signal
-	go func() {
-		sigChan <- os.Interrupt
-	}()
+		// Update streaming content
+		m.messages[0].Content += " world"
+		assert.Equal(t, "Hello world", m.messages[0].Content)
+	})
 
-	// Execute command
-	msg := cmd()
-	require.NotNil(t, msg)
+	t.Run("finalizes streaming message", func(t *testing.T) {
+		m := initialModel()
+		
+		m.messages = append(m.messages, Message{
+			Role:      "assistant",
+			Content:   "Complete",
+			Streaming: true,
+		})
 
-	// Should be ShutdownMsg
-	_, ok := msg.(ShutdownMsg)
-	assert.True(t, ok)
-}
-
-func TestViewRenderingInPlainMode(t *testing.T) {
-	model := NewPlainModel()
-	model.SetContent("Simple content")
-
-	view := model.View()
-	assert.Equal(t, "Simple content\n", view)
-}
-
-func TestViewRenderingWithLongContent(t *testing.T) {
-	model := NewModel("Test")
-	model.ready = true
-	model.SetContent(strings.Repeat("word ", 100))
-
-	view := model.View()
-
-	// Should render without panic
-	assert.NotNil(t, view)
-	assert.Contains(t, view, "word")
-}
-
-func TestModelWithShutdownAndCallbacks(t *testing.T) {
-	model := NewModel("Test")
-
-	callbackCount := 0
-	callback1 := func() { callbackCount++ }
-	callback2 := func() { callbackCount++ }
-
-	model.RegisterShutdownCallback(callback1)
-	model.RegisterShutdownCallback(callback2)
-
-	model.Shutdown()
-
-	assert.Equal(t, 2, callbackCount)
-}
-
-func TestTUIKeyMapCustomization(t *testing.T) {
-	km := TUIKeyMap{
-		Quit: []string{"x", "ctrl+q"},
-	}
-
-	// Verify custom keymap can be created
-	assert.Contains(t, km.Quit, "x")
-	assert.Contains(t, km.Quit, "ctrl+q")
+		// Finalize
+		m.messages[0].Streaming = false
+		assert.False(t, m.messages[0].Streaming)
+	})
 }

@@ -37,6 +37,9 @@ const (
 
 	// Claude35Haiku is the Claude 3.5 Haiku model.
 	Claude35Haiku ClaudeModel = "claude-3-5-haiku-20241022"
+
+	// Claude37Sonnet is the Claude 3.7 Sonnet model.
+	Claude37Sonnet ClaudeModel = "claude-3-7-sonnet-20250219"
 )
 
 // MessageRole represents the role of a message.
@@ -73,6 +76,23 @@ const (
 	ContentTypeImage ContentBlockType = "image"
 )
 
+// DeltaType represents the type of a content delta.
+type DeltaType string
+
+const (
+	// DeltaTypeTextDelta represents a text delta.
+	DeltaTypeTextDelta DeltaType = "text_delta"
+
+	// DeltaTypeThinkingDelta represents a thinking delta.
+	DeltaTypeThinkingDelta DeltaType = "thinking_delta"
+
+	// DeltaTypeSignatureDelta represents a signature delta.
+	DeltaTypeSignatureDelta DeltaType = "signature_delta"
+
+	// DeltaTypeInputJSONDelta represents an input_json delta for tool use.
+	DeltaTypeInputJSONDelta DeltaType = "input_json_delta"
+)
+
 // StopReason represents the reason why the model stopped generating.
 type StopReason string
 
@@ -90,8 +110,39 @@ const (
 	StopReasonToolUse StopReason = "tool_use"
 )
 
-// ContentBlock represents a block of content in a message.
-type ContentBlock struct {
+// AnthropicErrorType represents specific Anthropic API error types.
+type AnthropicErrorType string
+
+const (
+	// ErrorTypeInvalidRequest indicates an invalid request error.
+	ErrorTypeInvalidRequest AnthropicErrorType = "invalid_request_error"
+
+	// ErrorTypeAuthentication indicates an authentication error.
+	ErrorTypeAuthentication AnthropicErrorType = "authentication_error"
+
+	// ErrorTypePermission indicates a permission error.
+	ErrorTypePermission AnthropicErrorType = "permission_error"
+
+	// ErrorTypeNotFound indicates a not found error.
+	ErrorTypeNotFound AnthropicErrorType = "not_found_error"
+
+	// ErrorTypeRateLimit indicates a rate limit error.
+	ErrorTypeRateLimit AnthropicErrorType = "rate_limit_error"
+
+	// ErrorTypeOverloaded indicates the API is overloaded.
+	ErrorTypeOverloaded AnthropicErrorType = "overloaded_error"
+
+	// ErrorTypeAPI indicates a generic API error.
+	ErrorTypeAPI AnthropicErrorType = "api_error"
+)
+
+// CacheControl represents cache control settings for prompt caching.
+type CacheControl struct {
+	Type string `json:"type"` // "ephemeral" for prompt caching
+}
+
+// AnthropicContentBlock represents a block of content in a message.
+type AnthropicContentBlock struct {
 	Type ContentBlockType `json:"type"`
 
 	// Text fields (for text blocks)
@@ -115,6 +166,9 @@ type ContentBlock struct {
 
 	// Image fields
 	Source *ImageSource `json:"source,omitempty"`
+
+	// Cache control for prompt caching
+	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
 // ImageSource represents the source of an image.
@@ -124,35 +178,51 @@ type ImageSource struct {
 	Data      string `json:"data"`
 }
 
-// Message represents a message in the conversation.
-type Message struct {
-	Role    MessageRole    `json:"role"`
-	Content []ContentBlock `json:"content"`
+// AnthropicMessage represents a message in the conversation.
+type AnthropicMessage struct {
+	Role    MessageRole           `json:"role"`
+	Content []AnthropicContentBlock `json:"content"`
 }
 
-// Usage represents token usage for a request.
-type Usage struct {
-	InputTokens      int `json:"input_tokens"`
-	OutputTokens     int `json:"output_tokens"`
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+// AnthropicUsage represents token usage for a request.
+type AnthropicUsage struct {
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	PromptTokens             int `json:"prompt_tokens"`
+	CompletionTokens         int `json:"completion_tokens"`
+	TotalTokens              int `json:"total_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
 }
 
-// MessagesRequest represents a request to the Anthropic messages API.
-type MessagesRequest struct {
-	Model         ClaudeModel      `json:"model"`
-	MaxTokens     int              `json:"max_tokens"`
-	Messages      []Message        `json:"messages"`
-	System        string           `json:"system,omitempty"`
-	Stream        bool             `json:"stream,omitempty"`
-	Temperature   *float64         `json:"temperature,omitempty"`
-	TopP          *float64         `json:"top_p,omitempty"`
-	TopK          *int             `json:"top_k,omitempty"`
-	StopSequences []string         `json:"stop_sequences,omitempty"`
-	Metadata      *RequestMetadata `json:"metadata,omitempty"`
-	Tools         []Tool           `json:"tools,omitempty"`
-	ToolChoice    *ToolChoice      `json:"tool_choice,omitempty"`
+// AnthropicMessagesRequest represents a request to the Anthropic messages API.
+type AnthropicMessagesRequest struct {
+	Model         ClaudeModel            `json:"model"`
+	MaxTokens     int                    `json:"max_tokens"`
+	Messages      []AnthropicMessage     `json:"messages"`
+	System        string                 `json:"system,omitempty"`
+	Stream        bool                   `json:"stream,omitempty"`
+	Temperature   *float64               `json:"temperature,omitempty"`
+	TopP          *float64               `json:"top_p,omitempty"`
+	TopK          *int                   `json:"top_k,omitempty"`
+	StopSequences []string               `json:"stop_sequences,omitempty"`
+	Metadata      *RequestMetadata       `json:"metadata,omitempty"`
+	Tools         []AnthropicTool        `json:"tools,omitempty"`
+	ToolChoice    *AnthropicToolChoice   `json:"tool_choice,omitempty"`
+	Thinking      *AnthropicThinkingConfig `json:"thinking,omitempty"`
+
+	// Internal fields for cache control
+	SystemCacheControl   *CacheControl `json:"-"`
+	MessagesCacheControl *CacheControl `json:"-"`
+
+	// Beta features
+	Betas []string `json:"-"`
+}
+
+// AnthropicThinkingConfig represents thinking configuration for Claude 3.7+.
+type AnthropicThinkingConfig struct {
+	Type         string `json:"type"` // "enabled" or "disabled"
+	BudgetTokens int    `json:"budget_tokens"`
 }
 
 // RequestMetadata contains metadata for the request.
@@ -160,108 +230,84 @@ type RequestMetadata struct {
 	UserID string `json:"user_id,omitempty"`
 }
 
-// Tool represents a tool that can be used by the model.
-type Tool struct {
+// AnthropicTool represents a tool that can be used by the model.
+type AnthropicTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	InputSchema json.RawMessage `json:"input_schema"`
 }
 
-// ToolChoice represents how the model should use tools.
-type ToolChoice struct {
-	Type string `json:"type"` // "auto", "any", "tool"
+// AnthropicToolChoice represents how the model should use tools.
+type AnthropicToolChoice struct {
+	Type string `json:"type"` // "auto", "any", "tool", "none"
 	Name string `json:"name,omitempty"`
 }
 
-// MessagesResponse represents a non-streaming response from the Anthropic messages API.
-type MessagesResponse struct {
-	ID           string         `json:"id"`
-	Type         string         `json:"type"`
-	Role         MessageRole    `json:"role"`
-	Model        string         `json:"model"`
-	Content      []ContentBlock `json:"content"`
-	StopReason   StopReason     `json:"stop_reason"`
-	StopSequence *string        `json:"stop_sequence,omitempty"`
-	Usage        Usage          `json:"usage"`
+// AnthropicMessagesResponse represents a non-streaming response from the Anthropic messages API.
+type AnthropicMessagesResponse struct {
+	ID           string                `json:"id"`
+	Type         string                `json:"type"`
+	Role         MessageRole           `json:"role"`
+	Model        string                `json:"model"`
+	Content      []AnthropicContentBlock `json:"content"`
+	StopReason   StopReason            `json:"stop_reason"`
+	StopSequence *string               `json:"stop_sequence,omitempty"`
+	Usage        AnthropicUsage        `json:"usage"`
 }
 
-// StreamEvent represents an event in a streaming response.
-type StreamEvent struct {
+// AnthropicStreamEvent represents an event in a streaming response.
+type AnthropicStreamEvent struct {
 	Type string `json:"type"`
 
 	// Message start fields
-	Message *MessagesResponse `json:"message,omitempty"`
+	Message *AnthropicMessagesResponse `json:"message,omitempty"`
 
 	// Content block fields
-	Index        int           `json:"index,omitempty"`
-	ContentBlock *ContentBlock `json:"content_block,omitempty"`
-	Delta        *ContentDelta `json:"delta,omitempty"`
+	Index        int                   `json:"index,omitempty"`
+	ContentBlock *AnthropicContentBlock `json:"content_block,omitempty"`
+	Delta        *AnthropicContentDelta `json:"delta,omitempty"`
 
 	// Usage fields
-	Usage *Usage `json:"usage,omitempty"`
+	Usage *AnthropicUsage `json:"usage,omitempty"`
 
 	// Error fields
-	Error *StreamError `json:"error,omitempty"`
+	Error *AnthropicStreamError `json:"error,omitempty"`
 }
 
-// ContentDelta represents a delta update to content.
-type ContentDelta struct {
-	Type     ContentBlockType `json:"type"`
-	Text     string           `json:"text,omitempty"`
-	Thinking string           `json:"thinking,omitempty"`
-	Partial  bool             `json:"partial,omitempty"`
+// AnthropicContentDelta represents a delta update to content.
+type AnthropicContentDelta struct {
+	Type        ContentBlockType `json:"type"`
+	Text        string           `json:"text,omitempty"`
+	Thinking    string           `json:"thinking,omitempty"`
+	Signature   string           `json:"signature,omitempty"`
+	PartialJSON string           `json:"partial_json,omitempty"`
 }
 
-// StreamError represents an error in a streaming response.
-type StreamError struct {
+// AnthropicStreamError represents an error in a streaming response.
+type AnthropicStreamError struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`
 }
 
-// HTTPClient is an interface for HTTP clients.
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
+// AnthropicAPIError represents a structured error from the Anthropic API.
+type AnthropicAPIError struct {
+	Type    AnthropicErrorType `json:"type"`
+	Message string             `json:"message"`
+	Code    string             `json:"code,omitempty"`
 }
 
-// Provider defines the interface for API providers.
-type Provider interface {
-	// CreateMessage sends a non-streaming message request.
-	CreateMessage(ctx context.Context, req MessagesRequest) (*MessagesResponse, error)
-
-	// CreateMessageStream sends a streaming message request.
-	CreateMessageStream(ctx context.Context, req MessagesRequest) (<-chan StreamEvent, <-chan error)
-
-	// GetModel returns the model being used.
-	GetModel() ClaudeModel
-
-	// SetModel sets the model to use.
-	SetModel(model ClaudeModel)
+// Error implements the error interface.
+func (e *AnthropicAPIError) Error() string {
+	return fmt.Sprintf("anthropic error (%s): %s", e.Type, e.Message)
 }
 
-// TokenTracker tracks token usage across requests.
-type TokenTracker struct {
-	TotalInputTokens  int
-	TotalOutputTokens int
-	TotalRequests     int
-}
-
-// Update updates the tracker with usage from a response.
-func (t *TokenTracker) Update(usage Usage) {
-	t.TotalInputTokens += usage.InputTokens
-	t.TotalOutputTokens += usage.OutputTokens
-	t.TotalRequests++
-}
-
-// Reset resets all counters to zero.
-func (t *TokenTracker) Reset() {
-	t.TotalInputTokens = 0
-	t.TotalOutputTokens = 0
-	t.TotalRequests = 0
-}
-
-// TotalTokens returns the total number of tokens used.
-func (t *TokenTracker) TotalTokens() int {
-	return t.TotalInputTokens + t.TotalOutputTokens
+// IsAnthropicAPIError checks if an error is an Anthropic-specific error.
+func IsAnthropicAPIError(err error) (*AnthropicAPIError, bool) {
+	var anthropicErr *AnthropicAPIError
+	if errors.As(err, &anthropicErr) {
+		return anthropicErr, true
+	}
+	return nil, false
 }
 
 // AnthropicProvider implements the Provider interface for Anthropic's API.
@@ -270,7 +316,40 @@ type AnthropicProvider struct {
 	baseURL      string
 	httpClient   HTTPClient
 	model        ClaudeModel
-	tokenTracker *TokenTracker
+	tokenTracker *AnthropicTokenTracker
+	betas        []string
+}
+
+// AnthropicTokenTracker tracks token usage across requests.
+type AnthropicTokenTracker struct {
+	TotalInputTokens         int
+	TotalOutputTokens        int
+	TotalRequests            int
+	CacheCreationInputTokens int
+	CacheReadInputTokens     int
+}
+
+// Update updates the tracker with usage from a response.
+func (t *AnthropicTokenTracker) Update(usage AnthropicUsage) {
+	t.TotalInputTokens += usage.InputTokens
+	t.TotalOutputTokens += usage.OutputTokens
+	t.CacheCreationInputTokens += usage.CacheCreationInputTokens
+	t.CacheReadInputTokens += usage.CacheReadInputTokens
+	t.TotalRequests++
+}
+
+// Reset resets all counters to zero.
+func (t *AnthropicTokenTracker) Reset() {
+	t.TotalInputTokens = 0
+	t.TotalOutputTokens = 0
+	t.TotalRequests = 0
+	t.CacheCreationInputTokens = 0
+	t.CacheReadInputTokens = 0
+}
+
+// TotalTokens returns the total number of tokens used.
+func (t *AnthropicTokenTracker) TotalTokens() int {
+	return t.TotalInputTokens + t.TotalOutputTokens
 }
 
 // ProviderOption is a functional option for configuring AnthropicProvider.
@@ -304,13 +383,21 @@ func WithModel(model ClaudeModel) ProviderOption {
 	}
 }
 
+// WithBetas sets the beta features for the provider.
+func WithBetas(betas []string) ProviderOption {
+	return func(p *AnthropicProvider) {
+		p.betas = betas
+	}
+}
+
 // NewAnthropicProvider creates a new Anthropic provider with the given options.
 func NewAnthropicProvider(opts ...ProviderOption) (*AnthropicProvider, error) {
 	provider := &AnthropicProvider{
 		baseURL:      DefaultAnthropicBaseURL,
 		httpClient:   &http.Client{},
 		model:        Claude35Sonnet,
-		tokenTracker: &TokenTracker{},
+		tokenTracker: &AnthropicTokenTracker{},
+		betas:        []string{},
 	}
 
 	for _, opt := range opts {
@@ -325,15 +412,15 @@ func NewAnthropicProvider(opts ...ProviderOption) (*AnthropicProvider, error) {
 }
 
 // CreateMessage sends a non-streaming message request to the Anthropic API.
-func (p *AnthropicProvider) CreateMessage(ctx context.Context, req MessagesRequest) (*MessagesResponse, error) {
+func (p *AnthropicProvider) CreateMessage(ctx context.Context, req AnthropicMessagesRequest) (*AnthropicMessagesResponse, error) {
 	if req.Model == "" {
 		req.Model = p.model
 	}
 	req.Stream = false
 
-	body, err := json.Marshal(req)
+	body, err := p.buildRequestBody(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"/v1/messages", bytes.NewReader(body))
@@ -341,7 +428,7 @@ func (p *AnthropicProvider) CreateMessage(ctx context.Context, req MessagesReque
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	p.setHeaders(httpReq)
+	p.setHeaders(httpReq, req.Betas)
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
@@ -349,13 +436,17 @@ func (p *AnthropicProvider) CreateMessage(ctx context.Context, req MessagesReque
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var response MessagesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if resp.StatusCode != http.StatusOK {
+		return nil, p.parseErrorResponse(resp.StatusCode, bodyBytes)
+	}
+
+	var response AnthropicMessagesResponse
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -365,8 +456,8 @@ func (p *AnthropicProvider) CreateMessage(ctx context.Context, req MessagesReque
 }
 
 // CreateMessageStream sends a streaming message request to the Anthropic API.
-func (p *AnthropicProvider) CreateMessageStream(ctx context.Context, req MessagesRequest) (<-chan StreamEvent, <-chan error) {
-	eventChan := make(chan StreamEvent)
+func (p *AnthropicProvider) CreateMessageStream(ctx context.Context, req AnthropicMessagesRequest) (<-chan AnthropicStreamEvent, <-chan error) {
+	eventChan := make(chan AnthropicStreamEvent)
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -378,9 +469,9 @@ func (p *AnthropicProvider) CreateMessageStream(ctx context.Context, req Message
 		}
 		req.Stream = true
 
-		body, err := json.Marshal(req)
+		body, err := p.buildRequestBody(req)
 		if err != nil {
-			errChan <- fmt.Errorf("failed to marshal request: %w", err)
+			errChan <- fmt.Errorf("failed to build request: %w", err)
 			return
 		}
 
@@ -390,7 +481,7 @@ func (p *AnthropicProvider) CreateMessageStream(ctx context.Context, req Message
 			return
 		}
 
-		p.setHeaders(httpReq)
+		p.setHeaders(httpReq, req.Betas)
 
 		resp, err := p.httpClient.Do(httpReq)
 		if err != nil {
@@ -401,7 +492,7 @@ func (p *AnthropicProvider) CreateMessageStream(ctx context.Context, req Message
 
 		if resp.StatusCode != http.StatusOK {
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			errChan <- fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+			errChan <- p.parseErrorResponse(resp.StatusCode, bodyBytes)
 			return
 		}
 
@@ -413,32 +504,136 @@ func (p *AnthropicProvider) CreateMessageStream(ctx context.Context, req Message
 	return eventChan, errChan
 }
 
+// buildRequestBody builds the JSON request body with proper formatting.
+func (p *AnthropicProvider) buildRequestBody(req AnthropicMessagesRequest) ([]byte, error) {
+	// Build system with cache control if provided
+	var systemBlocks []map[string]interface{}
+	if req.System != "" {
+		sysBlock := map[string]interface{}{
+			"type": "text",
+			"text": req.System,
+		}
+		if req.SystemCacheControl != nil {
+			sysBlock["cache_control"] = req.SystemCacheControl
+		}
+		systemBlocks = append(systemBlocks, sysBlock)
+	}
+
+	// Build messages with cache control if provided
+	var messages []map[string]interface{}
+	for _, msg := range req.Messages {
+		msgMap := map[string]interface{}{
+			"role":    msg.Role,
+			"content": msg.Content,
+		}
+		if req.MessagesCacheControl != nil {
+			// Apply cache control to the last user message
+			msgMap["cache_control"] = req.MessagesCacheControl
+		}
+		messages = append(messages, msgMap)
+	}
+
+	body := map[string]interface{}{
+		"model":      req.Model,
+		"max_tokens": req.MaxTokens,
+		"stream":     req.Stream,
+	}
+
+	if len(systemBlocks) > 0 {
+		body["system"] = systemBlocks
+	}
+	if len(messages) > 0 {
+		body["messages"] = messages
+	}
+	if req.Temperature != nil {
+		body["temperature"] = *req.Temperature
+	}
+	if req.TopP != nil {
+		body["top_p"] = *req.TopP
+	}
+	if req.TopK != nil {
+		body["top_k"] = *req.TopK
+	}
+	if len(req.StopSequences) > 0 {
+		body["stop_sequences"] = req.StopSequences
+	}
+	if req.Metadata != nil {
+		body["metadata"] = req.Metadata
+	}
+	if len(req.Tools) > 0 {
+		body["tools"] = req.Tools
+	}
+	if req.ToolChoice != nil {
+		body["tool_choice"] = req.ToolChoice
+	}
+	if req.Thinking != nil {
+		body["thinking"] = req.Thinking
+	}
+
+	return json.Marshal(body)
+}
+
 // setHeaders sets the required headers for Anthropic API requests.
-func (p *AnthropicProvider) setHeaders(req *http.Request) {
+func (p *AnthropicProvider) setHeaders(req *http.Request, betas []string) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Api-Key", p.apiKey)
 	req.Header.Set("Anthropic-Version", AnthropicAPIVersion)
 	req.Header.Set("Accept", "text/event-stream")
+
+	// Add beta headers if provided
+	if len(betas) > 0 {
+		req.Header.Set("anthropic-beta", strings.Join(betas, ","))
+	}
+}
+
+// parseErrorResponse parses an error response from the Anthropic API.
+func (p *AnthropicProvider) parseErrorResponse(statusCode int, body []byte) error {
+	var errorResp struct {
+		Error *AnthropicAPIError `json:"error"`
+	}
+
+	if err := json.Unmarshal(body, &errorResp); err != nil || errorResp.Error == nil {
+		// Fallback to generic error if parsing fails
+		return fmt.Errorf("API request failed with status %d: %s", statusCode, string(body))
+	}
+
+	anthropicErr := errorResp.Error
+
+	// Map to provider errors based on error type
+	switch anthropicErr.Type {
+	case ErrorTypeInvalidRequest:
+		return fmt.Errorf("%w: %s", ErrInvalidRequest, anthropicErr.Message)
+	case ErrorTypeAuthentication:
+		return fmt.Errorf("%w: %s", ErrInvalidAPIKey, anthropicErr.Message)
+	case ErrorTypeRateLimit:
+		return fmt.Errorf("%w: %s", ErrRateLimitExceeded, anthropicErr.Message)
+	case ErrorTypeOverloaded:
+		return fmt.Errorf("%w: %s", ErrProviderUnavailable, anthropicErr.Message)
+	case ErrorTypeNotFound:
+		return fmt.Errorf("%w: model not found - %s", ErrModelNotFound, anthropicErr.Message)
+	default:
+		return fmt.Errorf("%w (%s): %s", ErrProviderError, anthropicErr.Type, anthropicErr.Message)
+	}
 }
 
 // parseSSEStream parses a Server-Sent Events stream and sends events to the channel.
-func (p *AnthropicProvider) parseSSEStream(reader io.Reader, eventChan chan<- StreamEvent) error {
+func (p *AnthropicProvider) parseSSEStream(reader io.Reader, eventChan chan<- AnthropicStreamEvent) error {
 	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, ":") {
+		// Skip empty lines
+		if line == "" {
 			continue
 		}
 
-		// Parse SSE event
-		if strings.HasPrefix(line, "event: ") {
-			// Event type line - we'll read the data on the next iteration
+		// Skip comments
+		if strings.HasPrefix(line, ":") {
 			continue
 		}
 
+		// Parse data
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 
@@ -447,14 +642,14 @@ func (p *AnthropicProvider) parseSSEStream(reader io.Reader, eventChan chan<- St
 				return nil
 			}
 
-			var event StreamEvent
+			var event AnthropicStreamEvent
 			if err := json.Unmarshal([]byte(data), &event); err != nil {
 				return fmt.Errorf("failed to unmarshal stream event: %w", err)
 			}
 
 			// Track token usage from message_stop events
-			if event.Type == "message_stop" && event.Message != nil {
-				p.tokenTracker.Update(event.Message.Usage)
+			if event.Type == AnthropicEventTypeMessageStop && event.Usage != nil {
+				p.tokenTracker.Update(*event.Usage)
 			}
 
 			eventChan <- event
@@ -479,14 +674,34 @@ func (p *AnthropicProvider) SetModel(model ClaudeModel) {
 }
 
 // GetTokenTracker returns the token tracker for this provider.
-func (p *AnthropicProvider) GetTokenTracker() *TokenTracker {
+func (p *AnthropicProvider) GetTokenTracker() *AnthropicTokenTracker {
 	return p.tokenTracker
+}
+
+// GetBetas returns the beta features for this provider.
+func (p *AnthropicProvider) GetBetas() []string {
+	return p.betas
+}
+
+// SetBetas sets the beta features for this provider.
+func (p *AnthropicProvider) SetBetas(betas []string) {
+	p.betas = betas
 }
 
 // IsThinkingModel returns true if the model supports thinking blocks.
 func IsThinkingModel(model ClaudeModel) bool {
 	switch model {
-	case Claude35Sonnet, Claude3Opus:
+	case Claude35Sonnet, Claude3Opus, Claude37Sonnet:
+		return true
+	default:
+		return false
+	}
+}
+
+// SupportsPromptCache returns true if the model supports prompt caching.
+func SupportsPromptCache(model ClaudeModel) bool {
+	switch model {
+	case Claude3Opus, Claude35Sonnet, Claude37Sonnet, Claude35Haiku, Claude3Sonnet, Claude3Haiku:
 		return true
 	default:
 		return false
@@ -494,7 +709,7 @@ func IsThinkingModel(model ClaudeModel) bool {
 }
 
 // ExtractTextContent extracts all text content from a response.
-func ExtractTextContent(response *MessagesResponse) string {
+func ExtractTextContent(response *AnthropicMessagesResponse) string {
 	var texts []string
 	for _, block := range response.Content {
 		if block.Type == ContentTypeText {
@@ -505,7 +720,7 @@ func ExtractTextContent(response *MessagesResponse) string {
 }
 
 // ExtractThinkingContent extracts all thinking content from a response.
-func ExtractThinkingContent(response *MessagesResponse) string {
+func ExtractThinkingContent(response *AnthropicMessagesResponse) string {
 	var thoughts []string
 	for _, block := range response.Content {
 		if block.Type == ContentTypeThinking {
@@ -515,11 +730,33 @@ func ExtractThinkingContent(response *MessagesResponse) string {
 	return strings.Join(thoughts, "")
 }
 
+// ExtractRedactedThinkingContent extracts all redacted thinking content from a response.
+func ExtractRedactedThinkingContent(response *AnthropicMessagesResponse) string {
+	var data []string
+	for _, block := range response.Content {
+		if block.Type == ContentTypeRedactedThinking {
+			data = append(data, block.Data)
+		}
+	}
+	return strings.Join(data, "")
+}
+
+// ExtractToolUseContent extracts all tool use blocks from a response.
+func ExtractToolUseContent(response *AnthropicMessagesResponse) []AnthropicContentBlock {
+	var tools []AnthropicContentBlock
+	for _, block := range response.Content {
+		if block.Type == ContentTypeToolUse {
+			tools = append(tools, block)
+		}
+	}
+	return tools
+}
+
 // CreateTextMessage creates a simple text message.
-func CreateTextMessage(role MessageRole, text string) Message {
-	return Message{
+func CreateTextMessage(role MessageRole, text string) AnthropicMessage {
+	return AnthropicMessage{
 		Role: role,
-		Content: []ContentBlock{
+		Content: []AnthropicContentBlock{
 			{
 				Type: ContentTypeText,
 				Text: text,
@@ -528,14 +765,46 @@ func CreateTextMessage(role MessageRole, text string) Message {
 	}
 }
 
-// StreamEventType constants for stream event types.
+// CreateThinkingMessage creates a thinking content block.
+func CreateThinkingMessage(thinking, signature string) AnthropicContentBlock {
+	return AnthropicContentBlock{
+		Type:      ContentTypeThinking,
+		Thinking:  thinking,
+		Signature: signature,
+	}
+}
+
+// CreateRedactedThinkingMessage creates a redacted thinking content block.
+func CreateRedactedThinkingMessage(data string) AnthropicContentBlock {
+	return AnthropicContentBlock{
+		Type: ContentTypeRedactedThinking,
+		Data: data,
+	}
+}
+
+// CreateToolUseMessage creates a tool use content block.
+func CreateToolUseMessage(id, name string, input json.RawMessage) AnthropicContentBlock {
+	return AnthropicContentBlock{
+		Type:  ContentTypeToolUse,
+		ID:    id,
+		Name:  name,
+		Input: input,
+	}
+}
+
+// Anthropic event type constants
 const (
-	EventTypeMessageStart      = "message_start"
-	EventTypeContentBlockStart = "content_block_start"
-	EventTypeContentBlockDelta = "content_block_delta"
-	EventTypeContentBlockStop  = "content_block_stop"
-	EventTypeMessageDelta      = "message_delta"
-	EventTypeMessageStop       = "message_stop"
-	EventTypePing              = "ping"
-	EventTypeError             = "error"
+	AnthropicEventTypeMessageStart      = "message_start"
+	AnthropicEventTypeContentBlockStart = "content_block_start"
+	AnthropicEventTypeContentBlockDelta = "content_block_delta"
+	AnthropicEventTypeContentBlockStop  = "content_block_stop"
+	AnthropicEventTypeMessageDelta      = "message_delta"
+	AnthropicEventTypeMessageStop       = "message_stop"
+	AnthropicEventTypePing              = "ping"
+	AnthropicEventTypeError             = "error"
 )
+
+// HTTPClient is an interface for HTTP clients.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}

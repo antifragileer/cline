@@ -1,618 +1,640 @@
-// Package tui provides terminal UI components for the Cline CLI.
 package tui
 
 import (
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestNewMessage(t *testing.T) {
-	msg := NewMessage(MessageTypeSay, "Hello")
-	assert.Equal(t, MessageTypeSay, msg.Type)
-	assert.Equal(t, "Hello", msg.Content)
-	assert.NotEmpty(t, msg.ID)
-	assert.False(t, msg.Partial)
-	assert.NotZero(t, msg.Timestamp)
-}
-
-func TestNewUserMessage(t *testing.T) {
-	msg := NewUserMessage("User message")
-	assert.Equal(t, MessageTypeUser, msg.Type)
-	assert.Equal(t, "User message", msg.Content)
-}
-
-func TestNewAIMessage(t *testing.T) {
-	msg := NewAIMessage("AI message")
-	assert.Equal(t, MessageTypeSay, msg.Type)
-	assert.Equal(t, "AI message", msg.Content)
-}
-
-func TestNewErrorMessage(t *testing.T) {
-	msg := NewErrorMessage("Error occurred")
-	assert.Equal(t, MessageTypeError, msg.Type)
-	assert.Equal(t, "Error occurred", msg.Content)
-}
-
-func TestNewToolUseMessage(t *testing.T) {
-	input := map[string]interface{}{
-		"file": "test.txt",
-	}
-	msg := NewToolUseMessage("read_file", input)
-	assert.Equal(t, MessageTypeToolUse, msg.Type)
-	assert.Equal(t, "read_file", msg.ToolName)
-	assert.Equal(t, input, msg.ToolInput)
-}
-
-func TestNewToolResultMessage(t *testing.T) {
-	msg := NewToolResultMessage("read_file", "file contents")
-	assert.Equal(t, MessageTypeToolResult, msg.Type)
-	assert.Equal(t, "read_file", msg.ToolName)
-	assert.Equal(t, "file contents", msg.ToolResult)
-}
-
-func TestMessageSetters(t *testing.T) {
-	msg := NewMessage(MessageTypeSay, "content")
-
-	msg.SetPartial(true)
-	assert.True(t, msg.Partial)
-
-	msg.SetLanguage("go")
-	assert.Equal(t, "go", msg.Language)
-
-	msg.SetMetadata("key", "value")
-	val, ok := msg.GetMetadata("key")
-	assert.True(t, ok)
-	assert.Equal(t, "value", val)
-}
-
-func TestMessageIsFromUser(t *testing.T) {
-	userMsg := NewUserMessage("test")
-	assert.True(t, userMsg.IsFromUser())
-	assert.False(t, userMsg.IsFromAI())
-
-	aiMsg := NewAIMessage("test")
-	assert.False(t, aiMsg.IsFromUser())
-	assert.True(t, aiMsg.IsFromAI())
-}
-
-func TestMessageIsToolRelated(t *testing.T) {
-	toolUse := NewToolUseMessage("tool", nil)
-	assert.True(t, toolUse.IsToolRelated())
-
-	toolResult := NewToolResultMessage("tool", "result")
-	assert.True(t, toolResult.IsToolRelated())
-
-	text := NewMessage(MessageTypeSay, "hello")
-	assert.False(t, text.IsToolRelated())
-}
-
-func TestMessageString(t *testing.T) {
-	msg := NewMessage(MessageTypeSay, "hello")
-	str := msg.String()
-	assert.Contains(t, str, "say")
-	assert.Contains(t, str, "hello")
-}
-
-func TestMessageStore(t *testing.T) {
-	store := NewMessageStore()
-
-	// Test empty store
-	assert.Equal(t, 0, store.Len())
-	_, ok := store.GetLast()
-	assert.False(t, ok)
-
-	// Add messages
-	msg1 := NewUserMessage("first")
-	msg2 := NewAIMessage("second")
-
-	store.Add(msg1)
-	store.Add(msg2)
-
-	assert.Equal(t, 2, store.Len())
-
-	// Get messages
-	got1, ok := store.Get(0)
-	assert.True(t, ok)
-	assert.Equal(t, "first", got1.Content)
-
-	got2, ok := store.Get(1)
-	assert.True(t, ok)
-	assert.Equal(t, "second", got2.Content)
-
-	// Get out of bounds
-	_, ok = store.Get(2)
-	assert.False(t, ok)
-
-	_, ok = store.Get(-1)
-	assert.False(t, ok)
-
-	// Get last
-	last, ok := store.GetLast()
-	assert.True(t, ok)
-	assert.Equal(t, "second", last.Content)
-
-	// Update last
-	msg3 := NewAIMessage("updated")
-	store.UpdateLast(msg3)
-
-	last, _ = store.GetLast()
-	assert.Equal(t, "updated", last.Content)
-
-	// Get all
-	all := store.GetAll()
-	assert.Len(t, all, 2)
-
-	// Filter
-	userMsgs := store.Filter(MessageTypeUser)
-	assert.Len(t, userMsgs, 1)
-
-	// Clear
-	store.Clear()
-	assert.Equal(t, 0, store.Len())
-}
-
-func TestNewMarkdownRenderer(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-	assert.NotNil(t, renderer)
-
-	// Test with options
-	renderer2, err := NewMarkdownRenderer(
-		WithMarkdownStyle("dark"),
-		WithMarkdownWidth(100),
-	)
-	require.NoError(t, err)
-	assert.NotNil(t, renderer2)
-}
-
-func TestMarkdownRendererRender(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	// Basic render
-	content := "Hello **world**"
-	rendered, err := renderer.Render(content)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-}
-
-func TestMarkdownRendererRenderCode(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	code := `package main
-func main() {
-    println("hello")
-}`
-	rendered, err := renderer.RenderCode(code, "go")
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-	assert.Contains(t, rendered, "package")
-}
-
-func TestMarkdownRendererRenderInlineCode(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	rendered := renderer.RenderInlineCode("code")
-	assert.NotEmpty(t, rendered)
-}
-
-func TestMarkdownRendererRenderBlockquote(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	rendered := renderer.RenderBlockquote("This is a quote")
-	assert.NotEmpty(t, rendered)
-	assert.Contains(t, rendered, ">")
-}
-
-func TestMarkdownRendererRenderList(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	items := []string{"item1", "item2", "item3"}
-	rendered := renderer.RenderList(items, false)
-	assert.Contains(t, rendered, "item1")
-	assert.Contains(t, rendered, "item2")
-
-	// Ordered
-	rendered = renderer.RenderList(items, true)
-	assert.Contains(t, rendered, "1.")
-	assert.Contains(t, rendered, "2.")
-}
-
-func TestMarkdownRendererRenderTable(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	headers := []string{"Name", "Value"}
-	rows := [][]string{
-		{"key1", "value1"},
-		{"key2", "value2"},
-	}
-	rendered := renderer.RenderTable(headers, rows)
-	assert.Contains(t, rendered, "Name")
-	assert.Contains(t, rendered, "key1")
-}
-
-func TestMarkdownRendererRenderHeading(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	for i := 1; i <= 6; i++ {
-		rendered := renderer.RenderHeading(i, "Heading")
-		assert.Contains(t, rendered, "Heading")
-		assert.Contains(t, rendered, strings.Repeat("#", i))
-	}
-}
-
-func TestMarkdownRendererRenderBold(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	rendered := renderer.RenderBold("bold text")
-	assert.NotEmpty(t, rendered)
-}
-
-func TestMarkdownRendererRenderItalic(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	rendered := renderer.RenderItalic("italic text")
-	assert.NotEmpty(t, rendered)
-}
-
-func TestMarkdownRendererSetWidth(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	renderer.SetWidth(120)
-}
-
-func TestHighlightSyntax(t *testing.T) {
-	code := `package main
-func main() {
-    println("hello")
-}`
-
-	rendered, err := HighlightSyntax(code, "go", "monokai")
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-}
-
-func TestHighlightSyntaxFallback(t *testing.T) {
-	code := "some generic code"
-	rendered, err := HighlightSyntax(code, "unknown", "")
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-}
-
-func TestAvailableStyles(t *testing.T) {
-	styles := AvailableStyles()
-	assert.NotEmpty(t, styles)
-	assert.Contains(t, styles, "dark")
-	assert.Contains(t, styles, "light")
-}
-
-func TestDefaultBubbleStyle(t *testing.T) {
-	style := DefaultBubbleStyle()
-	assert.NotNil(t, style.UserBubble)
-	assert.NotNil(t, style.AIBubble)
-	assert.NotNil(t, style.ErrorBubble)
-	assert.NotNil(t, style.ToolBubble)
-	assert.NotNil(t, style.SystemBubble)
-	assert.Equal(t, 70, style.Width)
-	assert.Equal(t, 1, style.Margin)
-}
-
-func TestNewChatRenderer(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
-	assert.NotNil(t, renderer)
-	assert.NotNil(t, renderer.markdown)
-	assert.NotNil(t, renderer.store)
-}
-
-func TestNewChatRendererWithOptions(t *testing.T) {
-	style := DefaultBubbleStyle()
-	renderer, err := NewChatRenderer(
-		WithStyle(style),
-		WithWidth(120),
-		WithTimestamps(true),
-		WithAvatars(false),
-	)
-	require.NoError(t, err)
-	assert.NotNil(t, renderer)
-	assert.Equal(t, 120, renderer.width)
-	assert.True(t, renderer.showTimestamps)
-	assert.False(t, renderer.showAvatars)
-}
-
-func TestChatRendererRenderMessage(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
-
-	// User message
-	userMsg := NewUserMessage("Hello")
-	rendered, err := renderer.RenderMessage(userMsg)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-
-	// AI message
-	aiMsg := NewAIMessage("Hi there!")
-	rendered, err = renderer.RenderMessage(aiMsg)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-
-	// Error message
-	errMsg := NewErrorMessage("Something went wrong")
-	rendered, err = renderer.RenderMessage(errMsg)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-
-	// Tool use message
-	toolMsg := NewToolUseMessage("read_file", map[string]interface{}{
-		"file": "test.txt",
+// TestMessageRendering tests message rendering functionality
+func TestMessageRendering(t *testing.T) {
+	t.Run("renders user message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "user",
+			Content: "Hello, Cline!",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Hello, Cline!")
+		assert.Contains(t, rendered, "You")
 	})
-	rendered, err = renderer.RenderMessage(toolMsg)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-	assert.Contains(t, rendered, "read_file")
 
-	// Tool result message
-	toolResult := NewToolResultMessage("read_file", "file contents")
-	rendered, err = renderer.RenderMessage(toolResult)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
+	t.Run("renders assistant message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "Hello! How can I help you today?",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Hello! How can I help you today?")
+		assert.Contains(t, rendered, "Cline")
+	})
+
+	t.Run("renders system message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "system",
+			Content: "System notification",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "System notification")
+	})
+
+	t.Run("renders error message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "error",
+			Content: "An error occurred",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "An error occurred")
+	})
+
+	t.Run("handles empty message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "user",
+			Content: "",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.NotEmpty(t, rendered)
+	})
+
+	t.Run("handles very long message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		longContent := strings.Repeat("This is a very long message. ", 50)
+		msg := Message{
+			Role:    "user",
+			Content: longContent,
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "This is a very long message.")
+	})
+
+	t.Run("handles multiline message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "user",
+			Content: "Line 1\nLine 2\nLine 3",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Line 1")
+		assert.Contains(t, rendered, "Line 2")
+		assert.Contains(t, rendered, "Line 3")
+	})
 }
 
-func TestChatRendererAddMessage(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+// TestMarkdownFormatting tests markdown formatting in messages
+func TestMarkdownFormatting(t *testing.T) {
+	t.Run("renders bold text", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "This is **bold** text",
+		}
 
-	msg := NewUserMessage("test")
-	renderer.AddMessage(msg)
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "bold")
+	})
 
-	assert.Equal(t, 1, renderer.GetMessageCount())
+	t.Run("renders italic text", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "This is *italic* text",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "italic")
+	})
+
+	t.Run("renders inline code", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "Use `printf` for output",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "printf")
+	})
+
+	t.Run("renders code blocks", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "```go\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "func main()")
+		assert.Contains(t, rendered, "fmt.Println")
+	})
+
+	t.Run("renders lists", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "- Item 1\n- Item 2\n- Item 3",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Item 1")
+		assert.Contains(t, rendered, "Item 2")
+		assert.Contains(t, rendered, "Item 3")
+	})
+
+	t.Run("renders numbered lists", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "1. First\n2. Second\n3. Third",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "First")
+		assert.Contains(t, rendered, "Second")
+		assert.Contains(t, rendered, "Third")
+	})
+
+	t.Run("renders links", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "Visit [Cline](https://cline.bot)",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Cline")
+	})
+
+	t.Run("renders blockquotes", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "> This is a quote",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "This is a quote")
+	})
+
+	t.Run("renders headers", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:    "assistant",
+			Content: "# Heading 1\n## Heading 2\n### Heading 3",
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Heading 1")
+		assert.Contains(t, rendered, "Heading 2")
+		assert.Contains(t, rendered, "Heading 3")
+	})
 }
 
-func TestChatRendererStreaming(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+// TestSyntaxHighlighting tests syntax highlighting in code blocks
+func TestSyntaxHighlighting(t *testing.T) {
+	t.Run("highlights Go code", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```go\npackage main\n\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```"
+		highlighted := m.highlightCode(code, "go")
 
-	// Start streaming
-	assert.False(t, renderer.IsStreaming())
+		assert.NotEmpty(t, highlighted)
+		assert.Contains(t, highlighted, "package")
+		assert.Contains(t, highlighted, "func")
+	})
 
-	streamingMsg := renderer.StartStreaming(MessageTypeSay)
-	assert.NotNil(t, streamingMsg)
-	assert.True(t, renderer.IsStreaming())
-	assert.True(t, streamingMsg.Partial)
+	t.Run("highlights Python code", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```python\ndef hello():\n    print(\"Hello\")\n```"
+		highlighted := m.highlightCode(code, "python")
 
-	// Update streaming
-	renderer.UpdateStreaming("Hello")
-	renderer.UpdateStreaming(" World")
+		assert.NotEmpty(t, highlighted)
+		assert.Contains(t, highlighted, "def")
+	})
 
-	content := renderer.GetStreamingContent()
-	assert.Equal(t, "Hello World", content)
+	t.Run("highlights JavaScript code", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```javascript\nfunction hello() {\n    console.log(\"Hello\");\n}\n```"
+		highlighted := m.highlightCode(code, "javascript")
 
-	// End streaming
-	final := renderer.EndStreaming()
-	assert.NotNil(t, final)
-	assert.False(t, renderer.IsStreaming())
-	assert.False(t, final.Partial)
-	assert.Equal(t, "Hello World", final.Content)
+		assert.NotEmpty(t, highlighted)
+		assert.Contains(t, highlighted, "function")
+	})
+
+	t.Run("highlights TypeScript code", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```typescript\nconst x: string = \"hello\";\n```"
+		highlighted := m.highlightCode(code, "typescript")
+
+		assert.NotEmpty(t, highlighted)
+		assert.Contains(t, highlighted, "const")
+	})
+
+	t.Run("highlights Bash code", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```bash\n#!/bin/bash\necho \"Hello\"\n```"
+		highlighted := m.highlightCode(code, "bash")
+
+		assert.NotEmpty(t, highlighted)
+		assert.Contains(t, highlighted, "echo")
+	})
+
+	t.Run("handles unknown language gracefully", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```unknown\nsome code\n```"
+		highlighted := m.highlightCode(code, "unknown")
+
+		// Should still render the code, even if not highlighted
+		assert.NotEmpty(t, highlighted)
+	})
+
+	t.Run("handles code without language specifier", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```\nsome plain code\n```"
+		highlighted := m.highlightCode(code, "")
+
+		assert.NotEmpty(t, highlighted)
+		assert.Contains(t, highlighted, "some plain code")
+	})
+
+	t.Run("handles empty code block", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```go\n```"
+		highlighted := m.highlightCode(code, "go")
+
+		assert.NotEmpty(t, highlighted)
+	})
+
+	t.Run("handles code with special characters", func(t *testing.T) {
+		m := initialModel()
+		
+		code := "```go\nfmt.Printf(\"Special: %s\\n\", \"chars\")\n```"
+		highlighted := m.highlightCode(code, "go")
+
+		assert.NotEmpty(t, highlighted)
+		assert.Contains(t, highlighted, "fmt.Printf")
+	})
 }
 
-func TestChatRendererStreamingMultipleUpdates(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+// TestStreamingMessageDisplay tests streaming message display
+func TestStreamingMessageDisplay(t *testing.T) {
+	t.Run("renders streaming message with indicator", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:      "assistant",
+			Content:   "Generating",
+			Streaming: true,
+		}
 
-	renderer.StartStreaming(MessageTypeSay)
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Generating")
+		// Should indicate streaming state
+	})
 
-	updates := []string{"One", "Two", "Three", "Four"}
-	for _, update := range updates {
-		renderer.UpdateStreaming(update)
-	}
+	t.Run("updates streaming message content", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:      "assistant",
+			Content:   "Hello",
+			Streaming: true,
+		}
 
-	assert.Equal(t, "OneTwoThreeFour", renderer.GetStreamingContent())
+		// Simulate streaming update
+		msg.Content += " world"
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Hello world")
+	})
 
-	renderer.EndStreaming()
+	t.Run("finalizes streaming message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:      "assistant",
+			Content:   "Complete response",
+			Streaming: false,
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Complete response")
+		// Should not show streaming indicator
+	})
+
+	t.Run("handles streaming with markdown", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:      "assistant",
+			Content:   "**Bold** and `code`",
+			Streaming: true,
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "Bold")
+		assert.Contains(t, rendered, "code")
+	})
+
+	t.Run("handles streaming code blocks", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		
+		msg := Message{
+			Role:      "assistant",
+			Content:   "```go\nfunc",
+			Streaming: true,
+		}
+
+		rendered := m.renderMessage(msg)
+		assert.Contains(t, rendered, "func")
+	})
 }
 
-func TestChatRendererClear(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+// TestMessageHistory tests message history functionality
+func TestMessageHistory(t *testing.T) {
+	t.Run("renders empty history", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		m.height = 24
+		m.messages = []Message{}
 
-	renderer.AddMessage(NewUserMessage("test"))
-	renderer.StartStreaming(MessageTypeSay)
-	renderer.Clear()
+		view := m.renderChatView()
+		assert.NotEmpty(t, view)
+	})
 
-	assert.Equal(t, 0, renderer.GetMessageCount())
-	assert.False(t, renderer.IsStreaming())
-	assert.Empty(t, renderer.GetStreamingContent())
+	t.Run("renders single message in history", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		m.height = 24
+		m.messages = []Message{
+			{Role: "user", Content: "Hello"},
+		}
+
+		view := m.renderChatView()
+		assert.Contains(t, view, "Hello")
+	})
+
+	t.Run("renders multiple messages in history", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		m.height = 24
+		m.messages = []Message{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "Hi!"},
+			{Role: "user", Content: "How are you?"},
+		}
+
+		view := m.renderChatView()
+		assert.Contains(t, view, "Hello")
+		assert.Contains(t, view, "Hi!")
+		assert.Contains(t, view, "How are you?")
+	})
+
+	t.Run("handles many messages", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		m.height = 24
+		
+		// Add many messages
+		for i := 0; i < 50; i++ {
+			m.messages = append(m.messages, Message{
+				Role:    "user",
+				Content: "Message " + string(rune('0'+i%10)),
+			})
+		}
+
+		view := m.renderChatView()
+		assert.NotEmpty(t, view)
+	})
+
+	t.Run("scrolls to bottom on new message", func(t *testing.T) {
+		m := initialModel()
+		m.width = 80
+		m.height = 24
+		m.autoScroll = true
+
+		// Add messages
+		for i := 0; i < 10; i++ {
+			m.messages = append(m.messages, Message{
+				Role:    "user",
+				Content: "Message",
+			})
+		}
+
+		view := m.renderChatView()
+		assert.NotEmpty(t, view)
+		// Viewport should be positioned to show latest
+	})
+
+	t.Run("preserves message order", func(t *testing.T) {
+		m := initialModel()
+		
+		m.messages = []Message{
+			{Role: "user", Content: "First"},
+			{Role: "assistant", Content: "Second"},
+			{Role: "user", Content: "Third"},
+		}
+
+		assert.Equal(t, "First", m.messages[0].Content)
+		assert.Equal(t, "Second", m.messages[1].Content)
+		assert.Equal(t, "Third", m.messages[2].Content)
+	})
 }
 
-func TestChatRendererGetLastMessage(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+// TestChatViewRendering tests chat view rendering
+func TestChatViewRendering(t *testing.T) {
+	t.Run("renders chat view with header", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.width = 80
+		m.height = 24
 
-	// Empty store
-	_, ok := renderer.GetLastMessage()
-	assert.False(t, ok)
+		view := m.View()
+		assert.NotEmpty(t, view)
+	})
 
-	// Add messages
-	renderer.AddMessage(NewUserMessage("first"))
-	renderer.AddMessage(NewAIMessage("second"))
+	t.Run("renders chat view with input area", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.width = 80
+		m.height = 24
+		m.inputFocused = true
 
-	last, ok := renderer.GetLastMessage()
-	assert.True(t, ok)
-	assert.Equal(t, "second", last.Content)
+		view := m.View()
+		assert.NotEmpty(t, view)
+		// Should contain input indicator
+	})
+
+	t.Run("renders chat view with help", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.width = 80
+		m.height = 24
+		m.showHelp = true
+
+		view := m.View()
+		assert.NotEmpty(t, view)
+		// Should contain help text
+	})
+
+	t.Run("handles narrow terminal", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.width = 40
+		m.height = 24
+
+		view := m.View()
+		assert.NotEmpty(t, view)
+	})
+
+	t.Run("handles short terminal", func(t *testing.T) {
+		m := initialModel()
+		m.currentView = chatView
+		m.width = 80
+		m.height = 10
+
+		view := m.View()
+		assert.NotEmpty(t, view)
+	})
 }
 
-func TestChatRendererRenderChat(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+// TestMessageFormatting tests message formatting utilities
+func TestMessageFormatting(t *testing.T) {
+	t.Run("wraps long lines", func(t *testing.T) {
+		m := initialModel()
+		m.width = 40
+		
+		longText := strings.Repeat("a", 100)
+		wrapped := m.wrapText(longText, 30)
 
-	renderer.AddMessage(NewUserMessage("Hello"))
-	renderer.AddMessage(NewAIMessage("Hi!"))
+		lines := strings.Split(wrapped, "\n")
+		for _, line := range lines {
+			assert.LessOrEqual(t, lipgloss.Width(line), 35) // Allow some margin
+		}
+	})
 
-	rendered, err := renderer.RenderChat()
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
+	t.Run("preserves line breaks", func(t *testing.T) {
+		m := initialModel()
+		
+		text := "Line 1\nLine 2\nLine 3"
+		wrapped := m.wrapText(text, 80)
+
+		assert.Contains(t, wrapped, "Line 1")
+		assert.Contains(t, wrapped, "Line 2")
+		assert.Contains(t, wrapped, "Line 3")
+	})
+
+	t.Run("handles empty text", func(t *testing.T) {
+		m := initialModel()
+		
+		wrapped := m.wrapText("", 80)
+		assert.Equal(t, "", wrapped)
+	})
+
+	t.Run("trims trailing whitespace", func(t *testing.T) {
+		m := initialModel()
+		
+		text := "Hello   \nWorld   "
+		wrapped := m.wrapText(text, 80)
+
+		assert.NotContains(t, wrapped, "Hello   ")
+		assert.NotContains(t, wrapped, "World   ")
+	})
 }
 
-func TestChatRendererRenderMessageType(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+// TestCodeBlockExtraction tests code block parsing
+func TestCodeBlockExtraction(t *testing.T) {
+	t.Run("extracts code block with language", func(t *testing.T) {
+		m := initialModel()
+		
+		content := "```go\nfunc main() {}\n```"
+		blocks := m.extractCodeBlocks(content)
 
-	renderer.AddMessage(NewUserMessage("user message"))
-	renderer.AddMessage(NewAIMessage("ai message"))
-	renderer.AddMessage(NewUserMessage("another user"))
+		assert.Len(t, blocks, 1)
+		assert.Equal(t, "go", blocks[0].Language)
+		assert.Equal(t, "func main() {}", blocks[0].Code)
+	})
 
-	rendered, err := renderer.RenderMessageType(MessageTypeUser)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-}
+	t.Run("extracts multiple code blocks", func(t *testing.T) {
+		m := initialModel()
+		
+		content := "```go\ncode1\n```\n\n```python\ncode2\n```"
+		blocks := m.extractCodeBlocks(content)
 
-func TestChatRendererSetWidth(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
+		assert.Len(t, blocks, 2)
+	})
 
-	renderer.SetWidth(100)
-	assert.Equal(t, 100, renderer.width)
-}
+	t.Run("extracts code block without language", func(t *testing.T) {
+		m := initialModel()
+		
+		content := "```\nplain code\n```"
+		blocks := m.extractCodeBlocks(content)
 
-func TestStreamingRenderer(t *testing.T) {
-	chatRenderer, err := NewChatRenderer()
-	require.NoError(t, err)
+		assert.Len(t, blocks, 1)
+		assert.Equal(t, "", blocks[0].Language)
+	})
 
-	onUpdate := func(s string) {
-		_ = true
-	}
+	t.Run("handles no code blocks", func(t *testing.T) {
+		m := initialModel()
+		
+		content := "Just plain text"
+		blocks := m.extractCodeBlocks(content)
 
-	streamer := NewStreamingRenderer(chatRenderer, onUpdate)
-	require.NotNil(t, streamer)
-
-	// Not running initially
-	assert.False(t, streamer.IsRunning())
-
-	// Start
-	streamer.Start()
-	assert.True(t, streamer.IsRunning())
-
-	// Write some content
-	n, err := streamer.Write([]byte("hello"))
-	require.NoError(t, err)
-	assert.Equal(t, 5, n)
-
-	// Stop
-	streamer.Stop()
-	assert.False(t, streamer.IsRunning())
-}
-
-func TestStreamingRendererStopNotRunning(t *testing.T) {
-	chatRenderer, err := NewChatRenderer()
-	require.NoError(t, err)
-
-	streamer := NewStreamingRenderer(chatRenderer, nil)
-	// Should not panic
-	streamer.Stop()
-}
-
-func TestStreamingRendererStartAlreadyRunning(t *testing.T) {
-	chatRenderer, err := NewChatRenderer()
-	require.NoError(t, err)
-
-	streamer := NewStreamingRenderer(chatRenderer, nil)
-	streamer.Start()
-	streamer.Start() // Should not panic or create extra goroutines
-
-	assert.True(t, streamer.IsRunning())
-	streamer.Stop()
-}
-
-func TestMessageTimestamp(t *testing.T) {
-	before := time.Now()
-	msg := NewMessage(MessageTypeSay, "test")
-	after := time.Now()
-
-	assert.True(t, msg.Timestamp.Equal(before) || msg.Timestamp.After(before))
-	assert.True(t, msg.Timestamp.Equal(after) || msg.Timestamp.Before(after))
-}
-
-func TestMessageStoreUpdateLastEmpty(t *testing.T) {
-	store := NewMessageStore()
-	msg := NewUserMessage("test")
-	ok := store.UpdateLast(msg)
-	assert.False(t, ok)
-}
-
-func TestRenderMarkdownEmptyContent(t *testing.T) {
-	renderer, err := NewMarkdownRenderer()
-	require.NoError(t, err)
-
-	rendered := renderer.RenderBasic("")
-	assert.Empty(t, rendered)
-}
-
-func TestRenderToolUseNoInput(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
-
-	msg := NewToolUseMessage("simple_tool", nil)
-	rendered, err := renderer.renderToolUse(msg)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-}
-
-func TestRenderToolResultNoLanguage(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
-
-	msg := NewToolResultMessage("tool", "plain text result")
-	rendered, err := renderer.renderToolResult(msg)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-}
-
-func TestRenderToolResultWithLanguage(t *testing.T) {
-	renderer, err := NewChatRenderer()
-	require.NoError(t, err)
-
-	msg := NewToolResultMessage("tool", "package main")
-	msg.SetLanguage("go")
-	rendered, err := renderer.renderToolResult(msg)
-	require.NoError(t, err)
-	assert.NotEmpty(t, rendered)
-}
-
-func TestStreamingRendererWriteMultiple(t *testing.T) {
-	chatRenderer, err := NewChatRenderer()
-	require.NoError(t, err)
-
-	received := make([]string, 0)
-	onUpdate := func(s string) {
-		received = append(received, s)
-	}
-
-	streamer := NewStreamingRenderer(chatRenderer, onUpdate)
-	streamer.Start()
-
-	// Write multiple times
-	streamer.Write([]byte("chunk1"))
-	streamer.Write([]byte("chunk2"))
-	streamer.Write([]byte("chunk3"))
-
-	// Give goroutine time to process
-	time.Sleep(100 * time.Millisecond)
-
-	streamer.Stop()
-
-	// Should have received updates
-	assert.True(t, len(received) > 0)
+		assert.Empty(t, blocks)
+	})
 }

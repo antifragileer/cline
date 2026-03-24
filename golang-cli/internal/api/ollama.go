@@ -662,6 +662,33 @@ func (p *OllamaProvider) convertOllamaError(errMsg string, statusCode int) error
 	return fmt.Errorf("%w: %s", ErrOllamaProviderError, errMsg)
 }
 
+// GetSupportedModels returns a list of supported model IDs
+func (p *OllamaProvider) GetSupportedModels() []string {
+	// Ollama supports dynamic model loading, so we return an empty list
+	// In practice, users would call ListModels() to get available models
+	return []string{}
+}
+
+// ValidateModel checks if a model is supported
+func (p *OllamaProvider) ValidateModel(model string) error {
+	// Ollama supports any model name that can be pulled
+	// In practice, validation would require checking if the model exists
+	if model == "" {
+		return fmt.Errorf("%w: model name cannot be empty", ErrOllamaModelNotFound)
+	}
+	return nil
+}
+
+// GetModel returns the current default model
+func (p *OllamaProvider) GetModel() string {
+	return ""
+}
+
+// SetModel sets the default model
+func (p *OllamaProvider) SetModel(model string) {
+	// No-op for Ollama since models are specified per-request
+}
+
 // GetBaseURL returns the base URL for the provider
 func (p *OllamaProvider) GetBaseURL() string {
 	return p.baseURL

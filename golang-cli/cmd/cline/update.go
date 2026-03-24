@@ -180,6 +180,9 @@ func isNewerVersion(current, latest string) bool {
 
 // parseVersion parses a semantic version string into components
 func parseVersion(version string) [3]int {
+	// Trim 'v' prefix if present
+	version = strings.TrimPrefix(version, "v")
+	
 	parts := strings.Split(version, ".")
 	result := [3]int{0, 0, 0}
 
