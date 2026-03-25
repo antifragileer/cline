@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cline/cline/golang-cli/internal/host"
+	"github.com/cline/cline/golang-cli/internal/mode"
 	"github.com/cline/cline/golang-cli/internal/task"
 )
 
@@ -451,6 +452,21 @@ func runTaskWithPrompt(opts *RootOptions) error {
 		"yolo", opts.Yolo,
 		"model", opts.Model,
 	)
+
+	// Try to read piped input from stdin
+	pipedInput, err := mode.ReadPipedStdinWithDefaultTimeout()
+	if err != nil && err != mode.ErrNotPiped {
+		// Log the error but don't fail - proceed without piped input
+		logger.Warn("failed to read piped input", "error", err)
+	}
+
+	// Combine piped input with prompt if present
+	if pipedInput != "" {
+		opts.Prompt = mode.CombinePipedInputAndPrompt(pipedInput, opts.Prompt)
+		logger.Debug("combined piped input with prompt",
+			"pipedLength", len(pipedInput),
+			"totalLength", len(opts.Prompt))
+	}
 
 	// For now, always use gRPC mode
 	return runTaskWithGRPC(opts)
