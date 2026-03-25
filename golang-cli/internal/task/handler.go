@@ -3,217 +3,299 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
-// MessageHandler handles messages from the Cline core extension
+// MessageHandler handles messages from the task runner.
 type MessageHandler interface {
-	// OnSay is called when the assistant sends a message
-	OnSay(sayType, text string, partial bool)
-	// OnAsk is called when the assistant asks for user input
-	// Returns the user's response
-	OnAsk(askType, text string) (string, error)
-	// OnInfo is called for informational messages
-	OnInfo(msg string)
-	// OnError is called when an error occurs
+	// OnSay handles a SAY message from the assistant
+	OnSay(sayType string, text string, partial bool)
+	// OnAsk handles an ASK message that requires user response
+	OnAsk(askType string, text string) (string, error)
+	// OnInfo handles informational messages
+	OnInfo(text string)
+	// OnError handles error messages
 	OnError(err error)
-	// OnComplete is called when the task is complete
-	OnComplete(success bool, message string)
+	// OnStatus handles status updates
+	OnStatus(status string)
+	// OnProgress handles progress updates
+	OnProgress(current, total int)
 }
 
-// PlainTextHandler is a MessageHandler that outputs plain text
+// PlainTextHandler handles messages in plain text format.
 type PlainTextHandler struct {
-	Verbose    bool
-	JSONOutput bool
-	Output     interface {
-		Write(p []byte) (n int, err error)
-	}
+	Verbose     bool
+	JSONOutput  bool
+	Output      io.Writer
 	AutoApprove bool
 }
 
-// OnSay handles a SAY message
-func (h *PlainTextHandler) OnSay(sayType, text string, partial bool) {
-	if h.JSONOutput {
-		// JSON output is handled separately
-		return
+// OnSay handles a SAY message from the assistant
+func (h *PlainTextHandler) OnSay(sayType string, text string, partial bool) {
+	if h.Output == nil {
+		h.Output = os.Stdout
 	}
 
-	// Skip partial messages in plain text mode (they're for TUI)
+	// Don't print partial messages in plain text mode
 	if partial {
 		return
 	}
 
-	// Format output based on type
 	switch sayType {
 	case "text":
-		h.write(text)
+		fmt.Fprintln(h.Output, text)
 	case "error":
-		h.writeError("Error: " + text)
-	case "api_req_started":
-		if h.Verbose {
-			h.write("→ API request started")
-		}
-	case "api_req_finished":
-		if h.Verbose {
-			h.write("→ API request finished")
-		}
+		fmt.Fprintf(h.Output, "Error: %s\n", text)
 	case "command":
-		h.write("→ Executing: " + text)
+		fmt.Fprintf(h.Output, "Command: %s\n", text)
 	case "command_output":
-		h.write(text)
+		fmt.Fprintf(h.Output, "%s\n", text)
 	case "tool":
-		h.write("→ Tool: " + text)
-	case "success":
-		h.write("✓ " + text)
+		fmt.Fprintf(h.Output, "Tool: %s\n", text)
+	case "thinking":
+		if h.Verbose {
+			fmt.Fprintf(h.Output, "Thinking: %s\n", text)
+		}
 	case "completion_result":
-		h.write("✓ Task completed")
-		h.write(text)
-	case "checkpoint_created":
-		if h.Verbose {
-			h.write("→ Checkpoint created")
-		}
-	case "checkpoint_restored":
-		if h.Verbose {
-			h.write("→ Checkpoint restored")
-		}
+		fmt.Fprintf(h.Output, "\nResult: %s\n", text)
 	default:
 		if h.Verbose {
-			h.write("[" + sayType + "] " + text)
+			fmt.Fprintf(h.Output, "[%s] %s\n", sayType, text)
 		}
 	}
 }
 
-// OnAsk handles an ASK message
-func (h *PlainTextHandler) OnAsk(askType, text string) (string, error) {
+// OnAsk handles an ASK message that requires user response
+func (h *PlainTextHandler) OnAsk(askType string, text string) (string, error) {
+	if h.Output == nil {
+		h.Output = os.Stdout
+	}
+
+	// Auto-approve if enabled
 	if h.AutoApprove {
 		return "yesButtonClicked", nil
 	}
 
-	// In plain text mode with piped input, we can't interactively ask
-	// So we auto-approve or return a default response
-	switch askType {
-	case "tool_approval":
-		h.write("→ Tool approval required (auto-approved in plain mode)")
+	// Print the question
+	fmt.Fprintf(h.Output, "\n%s\n", text)
+	fmt.Fprint(h.Output, "Response (y/n/more): ")
+
+	// Read response from stdin
+	var response string
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		// Default to yes if we can't read
 		return "yesButtonClicked", nil
-	case "command_approval":
-		h.write("→ Command approval required (auto-approved in plain mode)")
+	}
+
+	// Normalize response
+	response = strings.ToLower(strings.TrimSpace(response))
+	switch response {
+	case "y", "yes", "":
 		return "yesButtonClicked", nil
-	case "followup":
-		// For followup questions, we need input but can't get it interactively
-		// Return empty to indicate we can't answer
-		h.write("? " + text)
-		return "", nil
+	case "n", "no":
+		return "noButtonClicked", nil
 	default:
-		// Auto-approve other asks in plain mode
-		return "yesButtonClicked", nil
+		return "messageResponse", nil
 	}
 }
 
 // OnInfo handles informational messages
-func (h *PlainTextHandler) OnInfo(msg string) {
-	if h.Verbose && !h.JSONOutput {
-		h.write("ℹ " + msg)
+func (h *PlainTextHandler) OnInfo(text string) {
+	if h.Verbose && h.Output != nil {
+		fmt.Fprintf(h.Output, "[INFO] %s\n", text)
 	}
 }
 
-// OnError handles errors
+// OnError handles error messages
 func (h *PlainTextHandler) OnError(err error) {
-	if h.JSONOutput {
-		// JSON errors handled separately
-		return
+	if h.Output == nil {
+		h.Output = os.Stderr
 	}
-	h.writeError("Error: " + err.Error())
+	fmt.Fprintf(h.Output, "Error: %v\n", err)
 }
 
-// OnComplete handles task completion
-func (h *PlainTextHandler) OnComplete(success bool, message string) {
-	if h.JSONOutput {
-		return
-	}
-	if success {
-		h.write("✓ " + message)
-	} else {
-		h.writeError("✗ " + message)
+// OnStatus handles status updates
+func (h *PlainTextHandler) OnStatus(status string) {
+	if h.Verbose && h.Output != nil {
+		fmt.Fprintf(h.Output, "[STATUS] %s\n", status)
 	}
 }
 
-func (h *PlainTextHandler) write(s string) {
-	if h.Output != nil {
-		h.Output.Write([]byte(s + "\n"))
+// OnProgress handles progress updates
+func (h *PlainTextHandler) OnProgress(current, total int) {
+	if h.Verbose && h.Output != nil {
+		fmt.Fprintf(h.Output, "[PROGRESS] %d/%d\n", current, total)
 	}
 }
 
-func (h *PlainTextHandler) writeError(s string) {
-	if h.Output != nil {
-		// Write to stderr via prefix
-		h.Output.Write([]byte(s + "\n"))
-	}
-}
-
-// JSONHandler is a MessageHandler that outputs structured JSON
+// JSONHandler handles messages in JSON format.
 type JSONHandler struct {
-	Output interface {
-		Write(p []byte) (n int, err error)
-	}
-	Messages []map[string]interface{}
+	Output io.Writer
 }
 
-// OnSay handles a SAY message
-func (h *JSONHandler) OnSay(sayType, text string, partial bool) {
-	msg := map[string]interface{}{
+// OnSay handles a SAY message from the assistant
+func (h *JSONHandler) OnSay(sayType string, text string, partial bool) {
+	h.outputJSON(map[string]interface{}{
 		"type":    "say",
 		"sayType": sayType,
 		"text":    text,
 		"partial": partial,
-	}
-	h.Messages = append(h.Messages, msg)
+	})
 }
 
-// OnAsk handles an ASK message
-func (h *JSONHandler) OnAsk(askType, text string) (string, error) {
-	msg := map[string]interface{}{
+// OnAsk handles an ASK message that requires user response
+func (h *JSONHandler) OnAsk(askType string, text string) (string, error) {
+	h.outputJSON(map[string]interface{}{
 		"type":    "ask",
 		"askType": askType,
 		"text":    text,
-	}
-	h.Messages = append(h.Messages, msg)
-	// Auto-approve in JSON mode
+	})
+
+	// For JSON mode, return auto-approve response
 	return "yesButtonClicked", nil
 }
 
 // OnInfo handles informational messages
-func (h *JSONHandler) OnInfo(msg string) {
-	h.Messages = append(h.Messages, map[string]interface{}{
-		"type":    "info",
-		"message": msg,
+func (h *JSONHandler) OnInfo(text string) {
+	h.outputJSON(map[string]interface{}{
+		"type": "info",
+		"text": text,
 	})
 }
 
-// OnError handles errors
+// OnError handles error messages
 func (h *JSONHandler) OnError(err error) {
-	h.Messages = append(h.Messages, map[string]interface{}{
+	h.outputJSON(map[string]interface{}{
 		"type":  "error",
 		"error": err.Error(),
 	})
 }
 
-// OnComplete handles task completion
-func (h *JSONHandler) OnComplete(success bool, message string) {
-	h.Messages = append(h.Messages, map[string]interface{}{
-		"type":    "complete",
-		"success": success,
-		"message": message,
+// OnStatus handles status updates
+func (h *JSONHandler) OnStatus(status string) {
+	h.outputJSON(map[string]interface{}{
+		"type":   "status",
+		"status": status,
 	})
-	h.flush()
 }
 
-// flush outputs all messages as JSON
-func (h *JSONHandler) flush() {
+// OnProgress handles progress updates
+func (h *JSONHandler) OnProgress(current, total int) {
+	h.outputJSON(map[string]interface{}{
+		"type":    "progress",
+		"current": current,
+		"total":   total,
+	})
+}
+
+// outputJSON outputs a JSON message
+func (h *JSONHandler) outputJSON(data map[string]interface{}) {
 	if h.Output == nil {
-		return
+		h.Output = os.Stdout
 	}
-	
-	// Output as JSON array
 	encoder := json.NewEncoder(h.Output)
-	encoder.SetIndent("", "  ")
-	encoder.Encode(h.Messages)
+	encoder.Encode(data)
+}
+
+// TUIHandler handles messages in TUI format using Bubble Tea.
+type TUIHandler struct {
+	program *tea.Program
+}
+
+// NewTUIHandler creates a new TUI handler
+func NewTUIHandler() *TUIHandler {
+	return &TUIHandler{}
+}
+
+// OnSay handles a SAY message from the assistant
+func (h *TUIHandler) OnSay(sayType string, text string, partial bool) {
+	// Send message to TUI
+	if h.program != nil {
+		h.program.Send(tuiMessage{
+			msgType: sayType,
+			text:    text,
+			partial: partial,
+		})
+	}
+}
+
+// OnAsk handles an ASK message that requires user response
+func (h *TUIHandler) OnAsk(askType string, text string) (string, error) {
+	// Send ask to TUI and wait for response
+	if h.program != nil {
+		h.program.Send(tuiAskMessage{
+			askType: askType,
+			text:    text,
+		})
+	}
+	// For now, return auto-approve
+	return "yesButtonClicked", nil
+}
+
+// OnInfo handles informational messages
+func (h *TUIHandler) OnInfo(text string) {
+	if h.program != nil {
+		h.program.Send(tuiMessage{
+			msgType: "info",
+			text:    text,
+		})
+	}
+}
+
+// OnError handles error messages
+func (h *TUIHandler) OnError(err error) {
+	if h.program != nil {
+		h.program.Send(tuiMessage{
+			msgType: "error",
+			text:    err.Error(),
+		})
+	}
+}
+
+// OnStatus handles status updates
+func (h *TUIHandler) OnStatus(status string) {
+	if h.program != nil {
+		h.program.Send(tuiMessage{
+			msgType: "status",
+			text:    status,
+		})
+	}
+}
+
+// OnProgress handles progress updates
+func (h *TUIHandler) OnProgress(current, total int) {
+	if h.program != nil {
+		h.program.Send(tuiProgressMessage{
+			current: current,
+			total:   total,
+		})
+	}
+}
+
+// SetProgram sets the Bubble Tea program
+func (h *TUIHandler) SetProgram(program *tea.Program) {
+	h.program = program
+}
+
+// TUI message types
+type tuiMessage struct {
+	msgType string
+	text    string
+	partial bool
+}
+
+type tuiAskMessage struct {
+	askType string
+	text    string
+}
+
+type tuiProgressMessage struct {
+	current int
+	total   int
 }

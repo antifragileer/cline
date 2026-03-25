@@ -553,6 +553,14 @@ func getTaskModeAsTaskMode(opts *RootOptions) task.Mode {
 	return task.ModeAct
 }
 
+// getTaskMode returns the task mode based on options (for backward compatibility)
+func getTaskMode(opts *RootOptions) TaskMode {
+	if opts.Plan {
+		return TaskModePlan
+	}
+	return TaskModeAct
+}
+
 // isTTY checks if stdout is a terminal
 func isTTY() bool {
 	stat, err := os.Stdout.Stat()

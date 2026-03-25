@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -276,4 +280,197 @@ func validateTaskConfig(config task.Config) error {
 	}
 
 	return nil
+}
+
+// DefaultTaskRunner is a mock task runner for testing
+type DefaultTaskRunner struct {
+	output io.Writer
+}
+
+// NewDefaultTaskRunner creates a new default task runner for testing
+func NewDefaultTaskRunner(output io.Writer) *DefaultTaskRunner {
+	if output == nil {
+		output = os.Stdout
+	}
+	return &DefaultTaskRunner{output: output}
+}
+
+// Run executes the task configuration and outputs the result
+func (r *DefaultTaskRunner) Run(config task.Config) error {
+	// Validate image files if provided
+	for _, img := range config.Images {
+		if err := ValidateImageFile(img); err != nil {
+			return err
+		}
+	}
+
+	if config.JSON {
+		// Output JSON format
+		result := map[string]interface{}{
+			"mode":                   string(config.Mode),
+			"prompt":                 config.Prompt,
+			"yolo":                   config.Yolo,
+			"timeout":                config.Timeout.String(),
+			"model":                  config.Model,
+			"images":                 config.Images,
+			"thinking":               config.Thinking,
+			"taskId":                 config.TaskID,
+			"status":                 "started",
+			"autoApproveAll":         config.AutoApproveAll,
+			"reasoningEffort":        config.ReasoningEffort,
+			"maxConsecutiveMistakes": config.MaxConsecutiveMistakes,
+			"doubleCheckCompletion":  config.DoubleCheckCompletion,
+			"autoCondense":           config.AutoCondense,
+			"hooksDir":               config.HooksDir,
+		}
+		encoder := json.NewEncoder(r.output)
+		return encoder.Encode(result)
+	}
+
+	// Output plain text format
+	fmt.Fprintf(r.output, "Task: %s\n", config.Prompt)
+	fmt.Fprintf(r.output, "Mode: %s\n", config.Mode)
+
+	if config.Verbose {
+		fmt.Fprintf(r.output, "Starting task in %s mode\n", config.Mode)
+		if config.Yolo {
+			fmt.Fprintln(r.output, "Yolo mode: auto-approval enabled")
+		}
+		if config.Timeout > 0 {
+			fmt.Fprintf(r.output, "Timeout: %s\n", config.Timeout)
+		}
+		if config.Model != "" {
+			fmt.Fprintf(r.output, "Model: %s\n", config.Model)
+		}
+		if len(config.Images) > 0 {
+			fmt.Fprintf(r.output, "Images: %v\n", config.Images)
+		}
+		if config.Cwd != "" {
+			fmt.Fprintf(r.output, "Working directory: %s\n", config.Cwd)
+		}
+		if config.Thinking {
+			fmt.Fprintln(r.output, "Thinking mode enabled")
+		}
+		if config.TaskID != "" {
+			fmt.Fprintf(r.output, "Task ID: %s\n", config.TaskID)
+		}
+		if config.AutoApproveAll {
+			fmt.Fprintln(r.output, "Auto-approve all: enabled")
+		}
+		if config.ReasoningEffort != "" {
+			fmt.Fprintf(r.output, "Reasoning effort: %s\n", config.ReasoningEffort)
+		}
+		if config.MaxConsecutiveMistakes > 0 {
+			fmt.Fprintf(r.output, "Max consecutive mistakes: %d\n", config.MaxConsecutiveMistakes)
+		}
+		if config.DoubleCheckCompletion {
+			fmt.Fprintln(r.output, "Double-check completion: enabled")
+		}
+		if config.AutoCondense {
+			fmt.Fprintln(r.output, "Auto-condense: enabled")
+		}
+		if config.HooksDir != "" {
+			fmt.Fprintf(r.output, "Hooks directory: %s\n", config.HooksDir)
+		}
+	}
+
+	return nil
+}
+
+// ValidateImageFile validates that an image file exists and has a supported format
+func ValidateImageFile(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("image file not found: %s does not exist", path)
+		}
+		return fmt.Errorf("cannot access image file %s: %w", path, err)
+	}
+
+	if info.IsDir() {
+		return fmt.Errorf("image path %s is a directory, not a file", path)
+	}
+
+	// Check file extension
+	ext := strings.ToLower(filepath.Ext(path))
+	validExtensions := map[string]bool{
+		".png":  true,
+		".jpg":  true,
+		".jpeg": true,
+		".gif":  true,
+		".webp": true,
+		".bmp":  true,
+	}
+
+	if !validExtensions[ext] {
+		return fmt.Errorf("unsupported image format: %s (supported: png, jpg, jpeg, gif, webp, bmp)", ext)
+	}
+
+	return nil
+}
+
+// ExpandPath expands a path, handling ~ for home directory
+func ExpandPath(path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+
+	// Expand home directory
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot get home directory: %w", err)
+		}
+		path = filepath.Join(home, path[1:])
+	}
+
+	// Convert to absolute path if relative
+	if !filepath.IsAbs(path) {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return "", fmt.Errorf("cannot resolve path %s: %w", path, err)
+		}
+		path = absPath
+	}
+
+	return path, nil
+}
+
+// getMimeType returns the MIME type for a file extension
+func getMimeType(ext string) string {
+	ext = strings.ToLower(ext)
+	switch ext {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".bmp":
+		return "image/bmp"
+	default:
+		return ""
+	}
+}
+
+// loadImageData loads an image file and returns base64 encoded data
+func loadImageData(path string) (string, error) {
+	// Read file
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Determine mime type from extension
+	ext := strings.ToLower(filepath.Ext(path))
+	mimeType := getMimeType(ext)
+	if mimeType == "" {
+		mimeType = "image/png" // Default to png
+	}
+
+	// Encode as data URL
+	encoded := base64.StdEncoding.EncodeToString(data)
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, encoded), nil
 }
