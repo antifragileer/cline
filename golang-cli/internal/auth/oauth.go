@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -501,23 +503,64 @@ func (s *JSONTokenStorage) Delete() error {
 	return deleteFileRestricted(s.filePath)
 }
 
-// Helper function to write file with restricted permissions
+// Helper function to write file with restricted permissions (0600 - owner read/write only)
 func writeFileRestricted(path string, data []byte) error {
-	// Implementation depends on OS - use 0600 permissions on Unix
-	// This is a simplified version - in production, use proper file handling
-	return nil // Placeholder
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write file with restricted permissions (0600)
+	// Use os.WriteFile with 0600 permissions (owner read/write only)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
 
 // Helper function to read file
 func readFileRestricted(path string) ([]byte, error) {
-	// Implementation depends on OS
-	return nil, ErrFileNotFound // Placeholder
+	// Check if file exists
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrFileNotFound
+		}
+		return nil, fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	// Verify file is a regular file
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("not a regular file")
+	}
+
+	// Read file contents
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return data, nil
 }
 
 // Helper function to delete file
 func deleteFileRestricted(path string) error {
-	// Implementation depends on OS
-	return nil // Placeholder
+	// Check if file exists
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil // File doesn't exist, consider deletion successful
+		}
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	// Delete the file
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("failed to delete file: %w", err)
+	}
+
+	return nil
 }
 
 var ErrFileNotFound = errors.New("file not found")

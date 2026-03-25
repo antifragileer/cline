@@ -30,6 +30,18 @@ const (
 	EventToolRejection EventType = "tool_rejection"
 	// EventConfigurationChange represents configuration change
 	EventConfigurationChange EventType = "configuration_change"
+	// Yolo mode events
+	EventYoloModeStarted        EventType = "yolo_mode_started"
+	EventYoloModeCompleted      EventType = "yolo_mode_completed"
+	EventYoloModePaused         EventType = "yolo_mode_paused"
+	EventYoloModeResumed        EventType = "yolo_mode_resumed"
+	EventAutoApproval           EventType = "auto_approval"
+	EventSafetyCheckFailed      EventType = "safety_check_failed"
+	EventMaxToolsReached        EventType = "max_tools_reached"
+	EventToolExecutionStarted   EventType = "tool_execution_started"
+	EventToolExecutionCompleted EventType = "tool_execution_completed"
+	EventDangerousCommandDetected EventType = "dangerous_command_detected"
+	EventSuspiciousPathDetected   EventType = "suspicious_path_detected"
 )
 
 // Config provides audit configuration for test compatibility

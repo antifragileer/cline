@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -66,6 +67,9 @@ var (
 	// Path flags
 	hooksDirFlag string
 	cwdFlag      string
+
+	// Image attachment flag
+	imageFlag []string
 
 	// Special mode flags
 	acpFlag    bool
@@ -160,6 +164,9 @@ func init() {
 	// Path flags
 	rootCmd.Flags().StringVar(&hooksDirFlag, "hooks-dir", "", "Path to additional hooks directory for runtime hook injection")
 	rootCmd.Flags().StringVarP(&cwdFlag, "cwd", "c", "", "Working directory for the task")
+
+	// Image attachment flags
+	rootCmd.Flags().StringArrayVarP(&imageFlag, "image", "i", nil, "Image attachment (can be specified multiple times)")
 
 	// Special mode flags
 	rootCmd.Flags().BoolVar(&acpFlag, "acp", false, "Run in ACP (Agent Client Protocol) mode for editor integration")
@@ -259,6 +266,9 @@ type RootOptions struct {
 	TaskID   string
 	Continue bool
 
+	// Images
+	Images []string
+
 	// Prompt
 	Prompt string
 }
@@ -282,6 +292,7 @@ func validateRootOptions(cmd *cobra.Command, args []string) (*RootOptions, error
 		Kanban:                kanbanFlag,
 		TaskID:                taskIdFlag,
 		Continue:              continueFlag,
+		Images:                imageFlag,
 	}
 
 	// Validate mutually exclusive flags
@@ -368,9 +379,20 @@ func validateRootOptions(cmd *cobra.Command, args []string) (*RootOptions, error
 		}
 	}
 
-	// Set prompt from args
+	// Set prompt from args and parse image paths
 	if len(args) > 0 {
-		opts.Prompt = strings.Join(args, " ")
+		prompt := strings.Join(args, " ")
+		opts.Prompt, opts.Images = parsePromptAndImages(prompt, opts.Images)
+	}
+
+	// Validate image files exist
+	for _, img := range opts.Images {
+		if img == "" {
+			continue
+		}
+		if _, err := os.Stat(img); os.IsNotExist(err) {
+			return nil, fmt.Errorf("image file not found: %s", img)
+		}
 	}
 
 	return opts, nil
@@ -655,6 +677,7 @@ func runTaskWithGRPC(opts *RootOptions) error {
 		Yolo:                    opts.Yolo,
 		Timeout:                 opts.Timeout,
 		Model:                   opts.Model,
+		Images:                  opts.Images,
 		Verbose:                 verbose,
 		Cwd:                     opts.Cwd,
 		Thinking:                opts.Thinking != nil,
@@ -818,6 +841,49 @@ func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, t
 	})
 
 	return err
+}
+
+// parsePromptAndImages parses the prompt and extracts image paths from @mentions
+// Returns the cleaned prompt and a slice of image paths
+func parsePromptAndImages(prompt string, existingImages []string) (string, []string) {
+	// Pattern to match @/path/to/image.png or @path/to/image.png
+	// Support both absolute and relative paths
+	images := make([]string, 0, len(existingImages))
+	images = append(images, existingImages...)
+	
+	// Regular expression to match @ followed by a path
+	// This handles: @/path/to/file.png, @./path/to/file.png, @~/path/to/file.png, @file.png
+	imagePattern := regexp.MustCompile(`@((?:[~/\.])?[\w\-/\\.]+\.(?:png|jpg|jpeg|gif|webp|bmp))`)
+	
+	// Find all matches and replace them in the prompt
+	cleanedPrompt := imagePattern.ReplaceAllStringFunc(prompt, func(match string) string {
+		// Extract the path (remove @ prefix)
+		path := match[1:]
+		
+		// Expand ~ to home directory if needed
+		if strings.HasPrefix(path, "~") {
+			home, err := os.UserHomeDir()
+			if err == nil {
+				path = filepath.Join(home, path[1:])
+			}
+		}
+		
+		// Convert relative paths to absolute
+		if !filepath.IsAbs(path) && !strings.HasPrefix(path, "~") {
+			absPath, err := filepath.Abs(path)
+			if err == nil {
+				path = absPath
+			}
+		}
+		
+		images = append(images, path)
+		return "" // Remove the @mention from the prompt
+	})
+	
+	// Clean up extra whitespace from removing @mentions
+	cleanedPrompt = strings.Join(strings.Fields(cleanedPrompt), " ")
+	
+	return cleanedPrompt, images
 }
 
 

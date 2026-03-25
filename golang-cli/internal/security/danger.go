@@ -246,3 +246,9 @@ func DetectDangers(input string) []Danger {
 func IsSafe(input string) bool {
 	return !NewDetector(input).HasDangerousCharacters()
 }
+
+// ContainsDangerousCharacters is a convenience function that returns true
+// if the input contains any dangerous patterns.
+func ContainsDangerousCharacters(input string) bool {
+	return NewDetector(input).HasDangerousCharacters()
+}

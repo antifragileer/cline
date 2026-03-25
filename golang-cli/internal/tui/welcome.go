@@ -12,15 +12,33 @@ import (
 	"github.com/cline/cline/golang-cli/internal/storage"
 )
 
-// LogoASCII is the ASCII art logo for Cline
+// LogoASCII is the custom Cline ASCII art logo (matching TypeScript exactly)
 const LogoASCII = `
-   ██████╗██╗     ██╗███╗   ██╗███████╗
-  ██╔════╝██║     ██║████╗  ██║██╔════╝
-  ██║     ██║     ██║██╔██╗ ██║█████╗  
-  ██║     ██║     ██║██║╚██╗██║██╔══╝  
-  ╚██████╗███████╗██║██║ ╚████║███████╗
-   ╚═════╝╚══════╝╚═╝╚═╝  ╚═══╝╚══════╝
+            :::::::            
+           :::::::::           
+       :::::::::::::::::       
+    :::::::::::::::::::::::    
+   :::::::::::::::::::::::::   
+  :::::::::::::::::::::::::::  
+  :::::::   :::::::   :::::::  
+ :::::::     :::::     ::::::: 
+::::::::     :::::     ::::::::
+::::::::     :::::     ::::::::
+ :::::::     :::::     ::::::: 
+  :::::::   :::::::   :::::::  
+  :::::::::::::::::::::::::::  
+   :::::::::::::::::::::::::   
+    :::::::::::::::::::::::    
+       ::::::::::::::::       
 `
+
+// PlanActMode represents the plan/act execution mode
+type PlanActMode string
+
+const (
+	PlanActModeAct  PlanActMode = "act"
+	PlanActModePlan PlanActMode = "plan"
+)
 
 // WelcomeModel is the Bubble Tea model for the welcome screen
 type WelcomeModel struct {
@@ -37,6 +55,22 @@ type WelcomeModel struct {
 	action       string
 	selectedData interface{}
 	err          error
+	mode         PlanActMode
+	inputText    string
+	showInput    bool
+	
+	// File mention search
+	fileResults   []FileSearchResult
+	selectedFile  int
+	inMentionMode bool
+	isSearching   bool
+	showRipgrepWarning bool
+}
+
+// FileSearchResult represents a file search result
+type FileSearchResult struct {
+	Path  string
+	Score float64
 }
 
 // WelcomeMsg is sent when the welcome screen should be shown
@@ -73,6 +107,8 @@ func NewWelcomeModel(recentTasks []TaskHistoryItem, hasConfig bool, version stri
 		showHints:   true,
 		showLogo:    true,
 		version:     version,
+		mode:        PlanActModeAct,
+		showInput:   true,
 	}
 }
 
@@ -97,6 +133,28 @@ func (m WelcomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle Tab for mode toggle
+		if msg.String() == "tab" && !m.inMentionMode {
+			if m.mode == PlanActModeAct {
+				m.mode = PlanActModePlan
+			} else {
+				m.mode = PlanActModeAct
+			}
+			return m, nil
+		}
+
+		// Handle @ for file mention
+		if msg.String() == "@" && m.showInput {
+			m.inMentionMode = true
+			m.fileResults = []FileSearchResult{}
+			return m, nil
+		}
+
+		// Handle file mention mode
+		if m.inMentionMode {
+			return m.handleMentionModeKey(msg)
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -105,9 +163,15 @@ func (m WelcomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "n":
 			m.action = "new_task"
+			m.selectedData = m.inputText
 			return m, tea.Quit
 
 		case "enter":
+			if m.showInput && m.inputText != "" {
+				m.action = "new_task"
+				m.selectedData = m.inputText
+				return m, tea.Quit
+			}
 			if m.selected == 0 {
 				m.action = "new_task"
 				return m, tea.Quit
@@ -154,6 +218,19 @@ func (m WelcomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			maxIdx := 2 + len(m.recentTasks) + 1 // New Task, Settings, tasks, Help
 			if m.selected < maxIdx-1 {
 				m.selected++
+			}
+			return m, nil
+
+		case "backspace":
+			if len(m.inputText) > 0 {
+				m.inputText = m.inputText[:len(m.inputText)-1]
+			}
+			return m, nil
+
+		default:
+			// Add character to input (only printable ASCII for now)
+			if len(msg.String()) == 1 && msg.String()[0] >= 32 && msg.String()[0] < 127 {
+				m.inputText += msg.String()
 			}
 			return m, nil
 		}
@@ -428,6 +505,48 @@ func (m WelcomeModel) renderHints() string {
 
 // renderFooter renders the footer section
 func (m WelcomeModel) renderFooter() string {
+	var content strings.Builder
+
+	// Mode toggle indicator
+	modeStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Align(lipgloss.Center)
+
+	var modeText string
+	if m.mode == PlanActModeAct {
+		modeText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00D9FF")).
+			Bold(true).
+			Render("● Act") +
+			"    " +
+			lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#606060")).
+				Render("○ Plan")
+	} else {
+		modeText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#606060")).
+			Render("○ Act") +
+			"    " +
+			lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFD700")).
+				Bold(true).
+				Render("● Plan")
+	}
+	
+	modeText += lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#606060")).
+		Render("  (Tab)")
+
+	content.WriteString(modeStyle.Render(modeText))
+	content.WriteString("\n\n")
+
+	// Input area (if showing)
+	if m.showInput {
+		content.WriteString(m.renderInputArea())
+		content.WriteString("\n\n")
+	}
+
+	// Status message
 	footerStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#404040")).
 		Width(m.width).
@@ -438,7 +557,116 @@ func (m WelcomeModel) renderFooter() string {
 		status = "⚠ Configuration required - press 's' for settings"
 	}
 
-	return footerStyle.Render(status)
+	content.WriteString(footerStyle.Render(status))
+
+	return content.String()
+}
+
+// renderInputArea renders the input area
+func (m WelcomeModel) renderInputArea() string {
+	var content strings.Builder
+
+	// Prompt text
+	promptStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#E0E0E0")).
+		Bold(true).
+		Width(m.width).
+		Align(lipgloss.Center)
+	content.WriteString(promptStyle.Render("What can I do for you?"))
+	content.WriteString("\n\n")
+
+	// Input box with border
+	borderColor := "#00D9FF" // Act mode blue
+	if m.mode == PlanActModePlan {
+		borderColor = "#FFD700" // Plan mode yellow
+	}
+
+	inputBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(borderColor)).
+		Padding(0, 1).
+		Width(m.width - 4)
+
+	// Input text with cursor
+	inputText := m.inputText
+	if !m.inMentionMode {
+		inputText += "█" // Cursor
+	}
+
+	// Show file mention mode if active
+	if m.inMentionMode {
+		inputText += "@"
+		if m.isSearching {
+			inputText += " [searching...]"
+		} else if len(m.fileResults) > 0 && m.selectedFile < len(m.fileResults) {
+			inputText += " " + m.fileResults[m.selectedFile].Path
+		}
+	}
+
+	content.WriteString(inputBoxStyle.Render(inputText))
+
+	// Help text
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#606060")).
+		Width(m.width).
+		Align(lipgloss.Center)
+	content.WriteString("\n")
+	helpText := "Enter to submit • @ to mention files"
+	if m.inMentionMode {
+		helpText = "↑/↓ to navigate • Enter to select • Esc to cancel"
+	}
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// handleMentionModeKey handles key events in file mention mode
+func (m WelcomeModel) handleMentionModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up":
+		if len(m.fileResults) > 0 {
+			m.selectedFile--
+			if m.selectedFile < 0 {
+				m.selectedFile = len(m.fileResults) - 1
+			}
+		}
+		return m, nil
+
+	case "down":
+		if len(m.fileResults) > 0 {
+			m.selectedFile++
+			if m.selectedFile >= len(m.fileResults) {
+				m.selectedFile = 0
+			}
+		}
+		return m, nil
+
+	case "enter", "tab":
+		if len(m.fileResults) > 0 && m.selectedFile < len(m.fileResults) {
+			// Insert selected file
+			selectedPath := m.fileResults[m.selectedFile].Path
+			m.inputText += selectedPath + " "
+			m.inMentionMode = false
+			m.fileResults = []FileSearchResult{}
+		}
+		return m, nil
+
+	case "esc":
+		m.inMentionMode = false
+		m.fileResults = []FileSearchResult{}
+		return m, nil
+
+	case "backspace":
+		// Remove @ if backspacing in mention mode
+		m.inMentionMode = false
+		m.fileResults = []FileSearchResult{}
+		return m, nil
+
+	default:
+		// Build search query from input after @
+		// For now, just simulate with empty results
+		return m, nil
+	}
 }
 
 // formatTimeAgo formats a time as a human-readable "ago" string

@@ -37,6 +37,9 @@ type YoloModeConfig struct {
 
 	// ToolTypes is a list of specific tool types to auto-approve (empty = all)
 	ToolTypes []task.ToolType
+
+	// DangerousCommandAction defines what to do when a dangerous command is detected
+	DangerousCommandAction DangerousCommandAction
 }
 
 // DefaultYoloModeConfig returns the default yolo mode configuration.

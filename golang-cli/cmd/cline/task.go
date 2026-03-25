@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -244,6 +245,32 @@ func normalizeReasoningEffort(value string) string {
 	// Invalid value - print warning and default to medium
 	fmt.Fprintf(os.Stderr, "Invalid --reasoning-effort '%s'. Using 'medium'. Valid values: none, low, medium, high, xhigh.\n", value)
 	return "medium"
+}
+
+// parseThinkingFlag parses the thinking flag value which can be:
+// - "true" or empty string: enable with default tokens (1024)
+// - "false": disable thinking
+// - numeric string: specific token count
+// Returns nil if not set, pointer to token count if set
+func parseThinkingFlag(value string) *int {
+	if value == "" || strings.ToLower(value) == "false" {
+		return nil
+	}
+	
+	if strings.ToLower(value) == "true" {
+		defaultTokens := 1024
+		return &defaultTokens
+	}
+	
+	// Try to parse as integer
+	tokens, err := strconv.Atoi(value)
+	if err != nil || tokens < 0 {
+		// Invalid value, treat as default
+		defaultTokens := 1024
+		return &defaultTokens
+	}
+	
+	return &tokens
 }
 
 // validateTaskConfig validates the task configuration
