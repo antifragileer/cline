@@ -678,19 +678,17 @@ func runTaskWithGRPC(opts *RootOptions) error {
 		config.MaxConsecutiveMistakes = *opts.MaxConsecutiveMistakes
 	}
 
-	// Create message handler based on output mode
+	// Create message handler based on output mode and interactivity
 	var handler task.MessageHandler
 	if opts.JSON {
-		handler = &task.JSONHandler{
-			Output: os.Stdout,
-		}
+		// JSON mode - use JSONHandler for exact format parity
+		handler = task.NewJSONHandler(os.Stdout)
+	} else if isTTY() && !opts.Yolo && !opts.AutoApproveAll {
+		// Interactive TTY mode without auto-approve - use InteractiveHandler
+		handler = task.NewInteractiveHandler(false, verbose)
 	} else {
-		handler = &task.PlainTextHandler{
-			Verbose:     verbose,
-			JSONOutput:  opts.JSON,
-			Output:      os.Stdout,
-			AutoApprove: opts.Yolo || opts.AutoApproveAll,
-		}
+		// Non-interactive or auto-approve mode - use PlainTextHandler
+		handler = task.NewPlainTextHandler(verbose, opts.JSON, opts.Yolo || opts.AutoApproveAll, os.Stdout)
 	}
 
 	// Run the task with streaming
@@ -805,10 +803,21 @@ func checkConfiguration(storageCtx *storage.StorageContext) bool {
 
 // runInteractiveChat runs the interactive chat TUI
 func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, taskID string) error {
-	// For now, just run the task with prompt
-	// TODO: Create a proper ChatModel in tui package for full interactive mode
-	fmt.Println("Starting task...")
-	opts.TaskID = taskID
-	return runTaskWithPrompt(opts)
+	// Check if we're in a TTY
+	if !isTTY() {
+		return fmt.Errorf("interactive chat mode requires a terminal")
+	}
+
+	// Use the existing ChatScreen function
+	_, err := tui.ChatScreen("", func(content string) error {
+		fmt.Printf("Sending: %s\n", content)
+		return nil
+	}, func() error {
+		fmt.Println("Interrupted")
+		return nil
+	})
+
+	return err
 }
+
 
