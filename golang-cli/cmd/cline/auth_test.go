@@ -422,8 +422,9 @@ func TestSaveAuthConfigWithBaseURL(t *testing.T) {
 }
 
 func TestGetCurrentProvider(t *testing.T) {
-	// Create temporary storage context
-	ctx, err := storage.NewStorageContext("", "")
+	// Create temporary directory for isolated storage
+	tmpDir := t.TempDir()
+	ctx, err := storage.NewStorageContext(tmpDir, "test-workspace")
 	if err != nil {
 		t.Fatalf("Failed to create storage context: %v", err)
 	}
@@ -452,8 +453,9 @@ func TestGetCurrentProvider(t *testing.T) {
 }
 
 func TestGetAPIKey(t *testing.T) {
-	// Create temporary storage context
-	ctx, err := storage.NewStorageContext("", "")
+	// Create temporary directory for isolated storage
+	tmpDir := t.TempDir()
+	ctx, err := storage.NewStorageContext(tmpDir, "test-workspace")
 	if err != nil {
 		t.Fatalf("Failed to create storage context: %v", err)
 	}

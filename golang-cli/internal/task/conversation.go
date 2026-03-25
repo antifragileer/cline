@@ -1102,8 +1102,14 @@ func copyMessage(msg *ConversationMessage) *ConversationMessage {
 }
 
 // generateMessageID generates a unique message ID
+var messageIDCounter int64
+var messageIDMutex sync.Mutex
+
 func generateMessageID() string {
-	return fmt.Sprintf("msg_%d_%d", time.Now().UnixMilli(), time.Now().Nanosecond())
+	messageIDMutex.Lock()
+	defer messageIDMutex.Unlock()
+	messageIDCounter++
+	return fmt.Sprintf("msg_%d_%d", time.Now().UnixMilli(), messageIDCounter)
 }
 
 // ConversationStore manages multiple conversation managers for different tasks
