@@ -83,7 +83,7 @@ func (h *PlainTextHandler) OnAsk(askType string, text string) (string, error) {
 
 	// Print the question
 	fmt.Fprintf(h.Output, "\n%s\n", text)
-	fmt.Fprint(h.Output, "Response (y/n/more): ")
+	fmt.Fprint(h.Output, "Response (y/n/a): ")
 
 	// Read response from stdin
 	var response string
@@ -100,6 +100,8 @@ func (h *PlainTextHandler) OnAsk(askType string, text string) (string, error) {
 		return "yesButtonClicked", nil
 	case "n", "no":
 		return "noButtonClicked", nil
+	case "a", "always":
+		return "yesButtonClicked", nil
 	default:
 		return "messageResponse", nil
 	}

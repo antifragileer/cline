@@ -88,6 +88,7 @@ func TestNewReportGenerator(t *testing.T) {
 
 	t.Run("creates generator from logger", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      tempDir,
 			MaxFileSize: 1024 * 1024,
 			MaxBackups:  3,
@@ -120,6 +121,7 @@ func TestReportGenerator_Generate(t *testing.T) {
 
 	// Create logger and log some events
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,
@@ -361,6 +363,7 @@ func TestReportGenerator_GenerateStream(t *testing.T) {
 
 	// Create logger and log some events
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,
@@ -516,6 +519,7 @@ func TestReportGenerator_ExportToFile(t *testing.T) {
 
 	// Create logger and log some events
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,
@@ -1051,6 +1055,7 @@ func TestReportGenerator_RotatedLogs(t *testing.T) {
 
 	// Create logger
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 50, // Very small to trigger rotation
 		MaxBackups:  3,
@@ -1148,6 +1153,7 @@ func TestReportGenerator_CallbackError(t *testing.T) {
 
 	// Create logger
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,

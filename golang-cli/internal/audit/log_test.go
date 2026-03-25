@@ -41,6 +41,7 @@ func TestNewLogger(t *testing.T) {
 
 	t.Run("creates logger with valid config", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      tempDir,
 			MaxFileSize: 1024,
 			MaxBackups:  3,
@@ -65,6 +66,7 @@ func TestNewLogger(t *testing.T) {
 	t.Run("creates log directory if not exists", func(t *testing.T) {
 		logDir := filepath.Join(tempDir, "new", "nested", "dir")
 		config := Config{
+			Enabled:     true,
 			LogDir:      logDir,
 			MaxFileSize: 1024,
 			MaxBackups:  3,
@@ -85,6 +87,7 @@ func TestNewLogger(t *testing.T) {
 
 	t.Run("async mode starts worker", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "async"),
 			MaxFileSize: 1024,
 			MaxBackups:  3,
@@ -121,6 +124,7 @@ func TestLogger_Log(t *testing.T) {
 
 	t.Run("logs event with all fields", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      tempDir,
 			MaxFileSize: 1024 * 1024,
 			MaxBackups:  3,
@@ -176,6 +180,7 @@ func TestLogger_Log(t *testing.T) {
 
 	t.Run("sets default timestamp if not provided", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "default-timestamp"),
 			MaxFileSize: 1024 * 1024,
 			MaxBackups:  3,
@@ -215,6 +220,7 @@ func TestLogger_Log(t *testing.T) {
 
 	t.Run("converts timestamp to UTC", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "utc-test"),
 			MaxFileSize: 1024 * 1024,
 			MaxBackups:  3,
@@ -254,6 +260,7 @@ func TestLogger_Log(t *testing.T) {
 
 	t.Run("returns error for nil event", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "nil-test"),
 			MaxFileSize: 1024,
 			MaxBackups:  3,
@@ -274,6 +281,7 @@ func TestLogger_Log(t *testing.T) {
 
 	t.Run("handles all event types", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "event-types"),
 			MaxFileSize: 1024 * 1024,
 			MaxBackups:  3,
@@ -333,6 +341,7 @@ func TestLogger_LogWithContext(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,
@@ -396,6 +405,7 @@ func TestLogger_Close(t *testing.T) {
 
 	t.Run("closes logger successfully", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      tempDir,
 			MaxFileSize: 1024,
 			MaxBackups:  3,
@@ -419,6 +429,7 @@ func TestLogger_Close(t *testing.T) {
 
 	t.Run("multiple close calls are safe", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "multi-close"),
 			MaxFileSize: 1024,
 			MaxBackups:  3,
@@ -443,6 +454,7 @@ func TestLogger_Close(t *testing.T) {
 
 	t.Run("flushes pending async events on close", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "async-flush"),
 			MaxFileSize: 1024 * 1024,
 			MaxBackups:  3,
@@ -501,6 +513,7 @@ func TestLogger_LogRotation(t *testing.T) {
 	t.Run("rotates log when size exceeds limit", func(t *testing.T) {
 		// Set a small max file size to trigger rotation quickly
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "rotation"),
 			MaxFileSize: 500, // Very small for testing
 			MaxBackups:  3,
@@ -547,6 +560,7 @@ func TestLogger_LogRotation(t *testing.T) {
 
 	t.Run("respects max backups limit", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "max-backups"),
 			MaxFileSize: 200,
 			MaxBackups:  2,
@@ -602,6 +616,7 @@ func TestLogger_AsyncBufferFull(t *testing.T) {
 
 	t.Run("returns error when async buffer is full", func(t *testing.T) {
 		config := Config{
+			Enabled:     true,
 			LogDir:      filepath.Join(tempDir, "buffer-full"),
 			MaxFileSize: 1024 * 1024,
 			MaxBackups:  3,
@@ -653,6 +668,7 @@ func TestLogger_ConcurrentAccess(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 10 * 1024 * 1024,
 		MaxBackups:  3,
@@ -715,6 +731,7 @@ func TestHelperFunctions(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,
@@ -793,6 +810,7 @@ func TestLogger_JSONFormat(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,
@@ -880,6 +898,7 @@ func TestLogger_FilePermissions(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	config := Config{
+		Enabled:     true,
 		LogDir:      tempDir,
 		MaxFileSize: 1024 * 1024,
 		MaxBackups:  3,

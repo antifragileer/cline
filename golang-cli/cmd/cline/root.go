@@ -17,6 +17,7 @@ import (
 	"github.com/cline/cline/golang-cli/internal/mode"
 	"github.com/cline/cline/golang-cli/internal/storage"
 	"github.com/cline/cline/golang-cli/internal/task"
+	"github.com/cline/cline/golang-cli/internal/tui"
 )
 
 const (
@@ -734,28 +735,80 @@ func runInteractiveMode(opts *RootOptions) error {
 		"model", opts.Model,
 	)
 
-	// Apply CLI flags even in interactive mode
-	// This ensures flags like --yolo affect the initial TUI state
-	fmt.Println("Interactive mode starting with options:")
-	if opts.Act {
-		fmt.Println("  - Act mode")
-	}
-	if opts.Plan {
-		fmt.Println("  - Plan mode")
-	}
-	if opts.Yolo {
-		fmt.Println("  - Yolo mode enabled")
-	}
-	if opts.Model != "" {
-		fmt.Printf("  - Model: %s\n", opts.Model)
-	}
-	if opts.AutoApproveAll {
-		fmt.Println("  - Auto-approve all enabled")
+	// Check if we're in a TTY
+	if !isTTY() {
+		// Non-TTY mode - print message and return
+		fmt.Println("Interactive mode starting")
+		fmt.Println("Note: Full TUI requires a terminal. Use 'cline \"your prompt\"' for non-interactive mode.")
+		return nil
 	}
 
-	// TODO: Implement actual interactive TUI
-	fmt.Println("\nInteractive mode not yet fully implemented.")
+	// Initialize storage
+	storageCtx, err := initStorage()
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer storageCtx.Close()
+
+	// Load task history from storage
+	historyPath := getTaskHistoryPath()
+	entries, err := loadTaskHistory(historyPath)
+	if err != nil {
+		entries = []TaskHistoryEntry{}
+	}
+	
+	// Convert entries to TaskHistoryItem
+	recentTasks := make([]tui.TaskHistoryItem, 0, len(entries))
+	for _, entry := range entries {
+		recentTasks = append(recentTasks, tui.TaskHistoryItem{
+			ID:          entry.ID,
+			Description: entry.Task,
+			Timestamp:   fmt.Sprintf("%d", entry.Timestamp),
+		})
+	}
+
+	// Check if user has valid configuration
+	hasConfig := checkConfiguration(storageCtx)
+
+	// Show welcome screen
+	action, data, err := tui.WelcomeScreen(recentTasks, hasConfig, Version)
+	if err != nil {
+		return fmt.Errorf("welcome screen error: %w", err)
+	}
+
+	switch action {
+	case "new_task":
+		return runInteractiveChat(opts, storageCtx, "")
+	case "resume_task":
+		if taskID, ok := data.(string); ok {
+			return runInteractiveChat(opts, storageCtx, taskID)
+		}
+	case "settings":
+		fmt.Println("Settings not yet implemented in TUI mode.")
+		return nil
+	case "help":
+		fmt.Println("Help not yet implemented in TUI mode.")
+		return nil
+	case "quit":
+		return nil
+	}
 
 	return nil
+}
+
+// checkConfiguration checks if the user has valid configuration
+func checkConfiguration(storageCtx *storage.StorageContext) bool {
+	// TODO: Implement actual configuration check
+	// For now, assume configuration exists
+	return true
+}
+
+// runInteractiveChat runs the interactive chat TUI
+func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, taskID string) error {
+	// For now, just run the task with prompt
+	// TODO: Create a proper ChatModel in tui package for full interactive mode
+	fmt.Println("Starting task...")
+	opts.TaskID = taskID
+	return runTaskWithPrompt(opts)
 }
 

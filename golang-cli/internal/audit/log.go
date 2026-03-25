@@ -1,7 +1,8 @@
+// Package audit provides enterprise audit logging for the Cline CLI.
 package audit
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,416 +16,539 @@ import (
 type EventType string
 
 const (
-	// EventCommandExecution logs command execution events
+	// EventCommandExecution represents command execution
 	EventCommandExecution EventType = "command_execution"
-	// EventFileRead logs file read events
+	// EventFileRead represents file read operations
 	EventFileRead EventType = "file_read"
-	// EventFileWrite logs file write events
+	// EventFileWrite represents file write operations
 	EventFileWrite EventType = "file_write"
-	// EventAPICall logs API call events
+	// EventAPICall represents API calls
 	EventAPICall EventType = "api_call"
-	// EventToolApproval logs tool approval events
+	// EventToolApproval represents tool approval
 	EventToolApproval EventType = "tool_approval"
-	// EventToolRejection logs tool rejection events
+	// EventToolRejection represents tool rejection
 	EventToolRejection EventType = "tool_rejection"
-	// EventConfigurationChange logs configuration change events
+	// EventConfigurationChange represents configuration change
 	EventConfigurationChange EventType = "configuration_change"
 )
 
-// Event represents a single audit event
-type Event struct {
-	// Timestamp is the UTC timestamp when the event occurred
-	Timestamp time.Time `json:"timestamp"`
-	// EventType is the type of audit event
-	EventType EventType `json:"event_type"`
-	// UserContext identifies the user (e.g., username, user ID)
-	UserContext string `json:"user_context"`
-	// TaskID is the unique identifier for the task
-	TaskID string `json:"task_id"`
-	// SessionID is the unique identifier for the session
-	SessionID string `json:"session_id"`
-	// Details contains event-specific details
-	Details map[string]interface{} `json:"details,omitempty"`
-	// Message is a human-readable description of the event
-	Message string `json:"message"`
-}
+// Config provides audit configuration for test compatibility
+type Config = LoggerConfig
 
-// Logger handles audit logging with support for rotation and async writes
-type Logger struct {
-	// config holds the logger configuration
-	config Config
-	// writer is the current log writer
-	writer io.WriteCloser
-	// slogLogger is the structured logger
-	slogLogger *slog.Logger
-	// eventChan is the channel for async event processing
-	eventChan chan *Event
-	// doneChan is used to signal shutdown completion
-	doneChan chan struct{}
-	// wg waits for the async worker to finish
-	wg sync.WaitGroup
-	// mu protects writer and currentSize
-	mu sync.RWMutex
-	// currentSize tracks the current log file size
-	currentSize int64
-	// closed indicates if the logger has been closed
-	closed bool
-	// closeOnce ensures Close is only called once
-	closeOnce sync.Once
-}
-
-// Config holds configuration for the audit logger
-type Config struct {
-	// LogDir is the directory where log files are stored
-	LogDir string
-	// MaxFileSize is the maximum size of a log file before rotation (in bytes)
-	MaxFileSize int64
-	// MaxBackups is the maximum number of backup files to keep
-	MaxBackups int
-	// BufferSize is the size of the async event channel
-	BufferSize int
-	// SyncWrite determines if writes should be synchronous (blocking)
-	SyncWrite bool
-}
-
-// DefaultConfig returns a default configuration
-func DefaultConfig() Config {
+// DefaultConfig provides default configuration for test compatibility
+func DefaultConfig() LoggerConfig {
 	homeDir, _ := os.UserHomeDir()
-	return Config{
-		LogDir:      filepath.Join(homeDir, ".cline", "logs", "audit"),
-		MaxFileSize: 10 * 1024 * 1024, // 10 MB
+	return LoggerConfig{
+		Enabled:     true,
+		LogDir:      filepath.Join(homeDir, ".cline", "logs"),
+		MaxFileSize: 10 * 1024 * 1024, // 10MB
 		MaxBackups:  5,
 		BufferSize:  1000,
 		SyncWrite:   false,
 	}
 }
 
-// NewLogger creates a new audit logger with the given configuration
-func NewLogger(config Config) (*Logger, error) {
-	// Create log directory if it doesn't exist
+// ensureDefaults sets default values for unset fields
+func ensureDefaults(config *LoggerConfig) {
+	if !config.Enabled && config.LogDir == "" {
+		// If both are defaults, assume this is a fresh config and enable it
+		config.Enabled = true
+	}
+	if config.LogDir == "" {
+		homeDir, _ := os.UserHomeDir()
+		config.LogDir = filepath.Join(homeDir, ".cline", "logs")
+	}
+	if config.MaxFileSize == 0 {
+		config.MaxFileSize = 10 * 1024 * 1024 // 10MB
+	}
+	if config.MaxBackups == 0 {
+		config.MaxBackups = 5
+	}
+	if config.BufferSize == 0 {
+		config.BufferSize = 1000
+	}
+}
+
+// Event represents an audit log event
+type Event struct {
+	// Timestamp is when the event occurred
+	Timestamp time.Time `json:"timestamp"`
+	// EventType is the type of event
+	EventType EventType `json:"event_type"`
+	// UserContext identifies the user
+	UserContext string `json:"user_context,omitempty"`
+	// TaskID identifies the task
+	TaskID string `json:"task_id,omitempty"`
+	// SessionID identifies the session
+	SessionID string `json:"session_id,omitempty"`
+	// Message is the event message
+	Message string `json:"message,omitempty"`
+	// Details contains additional event data
+	Details map[string]interface{} `json:"details,omitempty"`
+}
+
+// LoggerConfig configures the audit logger
+type LoggerConfig struct {
+	// Enabled enables or disables logging
+	Enabled bool
+	// LogDir is the directory for log files
+	LogDir string
+	// MaxFileSize is the maximum log file size before rotation
+	MaxFileSize int64
+	// MaxBackups is the number of backup files to keep
+	MaxBackups int
+	// BufferSize is the size of the write buffer
+	BufferSize int
+	// SyncWrite enables synchronous writing (for testing)
+	SyncWrite bool
+}
+
+// DefaultLoggerConfig returns default configuration
+func DefaultLoggerConfig() LoggerConfig {
+	return DefaultConfig()
+}
+
+// Logger handles audit logging
+type Logger struct {
+	config    LoggerConfig
+	logger    *slog.Logger
+	file      *os.File
+	logPath   string
+	mu        sync.RWMutex
+	closed    bool
+	eventChan chan *Event
+	done      chan struct{}
+	wg        sync.WaitGroup
+}
+
+// NewLogger creates a new audit logger
+func NewLogger(config LoggerConfig) (*Logger, error) {
 	if err := os.MkdirAll(config.LogDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
 
-	logger := &Logger{
-		config:    config,
-		eventChan: make(chan *Event, config.BufferSize),
-		doneChan:  make(chan struct{}),
-	}
-
-	// Open initial log file
-	if err := logger.openLogFile(); err != nil {
+	logPath := filepath.Join(config.LogDir, "audit.log")
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
 
-	// Start async worker if not in sync mode
-	if !config.SyncWrite {
-		logger.wg.Add(1)
-		go logger.asyncWorker()
-	}
-
-	return logger, nil
-}
-
-// openLogFile opens or creates the current log file
-func (l *Logger) openLogFile() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	logPath := filepath.Join(l.config.LogDir, "audit.log")
-
-	// Check if file exists and get its size
-	if info, err := os.Stat(logPath); err == nil {
-		l.currentSize = info.Size()
-	} else {
-		l.currentSize = 0
-	}
-
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
-	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
-	}
-
-	l.writer = file
-	l.slogLogger = slog.New(slog.NewJSONHandler(file, &slog.HandlerOptions{
+	// Create slog handler
+	handler := slog.NewJSONHandler(file, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
-	}))
+	})
 
-	return nil
+	l := &Logger{
+		config:    config,
+		logger:    slog.New(handler),
+		file:      file,
+		logPath:   logPath,
+		eventChan: make(chan *Event, config.BufferSize),
+		done:      make(chan struct{}),
+	}
+
+	// Only start async worker if not in sync mode
+	if config.Enabled && !config.SyncWrite {
+		l.wg.Add(1)
+		go l.writeLoop()
+	}
+
+	return l, nil
 }
 
-// rotate performs log rotation when the current file exceeds MaxFileSize
-func (l *Logger) rotate() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	// Check if rotation is needed
-	if l.currentSize < l.config.MaxFileSize {
-		return nil
-	}
-
-	// Close current writer
-	if l.writer != nil {
-		l.writer.Close()
-	}
-
-	logPath := filepath.Join(l.config.LogDir, "audit.log")
-
-	// Rotate existing backups
-	for i := l.config.MaxBackups - 1; i >= 0; i-- {
-		var srcPath, dstPath string
-
-		if i == 0 {
-			srcPath = logPath
-		} else {
-			srcPath = filepath.Join(l.config.LogDir, fmt.Sprintf("audit.log.%d", i))
-		}
-
-		dstPath = filepath.Join(l.config.LogDir, fmt.Sprintf("audit.log.%d", i+1))
-
-		// Remove oldest backup if it exists
-		if i == l.config.MaxBackups-1 {
-			os.Remove(dstPath)
-		}
-
-		// Rename source to destination
-		if _, err := os.Stat(srcPath); err == nil {
-			os.Rename(srcPath, dstPath)
-		}
-	}
-
-	// Open new log file
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
-	if err != nil {
-		return fmt.Errorf("failed to open new log file: %w", err)
-	}
-
-	l.writer = file
-	l.slogLogger = slog.New(slog.NewJSONHandler(file, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	l.currentSize = 0
-
-	return nil
-}
-
-// asyncWorker processes events from the channel asynchronously
-func (l *Logger) asyncWorker() {
+// writeLoop processes events in the background for async mode
+func (l *Logger) writeLoop() {
 	defer l.wg.Done()
 
-	for event := range l.eventChan {
-		if event != nil {
-			l.writeEvent(event)
+	for {
+		select {
+		case event := <-l.eventChan:
+			if event != nil {
+				l.writeEventToLogger(event)
+			}
+		case <-l.done:
+			// Drain remaining events
+			for {
+				select {
+				case event := <-l.eventChan:
+					if event != nil {
+						l.writeEventToLogger(event)
+					}
+				default:
+					return
+				}
+			}
 		}
 	}
 }
 
-// writeEvent writes a single event to the log
-func (l *Logger) writeEvent(event *Event) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+// writeEventToLogger writes event to slog logger (async mode)
+func (l *Logger) writeEventToLogger(event *Event) {
+	l.logger.Info("audit event",
+		"event", map[string]interface{}{
+			"timestamp":    event.Timestamp.Format(time.RFC3339Nano),
+			"event_type":   string(event.EventType),
+			"user_context": event.UserContext,
+			"task_id":      event.TaskID,
+			"session_id":   event.SessionID,
+			"message":      event.Message,
+			"details":      event.Details,
+		},
+	)
+}
 
-	if l.closed || l.writer == nil {
-		return
+// logEvent logs a single event synchronously with immediate sync
+func (l *Logger) logEvent(event *Event) {
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now().UTC()
+	} else if event.Timestamp.Location() != time.UTC {
+		event.Timestamp = event.Timestamp.UTC()
 	}
 
-	// Marshal event to JSON for structured logging
-	eventData := map[string]interface{}{
-		"timestamp":    event.Timestamp.UTC().Format(time.RFC3339Nano),
-		"event_type":   string(event.EventType),
-		"user_context": event.UserContext,
-		"task_id":      event.TaskID,
-		"session_id":   event.SessionID,
-		"message":      event.Message,
-	}
+	l.mu.RLock()
+	file := l.file
+	l.mu.RUnlock()
 
-	if len(event.Details) > 0 {
-		eventData["details"] = event.Details
-	}
+	l.logger.Info("audit event",
+		"event", map[string]interface{}{
+			"timestamp":    event.Timestamp.Format(time.RFC3339Nano),
+			"event_type":   string(event.EventType),
+			"user_context": event.UserContext,
+			"task_id":      event.TaskID,
+			"session_id":   event.SessionID,
+			"message":      event.Message,
+			"details":      event.Details,
+		},
+	)
 
-	// Write using slog for structured JSON output
-	l.slogLogger.Info("audit_event", slog.Any("event", eventData))
-
-	// Update current size estimate (approximate)
-	if jsonData, err := json.Marshal(eventData); err == nil {
-		l.currentSize += int64(len(jsonData) + 1) // +1 for newline
-	}
-
-	// Check if rotation is needed
-	if l.currentSize >= l.config.MaxFileSize {
-		// We can't call rotate directly here because we hold the lock
-		// Instead, we'll check after releasing the lock in Log()
+	// Always sync after writing - critical for tests and data integrity
+	if file != nil {
+		file.Sync()
 	}
 }
 
-// Log records an audit event
+// Log logs an audit event
 func (l *Logger) Log(event *Event) error {
 	if event == nil {
 		return fmt.Errorf("event cannot be nil")
 	}
 
-	// Set default timestamp if not provided
-	if event.Timestamp.IsZero() {
-		event.Timestamp = time.Now().UTC()
-	} else {
-		// Ensure UTC
-		event.Timestamp = event.Timestamp.UTC()
-	}
-
-	// Check if rotation is needed before logging
 	l.mu.RLock()
-	needsRotation := l.currentSize >= l.config.MaxFileSize
+	if l.closed {
+		l.mu.RUnlock()
+		return fmt.Errorf("logger is closed")
+	}
 	l.mu.RUnlock()
 
-	if needsRotation {
-		if err := l.rotate(); err != nil {
-			return fmt.Errorf("failed to rotate log: %w", err)
-		}
+	if !l.config.Enabled {
+		return nil
 	}
 
 	if l.config.SyncWrite {
-		l.writeEvent(event)
-	} else {
-		select {
-		case l.eventChan <- event:
-			// Event queued successfully
-		default:
-			// Channel is full, drop the event but return an error
-			return fmt.Errorf("audit log buffer full, event dropped")
-		}
+		// In sync mode, write directly and flush immediately
+		l.logEvent(event)
+		return nil
 	}
 
-	return nil
+	// In async mode, send to channel
+	select {
+	case l.eventChan <- event:
+		return nil
+	default:
+		// Channel full, log synchronously as fallback
+		l.logEvent(event)
+		return nil
+	}
 }
 
-// LogWithContext is a convenience method to log an event with common fields
-func (l *Logger) LogWithContext(
-	eventType EventType,
-	userContext,
-	taskID,
-	sessionID,
-	message string,
-	details map[string]interface{},
-) error {
-	event := &Event{
+// LogWithContext logs an event with all context fields
+func (l *Logger) LogWithContext(eventType EventType, userContext, taskID, sessionID, message string, details map[string]interface{}) error {
+	return l.Log(&Event{
 		EventType:   eventType,
 		UserContext: userContext,
 		TaskID:      taskID,
 		SessionID:   sessionID,
 		Message:     message,
 		Details:     details,
-		Timestamp:   time.Now().UTC(),
-	}
-	return l.Log(event)
-}
-
-// Close shuts down the logger and flushes pending events
-func (l *Logger) Close() error {
-	var closeErr error
-
-	l.closeOnce.Do(func() {
-		l.mu.Lock()
-		l.closed = true
-		l.mu.Unlock()
-
-		// Close the event channel to prevent new events
-		close(l.eventChan)
-
-		// Wait for async worker to finish processing
-		l.wg.Wait()
-
-		// Close the writer
-		l.mu.Lock()
-		if l.writer != nil {
-			closeErr = l.writer.Close()
-			l.writer = nil
-		}
-		l.mu.Unlock()
 	})
-
-	return closeErr
 }
 
-// GetLogPath returns the path to the current log file
+// LogCommandExecution logs a command execution event
+func (l *Logger) LogCommandExecution(userContext, taskID, sessionID, command string, args []string, cwd string) error {
+	return l.Log(&Event{
+		EventType:   EventCommandExecution,
+		UserContext: userContext,
+		TaskID:      taskID,
+		SessionID:   sessionID,
+		Message:     fmt.Sprintf("Executed: %s", command),
+		Details: map[string]interface{}{
+			"command": command,
+			"args":    args,
+			"cwd":     cwd,
+		},
+	})
+}
+
+// LogFileRead logs a file read event
+func (l *Logger) LogFileRead(userContext, taskID, sessionID, filePath string, size int64) error {
+	return l.Log(&Event{
+		EventType:   EventFileRead,
+		UserContext: userContext,
+		TaskID:      taskID,
+		SessionID:   sessionID,
+		Message:     fmt.Sprintf("Read file: %s", filePath),
+		Details: map[string]interface{}{
+			"file_path": filePath,
+			"size":      size,
+		},
+	})
+}
+
+// LogFileWrite logs a file write event
+func (l *Logger) LogFileWrite(userContext, taskID, sessionID, filePath string, size int64, created bool) error {
+	action := "Modified"
+	if created {
+		action = "Created"
+	}
+	return l.Log(&Event{
+		EventType:   EventFileWrite,
+		UserContext: userContext,
+		TaskID:      taskID,
+		SessionID:   sessionID,
+		Message:     fmt.Sprintf("%s file: %s", action, filePath),
+		Details: map[string]interface{}{
+			"file_path": filePath,
+			"size":      size,
+			"created":   created,
+		},
+	})
+}
+
+// LogAPICall logs an API call event
+func (l *Logger) LogAPICall(userContext, taskID, sessionID, provider, model, endpoint string, statusCode, tokensUsed int) error {
+	return l.Log(&Event{
+		EventType:   EventAPICall,
+		UserContext: userContext,
+		TaskID:      taskID,
+		SessionID:   sessionID,
+		Message:     fmt.Sprintf("API call to %s/%s", provider, endpoint),
+		Details: map[string]interface{}{
+			"provider":    provider,
+			"model":       model,
+			"endpoint":    endpoint,
+			"status_code": statusCode,
+			"tokens_used": tokensUsed,
+		},
+	})
+}
+
+// LogToolApproval logs a tool approval event
+func (l *Logger) LogToolApproval(userContext, taskID, sessionID, toolName string, toolInput map[string]interface{}) error {
+	return l.Log(&Event{
+		EventType:   EventToolApproval,
+		UserContext: userContext,
+		TaskID:      taskID,
+		SessionID:   sessionID,
+		Message:     fmt.Sprintf("Approved tool: %s", toolName),
+		Details: map[string]interface{}{
+			"tool_name":  toolName,
+			"tool_input": toolInput,
+		},
+	})
+}
+
+// LogToolRejection logs a tool rejection event
+func (l *Logger) LogToolRejection(userContext, taskID, sessionID, toolName string, toolInput map[string]interface{}, reason string) error {
+	return l.Log(&Event{
+		EventType:   EventToolRejection,
+		UserContext: userContext,
+		TaskID:      taskID,
+		SessionID:   sessionID,
+		Message:     fmt.Sprintf("Rejected tool: %s - %s", toolName, reason),
+		Details: map[string]interface{}{
+			"tool_name":  toolName,
+			"tool_input": toolInput,
+			"reason":     reason,
+		},
+	})
+}
+
+// LogConfigurationChange logs a configuration change event
+func (l *Logger) LogConfigurationChange(userContext, taskID, sessionID, settingName, oldValue, newValue string) error {
+	return l.Log(&Event{
+		EventType:   EventConfigurationChange,
+		UserContext: userContext,
+		TaskID:      taskID,
+		SessionID:   sessionID,
+		Message:     fmt.Sprintf("Changed setting: %s", settingName),
+		Details: map[string]interface{}{
+			"setting_name": settingName,
+			"old_value":    oldValue,
+			"new_value":    newValue,
+		},
+	})
+}
+
+// GetLogPath returns the path to the log file
 func (l *Logger) GetLogPath() string {
-	return filepath.Join(l.config.LogDir, "audit.log")
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.logPath
 }
 
-// IsClosed returns true if the logger has been closed
+// IsClosed returns whether the logger is closed
 func (l *Logger) IsClosed() bool {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.closed
 }
 
-// Helper functions for common event types
-
-// LogCommandExecution logs a command execution event
-func (l *Logger) LogCommandExecution(userContext, taskID, sessionID, command string, args []string, workingDir string) error {
-	details := map[string]interface{}{
-		"command":     command,
-		"args":        args,
-		"working_dir": workingDir,
+// Close closes the logger and flushes remaining events
+func (l *Logger) Close() error {
+	l.mu.Lock()
+	if l.closed {
+		l.mu.Unlock()
+		return nil
 	}
-	return l.LogWithContext(EventCommandExecution, userContext, taskID, sessionID, "Command executed", details)
+	l.closed = true
+	l.mu.Unlock()
+
+	// Only close done channel if we started the async worker
+	if !l.config.SyncWrite {
+		close(l.done)
+		l.wg.Wait()
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.file != nil {
+		// Sync file to ensure all data is written
+		l.file.Sync()
+		return l.file.Close()
+	}
+	return nil
 }
 
-// LogFileRead logs a file read event
-func (l *Logger) LogFileRead(userContext, taskID, sessionID, filePath string, bytesRead int64) error {
-	details := map[string]interface{}{
-		"file_path":  filePath,
-		"bytes_read": bytesRead,
-	}
-	return l.LogWithContext(EventFileRead, userContext, taskID, sessionID, "File read", details)
+// SetEnabled enables or disables logging
+func (l *Logger) SetEnabled(enabled bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.config.Enabled = enabled
 }
 
-// LogFileWrite logs a file write event
-func (l *Logger) LogFileWrite(userContext, taskID, sessionID, filePath string, bytesWritten int64, isAppend bool) error {
-	details := map[string]interface{}{
-		"file_path":     filePath,
-		"bytes_written": bytesWritten,
-		"is_append":     isAppend,
-	}
-	return l.LogWithContext(EventFileWrite, userContext, taskID, sessionID, "File written", details)
+// IsEnabled returns whether logging is enabled
+func (l *Logger) IsEnabled() bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.config.Enabled
 }
 
-// LogAPICall logs an API call event
-func (l *Logger) LogAPICall(userContext, taskID, sessionID, provider, model, endpoint string, statusCode int, latencyMs int64) error {
-	details := map[string]interface{}{
-		"provider":     provider,
-		"model":        model,
-		"endpoint":     endpoint,
-		"status_code":  statusCode,
-		"latency_ms":   latencyMs,
+// Rotate rotates the log file
+func (l *Logger) Rotate() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.file == nil {
+		return nil
 	}
-	return l.LogWithContext(EventAPICall, userContext, taskID, sessionID, "API call completed", details)
+
+	// Close current file
+	if err := l.file.Close(); err != nil {
+		return err
+	}
+
+	// Rotate backups
+	logPath := filepath.Join(l.config.LogDir, "audit.log")
+	for i := l.config.MaxBackups - 1; i > 0; i-- {
+		oldPath := filepath.Join(l.config.LogDir, fmt.Sprintf("audit.log.%d", i))
+		newPath := filepath.Join(l.config.LogDir, fmt.Sprintf("audit.log.%d", i+1))
+		os.Rename(oldPath, newPath)
+	}
+
+	// Move current to .1
+	os.Rename(logPath, filepath.Join(l.config.LogDir, "audit.log.1"))
+
+	// Open new file
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+	if err != nil {
+		return err
+	}
+
+	l.file = file
+	handler := slog.NewJSONHandler(file, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+	l.logger = slog.New(handler)
+
+	return nil
 }
 
-// LogToolApproval logs a tool approval event
-func (l *Logger) LogToolApproval(userContext, taskID, sessionID, toolName string, toolInput map[string]interface{}) error {
-	details := map[string]interface{}{
-		"tool_name":  toolName,
-		"tool_input": toolInput,
+// CheckSize checks if the log file needs rotation
+func (l *Logger) CheckSize() error {
+	l.mu.RLock()
+	file := l.file
+	maxSize := l.config.MaxFileSize
+	l.mu.RUnlock()
+
+	if file == nil || maxSize <= 0 {
+		return nil
 	}
-	return l.LogWithContext(EventToolApproval, userContext, taskID, sessionID, "Tool approved", details)
+
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	if info.Size() >= maxSize {
+		return l.Rotate()
+	}
+
+	return nil
 }
 
-// LogToolRejection logs a tool rejection event
-func (l *Logger) LogToolRejection(userContext, taskID, sessionID, toolName string, toolInput map[string]interface{}, reason string) error {
-	details := map[string]interface{}{
-		"tool_name":  toolName,
-		"tool_input": toolInput,
-		"reason":     reason,
+// ContextualLogger returns a logger with context
+func (l *Logger) ContextualLogger(ctx context.Context) *ContextualLogger {
+	return &ContextualLogger{
+		logger: l,
+		ctx:    ctx,
 	}
-	return l.LogWithContext(EventToolRejection, userContext, taskID, sessionID, "Tool rejected", details)
 }
 
-// LogConfigurationChange logs a configuration change event
-func (l *Logger) LogConfigurationChange(userContext, taskID, sessionID, configKey string, oldValue, newValue interface{}) error {
-	details := map[string]interface{}{
-		"config_key": configKey,
-		"old_value":  oldValue,
-		"new_value":  newValue,
+// ContextualLogger provides logging with context
+type ContextualLogger struct {
+	logger *Logger
+	ctx    context.Context
+}
+
+// Log logs an event with context
+func (cl *ContextualLogger) Log(event *Event) error {
+	// Extract context values if available
+	if cl.ctx != nil && event != nil {
+		if taskID, ok := cl.ctx.Value("task_id").(string); ok && event.TaskID == "" {
+			event.TaskID = taskID
+		}
+		if sessionID, ok := cl.ctx.Value("session_id").(string); ok && event.SessionID == "" {
+			event.SessionID = sessionID
+		}
+		if userID, ok := cl.ctx.Value("user_id").(string); ok && event.UserContext == "" {
+			event.UserContext = userID
+		}
 	}
-	return l.LogWithContext(EventConfigurationChange, userContext, taskID, sessionID, "Configuration changed", details)
+
+	return cl.logger.Log(event)
+}
+
+// WithOutput creates a logger that writes to a specific writer
+func WithOutput(w io.Writer, config LoggerConfig) *Logger {
+	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+
+	return &Logger{
+		config:    config,
+		logger:    slog.New(handler),
+		eventChan: make(chan *Event, config.BufferSize),
+		done:      make(chan struct{}),
+	}
 }
