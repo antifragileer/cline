@@ -36,6 +36,10 @@ const (
 	ProviderOllama ProviderType = "ollama"
 	// ProviderLMStudio represents the LM Studio local API provider
 	ProviderLMStudio ProviderType = "lmstudio"
+	// ProviderAzureOpenAI represents the Azure OpenAI API provider
+	ProviderAzureOpenAI ProviderType = "azure"
+	// ProviderCerebras represents the Cerebras API provider
+	ProviderCerebras ProviderType = "cerebras"
 )
 
 // ProviderMessage represents a generic message structure used across providers
@@ -89,17 +93,32 @@ type ProviderStreamChunk struct {
 	Usage        *ProviderUsage
 }
 
+// ModelInfo represents metadata about a model
+type ModelInfo struct {
+	Name                string  `json:"name"`
+	MaxTokens           int     `json:"max_tokens"`
+	ContextWindow       int     `json:"context_window"`
+	SupportsImages      bool    `json:"supports_images"`
+	SupportsPromptCache bool    `json:"supports_prompt_cache"`
+	Temperature         float64 `json:"temperature"`
+	InputPrice          float64 `json:"input_price"`
+	OutputPrice         float64 `json:"output_price"`
+	Description         string  `json:"description"`
+}
+
 // ProviderFactory creates provider instances based on configuration
 
 type ProviderFactory struct {
 	// Configurations for each provider type
-	anthropicConfig  *AnthropicProviderConfig
-	openAIConfig     *OpenAIConfig
-	openRouterConfig *OpenRouterConfig
-	geminiConfig     *GeminiConfig
-	bedrockConfig    *BedrockConfig
-	ollamaConfig     *OllamaConfig
-	lmStudioConfig   *LMStudioConfig
+	anthropicConfig   *AnthropicProviderConfig
+	openAIConfig      *OpenAIConfig
+	openRouterConfig  *OpenRouterConfig
+	geminiConfig      *GeminiConfig
+	bedrockConfig     *BedrockConfig
+	ollamaConfig      *OllamaConfig
+	lmStudioConfig    *LMStudioConfig
+	azureOpenAIConfig *AzureOpenAIConfig
+	cerebrasConfig    *CerebrasConfig
 }
 
 // AnthropicProviderConfig wraps Anthropic provider options
@@ -156,6 +175,18 @@ func (f *ProviderFactory) SetLMStudioConfig(cfg *LMStudioConfig) *ProviderFactor
 	return f
 }
 
+// SetAzureOpenAIConfig sets the Azure OpenAI provider configuration
+func (f *ProviderFactory) SetAzureOpenAIConfig(cfg *AzureOpenAIConfig) *ProviderFactory {
+	f.azureOpenAIConfig = cfg
+	return f
+}
+
+// SetCerebrasConfig sets the Cerebras provider configuration
+func (f *ProviderFactory) SetCerebrasConfig(cfg *CerebrasConfig) *ProviderFactory {
+	f.cerebrasConfig = cfg
+	return f
+}
+
 // CreateProvider creates a provider instance based on the provider type
 // Returns interface{} - caller should type assert to the specific provider type
 func (f *ProviderFactory) CreateProvider(providerType ProviderType) (interface{}, error) {
@@ -174,6 +205,10 @@ func (f *ProviderFactory) CreateProvider(providerType ProviderType) (interface{}
 		return f.createOllamaProvider()
 	case ProviderLMStudio:
 		return f.createLMStudioProvider()
+	case ProviderAzureOpenAI:
+		return f.createAzureOpenAIProvider()
+	case ProviderCerebras:
+		return f.createCerebrasProvider()
 	default:
 		return nil, errors.New("unknown provider type")
 	}
@@ -248,6 +283,22 @@ func (f *ProviderFactory) createLMStudioProvider() (*LMStudioProvider, error) {
 	}
 
 	return NewLMStudioProvider(*f.lmStudioConfig)
+}
+
+func (f *ProviderFactory) createAzureOpenAIProvider() (*AzureOpenAIProvider, error) {
+	if f.azureOpenAIConfig == nil {
+		return nil, errors.New("azure openai configuration not set")
+	}
+
+	return NewAzureOpenAIProvider(*f.azureOpenAIConfig)
+}
+
+func (f *ProviderFactory) createCerebrasProvider() (*CerebrasProvider, error) {
+	if f.cerebrasConfig == nil {
+		return nil, errors.New("cerebras configuration not set")
+	}
+
+	return NewCerebrasProvider(*f.cerebrasConfig)
 }
 
 // ProviderRegistry maintains a registry of available providers

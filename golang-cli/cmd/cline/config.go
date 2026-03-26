@@ -61,6 +61,25 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	}
 	defer ctx.Close()
 
+	// Handle subcommands
+	if len(args) > 0 {
+		switch args[0] {
+		case "set":
+			if len(args) < 3 {
+				return fmt.Errorf("usage: cline config set <key> <value>")
+			}
+			return setConfigValue(ctx, args[1], args[2], configFlags.global)
+		case "get":
+			if len(args) < 2 {
+				return fmt.Errorf("usage: cline config get <key>")
+			}
+			return getConfigValue(ctx, args[1], configFlags.global)
+		case "list":
+			// config list is the same as no subcommand
+			return displayConfigHuman(ctx, configFlags.global)
+		}
+	}
+
 	// Handle edit mode
 	if configFlags.edit {
 		return editConfig(ctx)
@@ -79,6 +98,65 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 	// Display configuration in human-readable format
 	return displayConfigHuman(ctx, configFlags.global)
+}
+
+// setConfigValue sets a configuration value
+func setConfigValue(ctx *storage.StorageContext, key, value string, global bool) error {
+	storage := ctx.GlobalState
+	if !global && ctx.WorkspaceState != nil {
+		storage = ctx.WorkspaceState
+	}
+
+	// Try to parse as JSON first
+	var parsedValue interface{}
+	if err := json.Unmarshal([]byte(value), &parsedValue); err != nil {
+		// Not valid JSON, store as string
+		parsedValue = value
+	}
+
+	if err := storage.Set(key, parsedValue); err != nil {
+		return fmt.Errorf("failed to set config value: %w", err)
+	}
+
+	fmt.Printf("Set %s = %v\n", key, parsedValue)
+	return nil
+}
+
+// getConfigValue gets a configuration value
+func getConfigValue(ctx *storage.StorageContext, key string, global bool) error {
+	storage := ctx.GlobalState
+	if !global && ctx.WorkspaceState != nil {
+		storage = ctx.WorkspaceState
+	}
+
+	value, ok := storage.Get(key)
+	if !ok {
+		// Try to find in global if not found in workspace
+		if !global {
+			value, ok = ctx.GlobalState.Get(key)
+		}
+		if !ok {
+			return fmt.Errorf("key not found: %s", key)
+		}
+	}
+
+	// Output the value
+	switch v := value.(type) {
+	case string:
+		fmt.Println(v)
+	case map[string]interface{}, []interface{}:
+		// Pretty print complex values
+		jsonBytes, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			fmt.Printf("%v\n", v)
+		} else {
+			fmt.Println(string(jsonBytes))
+		}
+	default:
+		fmt.Printf("%v\n", v)
+	}
+
+	return nil
 }
 
 // shouldUseInteractiveMode returns true if we should use the interactive TUI
@@ -135,10 +213,27 @@ func runInteractiveConfig(ctx *storage.StorageContext) error {
 	// Run the TUI program
 	p := tea.NewProgram(configModel, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
+		// If TUI fails (e.g., no TTY available), fall back to human-readable output
+		if isTTYError(err) {
+			return displayConfigHuman(ctx, configFlags.global)
+		}
 		return fmt.Errorf("TUI error: %w", err)
 	}
 
 	return nil
+}
+
+// isTTYError checks if the error is related to TTY unavailability
+func isTTYError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return contains(errStr, "tty") ||
+		contains(errStr, "terminal") ||
+		contains(errStr, "device not configured") ||
+		contains(errStr, "inappropriate ioctl") ||
+		contains(errStr, "input/output error")
 }
 
 // getDataDir returns the data directory path

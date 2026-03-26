@@ -1,6 +1,6 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
 // This file implements the CLI tool for generating Homebrew formulas.
-package main
+package scripts
 
 import (
 	"flag"
@@ -179,15 +179,6 @@ func RunHomebrew(config *HomebrewConfig) error {
 
 	fmt.Fprintf(os.Stderr, "Successfully generated Homebrew formula: %s\n", outputPath)
 	return nil
-}
-
-func main() {
-	config := ParseFlags()
-
-	if err := RunHomebrew(config); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 }
 
 // GenerateHomebrewFormulaFromRelease generates a formula for a specific release version.

@@ -6,9 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	internalMCP "github.com/cline/cline/golang-cli/internal/mcp"
 )
 
 // mcpFlags holds the parsed flag values for mcp command
@@ -136,6 +138,34 @@ var mcpMarketplaceCmd = &cobra.Command{
 	RunE:    runCPMarketplace,
 }
 
+// mcpRunCmd represents the mcp run subcommand
+var mcpRunCmd = &cobra.Command{
+	Use:   "run [name]",
+	Short: "Start and run an MCP server",
+	Long: `Start and run an MCP server in the foreground.
+
+This command starts an MCP server and keeps it running until interrupted.
+Useful for testing and debugging MCP servers.`,
+	Example: `  # Run a configured MCP server
+  cline mcp run filesystem
+
+  # Run with verbose output
+  cline mcp run filesystem --verbose`,
+	Args: cobra.ExactArgs(1),
+	RunE: runMCPRun,
+}
+
+// mcpToolsCmd represents the mcp tools subcommand
+var mcpToolsCmd = &cobra.Command{
+	Use:   "tools",
+	Short: "List tools from an MCP server",
+	Long:  `List all available tools from a running MCP server.`,
+	Example: `  # List tools from a server
+  cline mcp tools filesystem`,
+	Args: cobra.ExactArgs(1),
+	RunE: runMCPTools,
+}
+
 func init() {
 	rootCmd.AddCommand(mcpCmd)
 	
@@ -146,6 +176,8 @@ func init() {
 	mcpCmd.AddCommand(mcpEnableCmd)
 	mcpCmd.AddCommand(mcpDisableCmd)
 	mcpCmd.AddCommand(mcpMarketplaceCmd)
+	mcpCmd.AddCommand(mcpRunCmd)
+	mcpCmd.AddCommand(mcpToolsCmd)
 
 	// Add flags for mcp add
 	mcpAddCmd.Flags().StringVar(&mcpFlags.command, "command", "", "Command to run the MCP server (required for custom servers)")
@@ -156,6 +188,182 @@ func init() {
 	
 	// Add flags for marketplace
 	mcpMarketplaceCmd.Flags().StringVar(&mcpFlags.name, "search", "", "Search term")
+
+	// Add flags for mcp run
+	mcpRunCmd.Flags().BoolP("verbose", "v", false, "Show verbose output")
+}
+
+// runMCPRun executes the mcp run command
+func runMCPRun(cmd *cobra.Command, args []string) error {
+	serverName := args[0]
+	
+	// Initialize storage
+	ctx, err := storage.NewStorageContext("", "")
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Load servers
+	servers, err := loadMCPServers(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load MCP servers: %w", err)
+	}
+
+	// Check if server exists
+	server, exists := servers[serverName]
+	if !exists {
+		return fmt.Errorf("MCP server '%s' not found", serverName)
+	}
+
+	if server.Disabled {
+		return fmt.Errorf("MCP server '%s' is disabled. Enable it with: cline mcp enable %s", serverName, serverName)
+	}
+
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	
+	// Create process config
+	config := &internalMCP.ProcessConfig{
+		Name:        serverName,
+		Command:     server.Command,
+		Args:        server.Args,
+		Env:         server.Env,
+		Timeout:     server.Timeout,
+		RestartPolicy: internalMCP.RestartNever,
+		MaxRestarts: 0,
+	}
+
+	// Create and start process
+	process := internalMCP.NewProcess(config)
+	
+	fmt.Fprintf(cmd.OutOrStdout(), "Starting MCP server '%s'...\n", serverName)
+	fmt.Fprintf(cmd.OutOrStdout(), "Command: %s %s\n\n", server.Command, strings.Join(server.Args, " "))
+
+	if err := process.Start(cmd.Context()); err != nil {
+		return fmt.Errorf("failed to start MCP server: %w", err)
+	}
+
+	// Create executor
+	executor := internalMCP.NewExecutor(process)
+	if err := executor.Connect(cmd.Context()); err != nil {
+		process.Stop()
+		return fmt.Errorf("failed to connect to MCP server: %w", err)
+	}
+	defer executor.Close()
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ MCP server '%s' is running (PID: %d)\n", serverName, process.GetPID())
+	fmt.Fprintln(cmd.OutOrStdout(), "Press Ctrl+C to stop")
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	// Subscribe to output if verbose
+	if verbose {
+		outputCh := process.SubscribeOutput()
+		defer process.UnsubscribeOutput(outputCh)
+		
+		go func() {
+			for line := range outputCh {
+				prefix := "[stdout]"
+				if line.Stream == "stderr" {
+					prefix = "[stderr]"
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", prefix, line.Content)
+			}
+		}()
+	}
+
+	// Wait for process to exit
+	for process.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Check if there was an error
+	if lastErr := process.GetLastError(); lastErr != nil {
+		return fmt.Errorf("MCP server exited with error: %w", lastErr)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "\nMCP server '%s' stopped\n", serverName)
+	return nil
+}
+
+// runMCPTools executes the mcp tools command
+func runMCPTools(cmd *cobra.Command, args []string) error {
+	serverName := args[0]
+	
+	// Initialize storage
+	ctx, err := storage.NewStorageContext("", "")
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Load servers
+	servers, err := loadMCPServers(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load MCP servers: %w", err)
+	}
+
+	// Check if server exists
+	server, exists := servers[serverName]
+	if !exists {
+		return fmt.Errorf("MCP server '%s' not found", serverName)
+	}
+
+	if server.Disabled {
+		return fmt.Errorf("MCP server '%s' is disabled", serverName)
+	}
+
+	// Create process config
+	config := &internalMCP.ProcessConfig{
+		Name:        serverName,
+		Command:     server.Command,
+		Args:        server.Args,
+		Env:         server.Env,
+		Timeout:     server.Timeout,
+		RestartPolicy: internalMCP.RestartNever,
+		MaxRestarts: 0,
+	}
+
+	// Create and start process
+	process := internalMCP.NewProcess(config)
+	
+	fmt.Fprintf(cmd.OutOrStdout(), "Starting MCP server '%s' to list tools...\n", serverName)
+
+	if err := process.Start(cmd.Context()); err != nil {
+		return fmt.Errorf("failed to start MCP server: %w", err)
+	}
+	defer process.Stop()
+
+	// Create executor
+	executor := internalMCP.NewExecutor(process)
+	if err := executor.Connect(cmd.Context()); err != nil {
+		return fmt.Errorf("failed to connect to MCP server: %w", err)
+	}
+	defer executor.Close()
+
+	// List tools
+	tools, err := executor.ListTools(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to list tools: %w", err)
+	}
+
+	if len(tools) == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), "No tools available from this server.")
+		return nil
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout())
+	fmt.Fprintln(cmd.OutOrStdout(), "Available Tools:")
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	for _, tool := range tools {
+		fmt.Fprintf(cmd.OutOrStdout(), "  🔧 %s\n", tool.Name)
+		if tool.Description != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "     %s\n", tool.Description)
+		}
+		fmt.Fprintln(cmd.OutOrStdout())
+	}
+
+	return nil
 }
 
 // runMCPAdd executes the mcp add command

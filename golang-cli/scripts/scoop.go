@@ -1,7 +1,7 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
 // This file implements Scoop manifest generation for distributing the CLI
 // via Scoop (Windows package manager).
-package main
+package scripts
 
 import (
 	"crypto/sha256"
@@ -313,22 +313,6 @@ func (m *ScoopManifest) GenerateToFile(path string) error {
 	}
 
 	return nil
-}
-
-// CalculateSHA256FromFile calculates the SHA256 checksum of a local file.
-func CalculateSHA256FromFile(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to open file %s: %w", path, err)
-	}
-	defer file.Close()
-
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
-		return "", fmt.Errorf("failed to read file %s: %w", path, err)
-	}
-
-	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // CalculateScoopSHA256FromURL downloads a file and calculates its SHA256 checksum.

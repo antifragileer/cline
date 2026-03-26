@@ -1,12 +1,14 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/gofrs/flock"
 )
@@ -212,13 +214,16 @@ func (s *ClineFileStorage) Close() error {
 // load reads the storage file from disk and populates the in-memory cache.
 // This method must be called with the lock held or during initialization.
 func (s *ClineFileStorage) load() error {
-	// Acquire file lock for reading
-	locked, err := s.fileLock.TryLock()
+	// Acquire file lock for reading with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	locked, err := s.fileLock.TryLockContext(ctx, 100*time.Millisecond)
 	if err != nil {
 		return fmt.Errorf("failed to acquire file lock: %w", err)
 	}
 	if !locked {
-		return fmt.Errorf("failed to acquire file lock: already locked")
+		return fmt.Errorf("failed to acquire file lock: timeout")
 	}
 	defer s.fileLock.Unlock()
 

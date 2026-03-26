@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cline/cline/golang-cli/internal/generated/cline"
+	"github.com/cline/cline/golang-cli/internal/generated/cline/cline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -19,25 +19,26 @@ import (
 // MockTaskService implements the TaskService for testing
 type MockTaskService struct {
 	cline.UnimplementedTaskServiceServer
-	tasks map[string]*cline.Task
+	tasks map[string]*cline.TaskResponse
 }
 
 func NewMockTaskService() *MockTaskService {
 	return &MockTaskService{
-		tasks: make(map[string]*cline.Task),
+		tasks: make(map[string]*cline.TaskResponse),
 	}
 }
 
-func (m *MockTaskService) CreateTask(ctx context.Context, req *cline.NewTaskRequest) (*cline.Task, error) {
-	task := &cline.Task{
-		Id:      "test-task-1",
-		Message: req.Message,
+func (m *MockTaskService) NewTask(ctx context.Context, req *cline.NewTaskRequest) (*cline.String, error) {
+	taskID := fmt.Sprintf("test-task-%d", len(m.tasks)+1)
+	task := &cline.TaskResponse{
+		Id:   taskID,
+		Task: req.GetText(),
 	}
-	m.tasks[task.Id] = task
-	return task, nil
+	m.tasks[taskID] = task
+	return &cline.String{Value: taskID}, nil
 }
 
-func (m *MockTaskService) GetTask(ctx context.Context, req *cline.StringRequest) (*cline.Task, error) {
+func (m *MockTaskService) ShowTaskWithId(ctx context.Context, req *cline.StringRequest) (*cline.TaskResponse, error) {
 	task, ok := m.tasks[req.Value]
 	if !ok {
 		return nil, fmt.Errorf("task not found: %s", req.Value)
@@ -100,7 +101,7 @@ func TestGRPCServerSetup(t *testing.T) {
 
 // TestGRPCServiceMethods tests gRPC service method implementations
 func TestGRPCServiceMethods(t *testing.T) {
-	t.Run("CreateTask creates task successfully", func(t *testing.T) {
+	t.Run("NewTask creates task successfully", func(t *testing.T) {
 		lis, err := net.Listen("tcp", "localhost:0")
 		require.NoError(t, err)
 		defer lis.Close()
@@ -122,20 +123,19 @@ func TestGRPCServiceMethods(t *testing.T) {
 		client := cline.NewTaskServiceClient(conn)
 
 		req := &cline.NewTaskRequest{
-			Message: "Test task message",
+			Text: "Test task message",
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		resp, err := client.CreateTask(ctx, req)
+		resp, err := client.NewTask(ctx, req)
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, "Test task message", resp.Message)
-		assert.NotEmpty(t, resp.Id)
+		assert.NotEmpty(t, resp.Value)
 	})
 
-	t.Run("GetTask retrieves task successfully", func(t *testing.T) {
+	t.Run("ShowTaskWithId retrieves task successfully", func(t *testing.T) {
 		lis, err := net.Listen("tcp", "localhost:0")
 		require.NoError(t, err)
 		defer lis.Close()
@@ -158,27 +158,27 @@ func TestGRPCServiceMethods(t *testing.T) {
 
 		// First create a task
 		createReq := &cline.NewTaskRequest{
-			Message: "Test task for retrieval",
+			Text: "Test task for retrieval",
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		created, err := client.CreateTask(ctx, createReq)
+		created, err := client.NewTask(ctx, createReq)
 		require.NoError(t, err)
 
 		// Now retrieve it
 		getReq := &cline.StringRequest{
-			Value: created.Id,
+			Value: created.Value,
 		}
 
-		retrieved, err := client.GetTask(ctx, getReq)
+		retrieved, err := client.ShowTaskWithId(ctx, getReq)
 		require.NoError(t, err)
-		assert.Equal(t, created.Id, retrieved.Id)
-		assert.Equal(t, created.Message, retrieved.Message)
+		assert.Equal(t, created.Value, retrieved.Id)
+		assert.Equal(t, createReq.Text, retrieved.Task)
 	})
 
-	t.Run("GetTask returns error for non-existent task", func(t *testing.T) {
+	t.Run("ShowTaskWithId returns error for non-existent task", func(t *testing.T) {
 		lis, err := net.Listen("tcp", "localhost:0")
 		require.NoError(t, err)
 		defer lis.Close()
@@ -206,7 +206,7 @@ func TestGRPCServiceMethods(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		_, err = client.GetTask(ctx, req)
+		_, err = client.ShowTaskWithId(ctx, req)
 		assert.Error(t, err)
 	})
 }
@@ -246,13 +246,13 @@ func TestGRPCStreaming(t *testing.T) {
 				client := cline.NewTaskServiceClient(conn)
 
 				req := &cline.NewTaskRequest{
-					Message: fmt.Sprintf("Task from client %d", clientNum),
+					Text: fmt.Sprintf("Task from client %d", clientNum),
 				}
 
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 
-				_, err = client.CreateTask(ctx, req)
+				_, err = client.NewTask(ctx, req)
 				if err != nil {
 					t.Errorf("Client %d: failed to create task: %v", clientNum, err)
 					done <- false
@@ -299,7 +299,7 @@ func TestGRPCErrorHandling(t *testing.T) {
 		client := cline.NewTaskServiceClient(conn)
 
 		req := &cline.NewTaskRequest{
-			Message: "Test task",
+			Text: "Test task",
 		}
 
 		// Use a very short timeout
@@ -309,7 +309,7 @@ func TestGRPCErrorHandling(t *testing.T) {
 		// Wait to ensure timeout
 		time.Sleep(10 * time.Millisecond)
 
-		_, err = client.CreateTask(ctx, req)
+		_, err = client.NewTask(ctx, req)
 		// Should get a timeout error
 		assert.Error(t, err)
 	})
@@ -336,13 +336,13 @@ func TestGRPCErrorHandling(t *testing.T) {
 		client := cline.NewTaskServiceClient(conn)
 
 		req := &cline.NewTaskRequest{
-			Message: "Test task",
+			Text: "Test task",
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
-		_, err = client.CreateTask(ctx, req)
+		_, err = client.NewTask(ctx, req)
 		assert.Error(t, err)
 	})
 }
@@ -376,11 +376,11 @@ func BenchmarkGRPCPerformance(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		req := &cline.NewTaskRequest{
-			Message: fmt.Sprintf("Benchmark task %d", i),
+			Text: fmt.Sprintf("Benchmark task %d", i),
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_, err := client.CreateTask(ctx, req)
+		_, err := client.NewTask(ctx, req)
 		cancel()
 
 		if err != nil {

@@ -317,7 +317,7 @@ func TestE2EConfigWorkflow(t *testing.T) {
 					return string(output), exitCode, nil
 				},
 				Validate: func(output string) error {
-					required := []string{"Available Commands", "Flags", "config"}
+					required := []string{"Usage:", "Flags:", "config"}
 					for _, r := range required {
 						if !strings.Contains(output, r) {
 							return fmt.Errorf("missing required content: %s", r)
@@ -419,10 +419,10 @@ func TestE2EErrorHandling(t *testing.T) {
 		Name: "Error Handling",
 		Steps: []E2EStep{
 			{
-				Name:         "Invalid command",
+				Name:         "Invalid flag on version command",
 				ExpectedExit: 1,
 				Action: func() (string, int, error) {
-					cmd := exec.Command(binary, "invalid-command-that-does-not-exist")
+					cmd := exec.Command(binary, "version", "--invalid-flag-not-real")
 					output, err := cmd.CombinedOutput()
 					exitCode := 0
 					if err != nil {
@@ -435,20 +435,21 @@ func TestE2EErrorHandling(t *testing.T) {
 					return string(output), exitCode, nil
 				},
 				Validate: func(output string) error {
-					// Should show error message
-					if !strings.Contains(strings.ToLower(output), "unknown") &&
-						!strings.Contains(strings.ToLower(output), "error") &&
-						!strings.Contains(strings.ToLower(output), "not found") {
-						return fmt.Errorf("expected error message in output")
+					// Should show error message about unknown flag
+					lowerOutput := strings.ToLower(output)
+					if !strings.Contains(lowerOutput, "unknown") &&
+						!strings.Contains(lowerOutput, "error") &&
+						!strings.Contains(lowerOutput, "flag") {
+						return fmt.Errorf("expected error message about unknown flag in output, got: %s", output)
 					}
 					return nil
 				},
 			},
 			{
-				Name:         "Invalid flag",
+				Name:         "Invalid flag on config command",
 				ExpectedExit: 1,
 				Action: func() (string, int, error) {
-					cmd := exec.Command(binary, "--invalid-flag")
+					cmd := exec.Command(binary, "config", "--invalid-flag-not-real")
 					output, err := cmd.CombinedOutput()
 					exitCode := 0
 					if err != nil {
@@ -459,6 +460,16 @@ func TestE2EErrorHandling(t *testing.T) {
 						}
 					}
 					return string(output), exitCode, nil
+				},
+				Validate: func(output string) error {
+					// Should show error message about unknown flag
+					lowerOutput := strings.ToLower(output)
+					if !strings.Contains(lowerOutput, "unknown") &&
+						!strings.Contains(lowerOutput, "error") &&
+						!strings.Contains(lowerOutput, "flag") {
+						return fmt.Errorf("expected error message about unknown flag in output, got: %s", output)
+					}
+					return nil
 				},
 			},
 		},

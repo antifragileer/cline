@@ -17,8 +17,8 @@ func TestToolRegistry(t *testing.T) {
 		t.Error("New registry should be empty")
 	}
 
-	// Register a tool
-	tool := &ReadFileTool{workingDir: "/tmp"}
+	// Register a tool using the proper constructor
+	tool := NewReadFileTool("/tmp")
 	registry.Register(tool)
 
 	// Test that tool is registered
@@ -30,6 +30,9 @@ func TestToolRegistry(t *testing.T) {
 	retrieved, err := registry.GetTool("read_file")
 	if err != nil {
 		t.Errorf("Failed to get tool: %v", err)
+	}
+	if retrieved == nil {
+		t.Fatal("Retrieved tool should not be nil")
 	}
 	if retrieved.GetName() != "read_file" {
 		t.Errorf("Expected tool name 'read_file', got '%s'", retrieved.GetName())

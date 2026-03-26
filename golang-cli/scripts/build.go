@@ -1,6 +1,6 @@
 // Build utilities and cross-platform build support for Cline CLI.
 // This file implements build configuration and cross-compilation support.
-package main
+package scripts
 
 import (
 	"crypto/sha256"

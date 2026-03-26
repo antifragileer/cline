@@ -5,6 +5,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -404,12 +406,39 @@ func (a *Agent) parseToolCalls(content string) []ToolCall {
 	return calls
 }
 
-// findAllMatches finds all regex matches in content
-// This is a simplified implementation that looks for XML-style tags
+// findAllMatches finds all regex matches for XML-style tool calls
+// This implements proper XML-style tag matching for tool calls
 func findAllMatches(content, pattern string) [][]string {
-	// For now, return empty slice - this is a placeholder
-	// In production would use proper regex matching
-	return [][]string{}
+	var matches [][]string
+	
+	// Match XML-style tags: <tagname>...</tagname>
+	// Go regex doesn't support backreferences, so we need a different approach
+	// We use greedy matching and then validate that opening/closing tags match
+	tagRegex := regexp.MustCompile(`<(\w+)>([\s\S]*)</(\w+)>`)
+	
+	// Find all potential matches
+	allMatches := tagRegex.FindAllStringSubmatch(content, -1)
+	
+	for _, match := range allMatches {
+		if len(match) >= 4 {
+			openingTag := match[1]
+			closingTag := match[3]
+			innerContent := match[2]
+			
+			// Verify opening and closing tags match
+			if openingTag == closingTag {
+				// Valid match - include full match, tag name, and content
+				matches = append(matches, []string{
+					match[0],      // full match
+					openingTag,    // opening tag name
+					innerContent,  // inner content
+					closingTag,    // closing tag name
+				})
+			}
+		}
+	}
+	
+	return matches
 }
 
 // executeTool executes a single tool
@@ -592,9 +621,10 @@ func (a *Agent) registerDefaultTools() {
 	a.toolRegistry.Register(NewUseMcpServerTool())
 }
 
-// generateTaskID generates a unique task ID
+// generateTaskID generates a unique task ID using timestamp and random component
 func generateTaskID() string {
-	return fmt.Sprintf("task_%d", time.Now().UnixMilli())
+	// Use both timestamp and random number to ensure uniqueness
+	return fmt.Sprintf("task_%d_%d", time.Now().UnixMilli(), rand.Intn(10000))
 }
 
 // Close cleans up the agent resources

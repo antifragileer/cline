@@ -1,6 +1,6 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
 // This file implements the CLI tool for generating Linux packages (DEB/RPM).
-package main
+package scripts
 
 import (
 	"flag"
@@ -230,15 +230,6 @@ func RunLinuxPackages(config *LinuxPackageCLIConfig) error {
 	}
 
 	return nil
-}
-
-func main() {
-	config := ParseLinuxPackageFlags()
-
-	if err := RunLinuxPackages(config); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 }
 
 // GenerateLinuxPackages generates packages for a specific release version.

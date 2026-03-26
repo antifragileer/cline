@@ -1,6 +1,6 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
 // This file implements the CLI tool for generating Scoop manifests.
-package main
+package scripts
 
 import (
 	"flag"
@@ -177,15 +177,6 @@ func RunScoop(config *ScoopConfig) error {
 
 	fmt.Fprintf(os.Stderr, "Successfully generated Scoop manifest: %s\n", outputPath)
 	return nil
-}
-
-func main() {
-	config := ParseScoopFlags()
-
-	if err := RunScoop(config); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 }
 
 // GenerateScoopManifestFromRelease generates a manifest for a specific release version.

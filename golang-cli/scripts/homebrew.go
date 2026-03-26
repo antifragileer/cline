@@ -1,7 +1,7 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
 // This file implements Homebrew formula generation for distributing the CLI
 // via Homebrew taps.
-package main
+package scripts
 
 import (
 	"crypto/sha256"

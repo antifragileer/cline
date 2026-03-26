@@ -172,7 +172,7 @@ func (t *ApplyDiffTool) Execute(ctx context.Context, params map[string]interface
 	if err := os.WriteFile(fullPath, []byte(newContent), 0644); err != nil {
 		return "", fmt.Errorf("write failed: %w", err)
 	}
-	return fmt.Sprintf("Diff applied: %s", path), nil
+	return fmt.Sprintf("Diff applied to: %s", path), nil
 }
 
 func (t *ApplyDiffTool) Validate(params map[string]interface{}) error {
