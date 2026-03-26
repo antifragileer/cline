@@ -688,6 +688,40 @@ func (p *AnthropicProvider) SetBetas(betas []string) {
 	p.betas = betas
 }
 
+// Complete implements the Provider interface
+func (p *AnthropicProvider) Complete(ctx context.Context, req ProviderCompletionRequest) (*ProviderCompletionResponse, error) {
+	// Convert ProviderMessage to AnthropicMessage
+	messages := make([]AnthropicMessage, len(req.Messages))
+	for i, msg := range req.Messages {
+		messages[i] = CreateTextMessage(MessageRole(msg.Role), msg.Content)
+	}
+
+	anthropicReq := AnthropicMessagesRequest{
+		Model:       ClaudeModel(req.Model),
+		Messages:    messages,
+		Temperature: &req.Temperature,
+		MaxTokens:   req.MaxTokens,
+		Stream:      false,
+	}
+
+	resp, err := p.CreateMessage(ctx, anthropicReq)
+	if err != nil {
+		return nil, err
+	}
+
+	content := ExtractTextContent(resp)
+	return &ProviderCompletionResponse{
+		ID:      resp.ID,
+		Model:   resp.Model,
+		Content: content,
+		Usage: ProviderUsage{
+			PromptTokens:     resp.Usage.InputTokens,
+			CompletionTokens: resp.Usage.OutputTokens,
+			TotalTokens:      resp.Usage.InputTokens + resp.Usage.OutputTokens,
+		},
+	}, nil
+}
+
 // IsThinkingModel returns true if the model supports thinking blocks.
 func IsThinkingModel(model ClaudeModel) bool {
 	switch model {

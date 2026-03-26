@@ -261,3 +261,225 @@ func (m TerminalMode) String() string {
 func (m TerminalMode) IsTerminal() bool {
 	return m == TerminalModeInteractive || m == TerminalModeForcedTTY
 }
+
+// ExtendedMode provides more detailed terminal mode detection
+type ExtendedMode int
+
+const (
+	// ExtendedModeUnknown means mode could not be determined
+	ExtendedModeUnknown ExtendedMode = iota
+	// ExtendedModeInteractiveTTY means fully interactive TTY with color support
+	ExtendedModeInteractiveTTY
+	// ExtendedModeInteractiveNoColor means interactive but without color support
+	ExtendedModeInteractiveNoColor
+	// ExtendedModeCI means running in CI environment
+	ExtendedModeCI
+	// ExtendedModePipe means input or output is piped
+	ExtendedModePipe
+	// ExtendedModeFile means output is redirected to a file
+	ExtendedModeFile
+	// ExtendedModeDaemon means running as a background process
+	ExtendedModeDaemon
+)
+
+// String returns the string representation of ExtendedMode
+func (m ExtendedMode) String() string {
+	switch m {
+	case ExtendedModeInteractiveTTY:
+		return "interactive_tty"
+	case ExtendedModeInteractiveNoColor:
+		return "interactive_no_color"
+	case ExtendedModeCI:
+		return "ci"
+	case ExtendedModePipe:
+		return "pipe"
+	case ExtendedModeFile:
+		return "file"
+	case ExtendedModeDaemon:
+		return "daemon"
+	default:
+		return "unknown"
+	}
+}
+
+// IsInteractive returns true if the mode supports interactive input
+func (m ExtendedMode) IsInteractive() bool {
+	return m == ExtendedModeInteractiveTTY || m == ExtendedModeInteractiveNoColor
+}
+
+// SupportsColor returns true if the mode supports color output
+func (m ExtendedMode) SupportsColor() bool {
+	return m == ExtendedModeInteractiveTTY || m == ExtendedModeCI
+}
+
+// OutputMode represents the configured output mode
+type OutputMode int
+
+const (
+	// OutputModeAuto automatically selects output mode based on terminal
+	OutputModeAuto OutputMode = iota
+	// OutputModePlain uses plain text output
+	OutputModePlain
+	// OutputModeJSON uses JSON streaming output
+	OutputModeJSON
+	// OutputModeQuiet suppresses non-essential output
+	OutputModeQuiet
+)
+
+// String returns the string representation of OutputMode
+func (m OutputMode) String() string {
+	switch m {
+	case OutputModePlain:
+		return "plain"
+	case OutputModeJSON:
+		return "json"
+	case OutputModeQuiet:
+		return "quiet"
+	case OutputModeAuto:
+		return "auto"
+	default:
+		return "unknown"
+	}
+}
+
+// IsInteractive returns true if the output mode is interactive
+func (m OutputMode) IsInteractive() bool {
+	return m == OutputModeAuto || m == OutputModePlain
+}
+
+// EnhancedDetector provides enhanced terminal mode detection
+type EnhancedDetector struct {
+	detector *Detector
+}
+
+// NewEnhancedDetector creates a new enhanced detector
+func NewEnhancedDetector() *EnhancedDetector {
+	return &EnhancedDetector{
+		detector: NewDetector(),
+	}
+}
+
+// DetectExtended detects the extended terminal mode
+func (ed *EnhancedDetector) DetectExtended() ExtendedMode {
+	// Check for CI environment first
+	if ed.isCIEnvironment() {
+		return ExtendedModeCI
+	}
+
+	// Check if running as daemon
+	if ed.isDaemon() {
+		return ExtendedModeDaemon
+	}
+
+	// Check for output redirection
+	if ed.isOutputRedirectedToFile() {
+		return ExtendedModeFile
+	}
+
+	// Check for pipes
+	if ed.detector.IsPipedInput() || ed.detector.IsPipedOutput() {
+		return ExtendedModePipe
+	}
+
+	// Check for interactive terminal
+	if ed.detector.IsInteractive() {
+		if ed.supportsColor() {
+			return ExtendedModeInteractiveTTY
+		}
+		return ExtendedModeInteractiveNoColor
+	}
+
+	return ExtendedModeUnknown
+}
+
+// SelectOutputMode selects the appropriate output mode based on configuration
+func (ed *EnhancedDetector) SelectOutputMode(jsonFlag, plainFlag bool) OutputMode {
+	switch {
+	case plainFlag:
+		return OutputModePlain
+	case jsonFlag:
+		return OutputModeJSON
+	case ed.DetectExtended() == ExtendedModeCI:
+		return OutputModeJSON
+	case !ed.detector.IsInteractive():
+		return OutputModePlain
+	default:
+		return OutputModeAuto
+	}
+}
+
+// isCIEnvironment checks if running in a CI environment
+func (ed *EnhancedDetector) isCIEnvironment() bool {
+	ciVars := []string{
+		"CI", "CONTINUOUS_INTEGRATION",
+		"GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI",
+		"TRAVIS", "JENKINS_URL", "BUILDKITE",
+		"DRONE", "APPVEYOR", "AZURE_PIPELINES",
+	}
+
+	for _, v := range ciVars {
+		if os.Getenv(v) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// isDaemon checks if running as a daemon/background process
+func (ed *EnhancedDetector) isDaemon() bool {
+	// Check for common daemon indicators
+	if os.Getenv("DAEMON") != "" {
+		return true
+	}
+	// On Unix systems, check if ppid is 1 (init)
+	// This is a simplified check; real implementation would use syscalls
+	return false
+}
+
+// isOutputRedirectedToFile checks if stdout is redirected to a file
+func (ed *EnhancedDetector) isOutputRedirectedToFile() bool {
+	// Check if stdout is a regular file
+	info, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode().IsRegular()
+}
+
+// supportsColor checks if the terminal supports color output
+func (ed *EnhancedDetector) supportsColor() bool {
+	// Check NO_COLOR environment variable
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+
+	// Check if terminal supports color
+	term := os.Getenv("TERM")
+	if term == "dumb" {
+		return false
+	}
+
+	// Check for color-supporting terminals
+	colorTerms := []string{"color", "256color", "truecolor", "xterm", "screen", "tmux"}
+	for _, ct := range colorTerms {
+		if contains(term, ct) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// contains checks if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

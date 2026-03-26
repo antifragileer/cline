@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"time"
 )
@@ -448,6 +449,168 @@ func (s *JSONStreamer) handleError(err error) {
 // generateMessageID generates a unique message ID
 func generateMessageID() string {
 	return fmt.Sprintf("msg_%d_%d", time.Now().UnixNano(), time.Now().UnixMicro())
+}
+
+// Enhanced streaming methods for Phase 4
+
+// WriteStructuredMessage writes a message with structured metadata
+func (s *JSONStreamer) WriteStructuredMessage(msgType string, content string, metadata map[string]interface{}) error {
+	msg := StreamMessage{
+		Type:      msgType,
+		Content:   content,
+		Timestamp: time.Now().UTC(),
+		Partial:   false,
+		MessageID: generateMessageID(),
+		Metadata:  metadata,
+	}
+
+	return s.writeMessageInternal(&msg)
+}
+
+// WriteError writes an error message to the stream
+func (s *JSONStreamer) WriteError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	metadata := map[string]interface{}{
+		"error_type": fmt.Sprintf("%T", err),
+	}
+
+	msg := StreamMessage{
+		Type:      "error",
+		Content:   err.Error(),
+		Timestamp: time.Now().UTC(),
+		Partial:   false,
+		MessageID: generateMessageID(),
+		Metadata:  metadata,
+	}
+
+	return s.writeMessageInternal(&msg)
+}
+
+// WriteProgress writes a progress update message
+func (s *JSONStreamer) WriteProgress(operation string, current, total int, message string) error {
+	metadata := map[string]interface{}{
+		"operation": operation,
+		"current":   current,
+		"total":     total,
+		"percent":   float64(current) / float64(total) * 100,
+	}
+
+	msg := StreamMessage{
+		Type:      "progress",
+		Content:   message,
+		Timestamp: time.Now().UTC(),
+		Partial:   false,
+		MessageID: generateMessageID(),
+		Metadata:  metadata,
+	}
+
+	return s.writeMessageInternal(&msg)
+}
+
+// WriteToolUse writes a tool use message
+func (s *JSONStreamer) WriteToolUse(toolName string, params map[string]interface{}, messageID string) error {
+	metadata := map[string]interface{}{
+		"tool":   toolName,
+		"params": params,
+	}
+
+	msg := StreamMessage{
+		Type:      "tool_use",
+		Content:   fmt.Sprintf("Using tool: %s", toolName),
+		Timestamp: time.Now().UTC(),
+		Partial:   false,
+		MessageID: messageID,
+		Metadata:  metadata,
+	}
+
+	return s.writeMessageInternal(&msg)
+}
+
+// WriteToolResult writes a tool result message
+func (s *JSONStreamer) WriteToolResult(toolName string, result interface{}, success bool, messageID string) error {
+	metadata := map[string]interface{}{
+		"tool":    toolName,
+		"success": success,
+		"result":  result,
+	}
+
+	msg := StreamMessage{
+		Type:      "tool_result",
+		Content:   fmt.Sprintf("Tool %s completed", toolName),
+		Timestamp: time.Now().UTC(),
+		Partial:   false,
+		MessageID: messageID,
+		Metadata:  metadata,
+	}
+
+	return s.writeMessageInternal(&msg)
+}
+
+// WriteCheckpoint writes a checkpoint message
+func (s *JSONStreamer) WriteCheckpoint(checkpointID string, description string) error {
+	metadata := map[string]interface{}{
+		"checkpoint_id": checkpointID,
+	}
+
+	msg := StreamMessage{
+		Type:      "checkpoint",
+		Content:   description,
+		Timestamp: time.Now().UTC(),
+		Partial:   false,
+		MessageID: generateMessageID(),
+		Metadata:  metadata,
+	}
+
+	return s.writeMessageInternal(&msg)
+}
+
+// ReadJSONStream reads JSON messages from a reader
+func ReadJSONStream(reader io.Reader, handler func(*StreamMessage) error) error {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		var msg StreamMessage
+		if err := json.Unmarshal(line, &msg); err != nil {
+			return fmt.Errorf("failed to parse JSON line: %w", err)
+		}
+
+		if err := handler(&msg); err != nil {
+			return err
+		}
+	}
+
+	return scanner.Err()
+}
+
+// FormatJSONOutput formats output for JSON mode
+func FormatJSONOutput(msgType string, content string, isPartial bool) string {
+	msg := StreamMessage{
+		Type:      msgType,
+		Content:   content,
+		Timestamp: time.Now().UTC(),
+		Partial:   isPartial,
+	}
+
+	data, _ := json.Marshal(msg)
+	return string(data)
+}
+
+// NewStdioJSONStreamer creates a JSON streamer for stdio with proper buffering
+func NewStdioJSONStreamer() *JSONStreamer {
+	return NewJSONStreamer(os.Stdout, &StreamConfig{
+		AutoFlush:             true,
+		FlushInterval:         50 * time.Millisecond,
+		BufferSize:            4096,
+		EnablePartialMessages: true,
+		PartialTimeout:        30 * time.Second,
+	})
 }
 
 // StreamWriter is an io.Writer implementation that wraps JSONStreamer

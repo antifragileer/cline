@@ -565,3 +565,40 @@ func (p *OpenAIProvider) convertOpenAIError(err *openAIInternalError) error {
 		return fmt.Errorf("%w: %s", ErrOpenAIProviderError, err.Error())
 	}
 }
+
+// CompleteProvider implements the Provider interface
+func (p *OpenAIProvider) CompleteProvider(ctx context.Context, req ProviderCompletionRequest) (*ProviderCompletionResponse, error) {
+	// Convert ProviderMessage to OpenAIMessage
+	messages := make([]OpenAIMessage, len(req.Messages))
+	for i, msg := range req.Messages {
+		messages[i] = OpenAIMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+
+	openAIReq := OpenAICompletionRequest{
+		Model:       req.Model,
+		Messages:    messages,
+		Temperature: req.Temperature,
+		MaxTokens:   req.MaxTokens,
+		TopP:        req.TopP,
+		Stream:      false,
+	}
+
+	resp, err := p.Complete(ctx, openAIReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProviderCompletionResponse{
+		ID:      resp.ID,
+		Model:   resp.Model,
+		Content: resp.Content,
+		Usage: ProviderUsage{
+			PromptTokens:     resp.Usage.PromptTokens,
+			CompletionTokens: resp.Usage.CompletionTokens,
+			TotalTokens:      resp.Usage.TotalTokens,
+		},
+	}, nil
+}

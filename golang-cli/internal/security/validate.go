@@ -15,6 +15,27 @@ import (
 	"time"
 )
 
+// ValidateFilePath validates that a file path is within the working directory
+func ValidateFilePath(filePath, workingDir string) error {
+	// Convert to absolute paths
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	absWorkingDir, err := filepath.Abs(workingDir)
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Ensure the file path is within the working directory
+	if !strings.HasPrefix(absPath, absWorkingDir) {
+		return fmt.Errorf("file path %s is outside of working directory %s", absPath, absWorkingDir)
+	}
+
+	return nil
+}
+
 // ValidationResult represents the outcome of a command validation
 type ValidationResult struct {
 	// Allowed indicates if the command is permitted

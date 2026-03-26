@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cline/cline/golang-cli/internal/exit"
 	"github.com/cline/cline/golang-cli/internal/host"
 	"github.com/cline/cline/golang-cli/internal/mode"
 	"github.com/cline/cline/golang-cli/internal/storage"
@@ -403,36 +404,76 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	// Validate and parse options
 	opts, err := validateRootOptions(cmd, args)
 	if err != nil {
-		return err
+		// Return invalid arguments error for validation failures
+		return fmt.Errorf("%w: %v", &exitError{code: exit.InvalidArguments}, err)
 	}
 
 	// Handle kanban mode
 	if opts.Kanban {
-		return runKanbanMode()
+		if err := runKanbanMode(); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	// Handle ACP mode
 	if opts.Acp {
-		return runAcpMode(opts)
+		if err := runAcpMode(opts); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	// Handle continue mode
 	if opts.Continue {
-		return runContinueMode(opts)
+		if err := runContinueMode(opts); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	// Handle task resumption
 	if opts.TaskID != "" {
-		return runResumeTask(opts)
+		if err := runResumeTask(opts); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	// Handle task with prompt
 	if opts.Prompt != "" {
-		return runTaskWithPrompt(opts)
+		if err := runTaskWithPrompt(opts); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	// No prompt provided, start interactive mode
-	return runInteractiveMode(opts)
+	if err := runInteractiveMode(opts); err != nil {
+		return err
+	}
+	return nil
+}
+
+// exitError wraps an error with a specific exit code
+type exitError struct {
+	code exit.Code
+	err  error
+}
+
+func (e *exitError) Error() string {
+	if e.err != nil {
+		return e.err.Error()
+	}
+	return fmt.Sprintf("exit code %d", e.code)
+}
+
+func (e *exitError) Unwrap() error {
+	return e.err
+}
+
+func (e *exitError) ExitCode() exit.Code {
+	return e.code
 }
 
 // runKanbanMode runs the kanban alias mode
@@ -482,7 +523,7 @@ func runContinueMode(opts *RootOptions) error {
 		Timeout: opts.Timeout,
 		Storage: storageCtx,
 		Client:  client,
-		Output:  &formatterWriter{},
+		Output:  os.Stdout,
 	}
 
 	// Continue the most recent task
@@ -525,7 +566,7 @@ func runResumeTask(opts *RootOptions) error {
 		Timeout: opts.Timeout,
 		Storage: storageCtx,
 		Client:  client,
-		Output:  &formatterWriter{},
+		Output:  os.Stdout,
 	}
 
 	// Resume the task
@@ -588,12 +629,6 @@ func createGRPCClient(opts *RootOptions) (*host.Client, error) {
 	return client, nil
 }
 
-// formatterWriter is a simple writer that formats output
-type formatterWriter struct{}
-
-func (f *formatterWriter) Printf(format string, a ...interface{}) (int, error) {
-	return fmt.Printf(format, a...)
-}
 
 // runTaskWithPrompt runs a task with the given prompt
 func runTaskWithPrompt(opts *RootOptions) error {
@@ -771,46 +806,31 @@ func runInteractiveMode(opts *RootOptions) error {
 	}
 	defer storageCtx.Close()
 
-	// Load task history from storage
-	historyPath := getTaskHistoryPath()
-	entries, err := loadTaskHistory(historyPath)
-	if err != nil {
-		entries = []TaskHistoryEntry{}
-	}
-	
-	// Convert entries to TaskHistoryItem
-	recentTasks := make([]tui.TaskHistoryItem, 0, len(entries))
-	for _, entry := range entries {
-		recentTasks = append(recentTasks, tui.TaskHistoryItem{
-			ID:          entry.ID,
-			Description: entry.Task,
-			Timestamp:   fmt.Sprintf("%d", entry.Timestamp),
-		})
-	}
-
 	// Check if user has valid configuration
 	hasConfig := checkConfiguration(storageCtx)
 
 	// Show welcome screen
-	action, data, err := tui.WelcomeScreen(recentTasks, hasConfig, Version)
+	action, taskPrompt, err := tui.WelcomeScreen(hasConfig)
 	if err != nil {
 		return fmt.Errorf("welcome screen error: %w", err)
 	}
 
 	switch action {
-	case "new_task":
+	case tui.ActionNewTask:
+		return runInteractiveChat(opts, storageCtx, taskPrompt)
+	case tui.ActionContinueTask:
+		// Continue most recent task
 		return runInteractiveChat(opts, storageCtx, "")
-	case "resume_task":
-		if taskID, ok := data.(string); ok {
-			return runInteractiveChat(opts, storageCtx, taskID)
-		}
-	case "settings":
+	case tui.ActionHistory:
+		fmt.Println("History not yet implemented in TUI mode.")
+		return nil
+	case tui.ActionSettings:
 		fmt.Println("Settings not yet implemented in TUI mode.")
 		return nil
-	case "help":
+	case tui.ActionHelp:
 		fmt.Println("Help not yet implemented in TUI mode.")
 		return nil
-	case "quit":
+	case tui.ActionQuit:
 		return nil
 	}
 

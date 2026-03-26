@@ -6,6 +6,8 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -631,6 +633,22 @@ type PackageInfo struct {
 
 	// SHA256 is the package SHA256 checksum
 	SHA256 string
+}
+
+// CalculateSHA256FromFile calculates the SHA256 checksum of a local file.
+func CalculateSHA256FromFile(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file %s: %w", path, err)
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", fmt.Errorf("failed to read file %s: %w", path, err)
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // GeneratePackageInfo generates a PackageInfo from a built package.

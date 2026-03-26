@@ -133,7 +133,7 @@ func (h *Handler) Run(ctx context.Context, fn func(context.Context) error) error
 	select {
 	case err := <-errChan:
 		if err != nil {
-			h.SetExitCode(mapErrorToCode(err))
+			h.SetExitCode(MapErrorToCode(err))
 			return err
 		}
 		return nil
@@ -212,8 +212,8 @@ func HandlerFromContext(ctx context.Context) *Handler {
 
 type handlerKey struct{}
 
-// mapErrorToCode maps errors to appropriate exit codes
-func mapErrorToCode(err error) Code {
+// MapErrorToCode maps errors to appropriate exit codes
+func MapErrorToCode(err error) Code {
 	if err == nil {
 		return Success
 	}

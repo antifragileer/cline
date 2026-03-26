@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 )
 
@@ -73,6 +74,11 @@ type ProviderCompletionResponse struct {
 	Model   string
 	Content string
 	Usage   ProviderUsage
+}
+
+// Provider is the common interface for all API providers
+type Provider interface {
+	Complete(ctx context.Context, req ProviderCompletionRequest) (*ProviderCompletionResponse, error)
 }
 
 // ProviderStreamChunk represents a chunk from a streaming response
