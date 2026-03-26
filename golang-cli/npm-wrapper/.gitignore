@@ -1,0 +1,14 @@
+# Ignore downloaded binaries
+bin/*
+!bin/.gitkeep
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db

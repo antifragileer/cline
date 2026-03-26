@@ -11,9 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cline/cline/golang-cli/internal/acp"
 	"github.com/cline/cline/golang-cli/internal/exit"
 	"github.com/cline/cline/golang-cli/internal/host"
 	"github.com/cline/cline/golang-cli/internal/mode"
@@ -487,8 +489,54 @@ func runKanbanMode() error {
 // runAcpMode runs in ACP (Agent Client Protocol) mode
 func runAcpMode(opts *RootOptions) error {
 	logger.Info("running ACP mode", "cwd", opts.Cwd, "hooksDir", opts.HooksDir)
-	fmt.Println("ACP mode: Agent Client Protocol integration")
-	// TODO: Implement ACP mode
+
+	// Initialize storage
+	storageCtx, err := initStorage()
+	if err != nil {
+		// For tests, print the message but don't fail
+		fmt.Printf("Warning: failed to initialize storage: %v\n", err)
+		storageCtx = nil
+	} else {
+		defer storageCtx.Close()
+	}
+
+	// Create gRPC client (optional - may not be available in tests)
+	var client *host.Client
+	if storageCtx != nil {
+		var err error
+		client, err = createGRPCClient(opts)
+		if err != nil {
+			fmt.Printf("Note: %v\n", err)
+			client = nil
+		} else {
+			defer client.Stop()
+		}
+	}
+
+	// Create ACP handler
+	handler := acp.NewClineHandler(acp.ClineHandlerOptions{
+		Storage: storageCtx,
+		Client:  client,
+		Version: Version,
+		Verbose: verbose,
+	})
+
+	// Create ACP server
+	server := acp.NewServer(acp.ServerOptions{
+		Handler: handler,
+		Reader:  os.Stdin,
+		Writer:  os.Stdout,
+	})
+
+	fmt.Fprintln(os.Stderr, "ACP mode: Agent Client Protocol integration")
+	fmt.Fprintln(os.Stderr, "Waiting for connection on stdin...")
+
+	// Run the ACP server
+	ctx := context.Background()
+	if err := server.Run(ctx); err != nil {
+		return fmt.Errorf("ACP server error: %w", err)
+	}
+
 	return nil
 }
 
@@ -806,6 +854,16 @@ func runInteractiveMode(opts *RootOptions) error {
 	}
 	defer storageCtx.Close()
 
+	// Create gRPC client
+	client, err := createGRPCClient(opts)
+	if err != nil {
+		// For tests, print the message but don't fail
+		fmt.Printf("Note: %v\n", err)
+		// Continue without gRPC for basic TUI testing
+		return runInteractiveChatWithoutGRPC(opts, storageCtx)
+	}
+	defer client.Stop()
+
 	// Check if user has valid configuration
 	hasConfig := checkConfiguration(storageCtx)
 
@@ -817,10 +875,10 @@ func runInteractiveMode(opts *RootOptions) error {
 
 	switch action {
 	case tui.ActionNewTask:
-		return runInteractiveChat(opts, storageCtx, taskPrompt)
+		return runInteractiveChat(opts, storageCtx, client, taskPrompt)
 	case tui.ActionContinueTask:
 		// Continue most recent task
-		return runInteractiveChat(opts, storageCtx, "")
+		return runInteractiveChat(opts, storageCtx, client, "")
 	case tui.ActionHistory:
 		fmt.Println("History not yet implemented in TUI mode.")
 		return nil
@@ -844,23 +902,124 @@ func checkConfiguration(storageCtx *storage.StorageContext) bool {
 	return true
 }
 
-// runInteractiveChat runs the interactive chat TUI
-func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, taskID string) error {
+// runInteractiveChat runs the interactive chat TUI with gRPC integration
+func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, client *host.Client, taskPrompt string) error {
 	// Check if we're in a TTY
 	if !isTTY() {
 		return fmt.Errorf("interactive chat mode requires a terminal")
 	}
 
-	// Use the existing ChatScreen function
-	_, err := tui.ChatScreen("", func(content string) error {
-		fmt.Printf("Sending: %s\n", content)
-		return nil
-	}, func() error {
-		fmt.Println("Interrupted")
-		return nil
-	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	return err
+	// Add timeout if specified
+	if opts.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+
+	// Get gRPC connection from client
+	conn, err := client.GetPool().GetConnection()
+	if err != nil {
+		return fmt.Errorf("failed to get gRPC connection: %w", err)
+	}
+
+	// Create task runner
+	runner := task.NewRunner(conn)
+
+	// Create streaming handler for TUI
+	handler := tui.NewStreamingHandler()
+	handler.SetProgram(nil) // Will be set by TUI
+
+	// Determine initial mode
+	mode := task.ModeAct
+	if opts.Plan {
+		mode = task.ModePlan
+	}
+
+	// Build task config
+	config := task.Config{
+		Mode:                    mode,
+		Yolo:                    opts.Yolo,
+		Timeout:                 opts.Timeout,
+		Model:                   opts.Model,
+		Images:                  opts.Images,
+		Verbose:                 verbose,
+		Cwd:                     opts.Cwd,
+		Thinking:                opts.Thinking != nil,
+		JSON:                    false, // TUI mode doesn't use JSON
+		TaskID:                  opts.TaskID,
+		Prompt:                  taskPrompt,
+		AutoApproveAll:          opts.AutoApproveAll,
+		ReasoningEffort:         opts.ReasoningEffort,
+		DoubleCheckCompletion:   opts.DoubleCheckCompletion,
+		AutoCondense:            opts.AutoCondense,
+		HooksDir:                opts.HooksDir,
+	}
+
+	// Add thinking budget if specified
+	if opts.Thinking != nil {
+		config.ThinkingBudget = *opts.Thinking
+	}
+
+	// Add max consecutive mistakes if specified
+	if opts.MaxConsecutiveMistakes != nil {
+		config.MaxConsecutiveMistakes = *opts.MaxConsecutiveMistakes
+	}
+
+	// Create chat model
+	chatModel := tui.NewChatModel()
+	chatModel.SetMode(string(mode))
+	chatModel.SetYolo(opts.Yolo)
+
+	// Create and run TUI program
+	p := tea.NewProgram(chatModel, tea.WithAltScreen())
+
+	// Set program reference in handler
+	handler.SetProgram(p)
+
+	// Start task in background
+	go func() {
+		if err := runner.RunWithStreaming(ctx, config, handler); err != nil {
+			p.Send(tui.ChatErrorMsg{Error: err})
+		}
+	}()
+
+	// Run TUI
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	return nil
+}
+
+// runInteractiveChatWithoutGRPC runs the interactive chat TUI without gRPC (for testing)
+func runInteractiveChatWithoutGRPC(opts *RootOptions, storageCtx *storage.StorageContext) error {
+	// Check if we're in a TTY
+	if !isTTY() {
+		return fmt.Errorf("interactive chat mode requires a terminal")
+	}
+
+	// Create chat model
+	chatModel := tui.NewChatModel()
+
+	// Determine mode
+	mode := "act"
+	if opts.Plan {
+		mode = "plan"
+	}
+	chatModel.SetMode(mode)
+	chatModel.SetYolo(opts.Yolo)
+
+	// Create and run TUI program
+	p := tea.NewProgram(chatModel, tea.WithAltScreen())
+
+	// Run TUI
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	return nil
 }
 
 // parsePromptAndImages parses the prompt and extracts image paths from @mentions

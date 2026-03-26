@@ -1,0 +1,51 @@
+{
+	"name": "@cline/golang-cli",
+	"version": "1.0.0",
+	"description": "Cline CLI - AI-powered coding assistant (Go implementation)",
+	"main": "index.js",
+	"bin": {
+		"cline-go": "./bin/cline-go",
+		"cline": "./bin/cline-go"
+	},
+	"scripts": {
+		"postinstall": "node install.js",
+		"test": "node test.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/cline/cline.git",
+		"directory": "golang-cli/npm-wrapper"
+	},
+	"keywords": [
+		"cline",
+		"ai",
+		"coding",
+		"assistant",
+		"cli",
+		"terminal"
+	],
+	"author": "Cline",
+	"license": "Apache-2.0",
+	"bugs": {
+		"url": "https://github.com/cline/cline/issues"
+	},
+	"homepage": "https://github.com/cline/cline#readme",
+	"engines": {
+		"node": ">=16.0.0"
+	},
+	"os": [
+		"darwin",
+		"linux",
+		"win32"
+	],
+	"cpu": [
+		"x64",
+		"arm64"
+	],
+	"files": [
+		"index.js",
+		"install.js",
+		"bin/",
+		"README.md"
+	]
+}

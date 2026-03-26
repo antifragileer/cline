@@ -1,327 +1,192 @@
-# Go CLI Testing Guide
+# Testing Guide
 
-This document describes the testing infrastructure for the Cline Go CLI implementation.
-
-## Overview
-
-The testing infrastructure consists of multiple test suites:
-
-1. **Unit Tests** - Individual function and component tests
-2. **Integration Tests** - gRPC, storage, and API provider tests
-3. **Parity Tests** - Side-by-side comparison with TypeScript CLI
-4. **E2E Tests** - End-to-end workflow tests
-5. **Regression Tests** - Tests for known issues to prevent recurrence
-6. **Independence Tests** - Tests to verify TypeScript independence
+This document describes how to run tests and verify the Go CLI implementation.
 
 ## Running Tests
 
 ### Run All Tests
-
 ```bash
-go test ./tests/... -v
+go test ./...
 ```
 
-### Run Specific Test Suites
-
+### Run Tests with Coverage
 ```bash
-# Unit tests
-go test ./tests -v
-
-# Integration tests
-go test ./tests/integration -v
-
-# Parity tests
-go test ./tests/parity -v
-
-# E2E tests
-go test ./tests/e2e -v
-
-# Regression tests
-go test ./tests/regression -v
+go test ./... -cover
 ```
 
-### Run with Coverage
-
+### Run Tests with Coverage Report
 ```bash
-# Run all tests with coverage
 go test ./... -coverprofile=coverage.out
+go tool cover -func=coverage.out
+```
 
-# View coverage report
-go tool cover -html=coverage.out
+### Run Tests for Specific Package
+```bash
+go test ./internal/config/...
+go test ./internal/storage/...
+go test ./internal/tui/...
+```
 
-# Check coverage threshold (80%)
-go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out | grep total
+### Run Tests with Verbose Output
+```bash
+go test -v ./internal/config/...
+```
+
+### Run Benchmarks
+```bash
+go test -bench=. ./...
 ```
 
 ## Test Structure
 
-### Test Organization
+### Unit Tests
 
-```
-golang-cli/
-├── tests/
-│   ├── coverage_test.go          # Coverage analysis framework
-│   ├── integration/
-│   │   ├── grpc_test.go          # gRPC service tests
-│   │   ├── storage_test.go       # Storage implementation tests
-│   │   └── providers_test.go     # API provider tests
-│   ├── parity/
-│   │   └── parity_test.go        # CLI parity tests
-│   ├── e2e/
-│   │   └── workflow_test.go      # End-to-end workflow tests
-│   └── regression/
-│       └── regression_test.go    # Regression tests
-```
+Located in `*_test.go` files alongside source code:
 
-## Coverage Requirements
+- `internal/config/layer_test.go` - Configuration layer tests
+- `internal/storage/storage_test.go` - Storage operations tests
+- `internal/tui/app_model_test.go` - TUI component tests
+- `internal/tui/welcome_model_test.go` - Welcome screen tests
+- `internal/api/client_test.go` - API client tests
+- `internal/task/runner_test.go` - Task execution tests
+- `internal/mode/detect_test.go` - Mode detection tests
 
-### Target Coverage: >80%
+### Integration Tests
 
-All packages must achieve at least 80% test coverage. The coverage analyzer in `tests/coverage_test.go` enforces this requirement.
+Located in `tests/integration/`:
 
-### Coverage Categories
+- `grpc_test.go` - gRPC communication tests
+- `storage_test.go` - Storage integration tests
+- `config_test.go` - Configuration integration tests
 
-1. **Unit Test Coverage** - Core logic and utilities
-2. **Integration Coverage** - gRPC, storage, provider interactions
-3. **E2E Coverage** - Complete user workflows
+### E2E Tests
+
+Located in `tests/e2e/`:
+
+- `workflow_test.go` - Full CLI workflow tests
+
+### Parity Tests
+
+Located in `tests/parity/`:
+
+- `feature_parity_test.go` - TypeScript vs Go feature parity
+- `behavior_parity_test.go` - Behavior comparison tests
+
+### Regression Tests
+
+Located in `tests/regression/`:
+
+- `regression_test.go` - Issue regression tests
+
+## Coverage Targets
+
+### Critical Components (>80% Coverage)
+
+| Package | Coverage | Status |
+|---------|----------|--------|
+| internal/config | 87.1% | ✅ |
+| internal/storage | 73.3% | 🔄 |
+| internal/state | 80.8% | ✅ |
+| internal/security | 85.1% | ✅ |
+| internal/exit | 85.8% | ✅ |
+
+### Other Components
+
+| Package | Coverage |
+|---------|----------|
+| internal/agent | 69.8% |
+| internal/audit | 70.9% |
+| internal/auth | 64.7% |
+| internal/mode | 62.7% |
+| internal/api | 46.6% |
+| internal/host | 39.4% |
+| internal/task | 38.7% |
+| internal/tui | 5.6% |
+
+*Note: TUI and API coverage is lower due to UI-heavy code and external API dependencies*
+
+## Continuous Integration
+
+Tests run automatically on:
+- Every pull request
+- Every push to main branch
+- Nightly builds
+
+### CI Test Matrix
+
+- Go 1.21+
+- macOS (Intel & Apple Silicon)
+- Linux (x86_64 & ARM64)
+- Windows (x86_64)
 
 ## Writing Tests
 
-### Unit Test Example
+### Unit Test Pattern
 
 ```go
-func TestNewCoverageAnalyzer(t *testing.T) {
-    t.Run("creates analyzer with correct settings", func(t *testing.T) {
-        analyzer := NewCoverageAnalyzer("/project", 85.0)
-
-        if analyzer.ProjectRoot != "/project" {
-            t.Errorf("ProjectRoot = %s, want /project", analyzer.ProjectRoot)
-        }
-        if analyzer.Threshold != 85.0 {
-            t.Errorf("Threshold = %f, want 85.0", analyzer.Threshold)
-        }
+func TestNewComponent(t *testing.T) {
+    t.Run("creates component with defaults", func(t *testing.T) {
+        comp, err := NewComponent(ConfigOptions{})
+        require.NoError(t, err)
+        assert.NotNil(t, comp)
     })
 }
 ```
 
-### Integration Test Example
+### Table-Driven Tests
 
 ```go
-func TestFileStorage(t *testing.T) {
-    t.Run("sets and gets values", func(t *testing.T) {
-        tempDir, err := os.MkdirTemp("", "storage-test-*")
-        require.NoError(t, err)
-        defer os.RemoveAll(tempDir)
+tests := []struct {
+    name     string
+    input    string
+    expected string
+}{
+    {"valid input", "test", "result"},
+    {"empty input", "", "default"},
+}
 
-        filePath := filepath.Join(tempDir, "test.json")
-        store := storage.NewFileStorage(filePath)
-        require.NoError(t, store.Initialize())
-
-        err = store.Set("key1", "value1")
-        require.NoError(t, err)
-
-        val, err := store.Get("key1")
-        require.NoError(t, err)
-        assert.Equal(t, "value1", val)
+for _, tt := range tests {
+    t.Run(tt.name, func(t *testing.T) {
+        result := Process(tt.input)
+        assert.Equal(t, tt.expected, result)
     })
 }
 ```
 
-### Regression Test Example
+### Mocking External Dependencies
 
 ```go
-func TestRegressionConfigPersistence(t *testing.T) {
-    binary := FindBinary()
-    if binary == "" {
-        t.Skip("CLI binary not found")
-    }
-
-    tempDir, err := os.MkdirTemp("", "regression-config-*")
-    require.NoError(t, err)
-    defer os.RemoveAll(tempDir)
-
-    t.Run("config survives binary restart", func(t *testing.T) {
-        // First run: set config
-        cmd1 := exec.Command(binary, "config", "set", "key", "value")
-        output1, err := cmd1.CombinedOutput()
-        require.NoError(t, err)
-
-        // Second run: verify config persists
-        cmd2 := exec.Command(binary, "config", "get", "key")
-        output2, err := cmd2.CombinedOutput()
-        require.NoError(t, err)
-
-        assert.Contains(t, string(output2), "value")
-    })
+type MockStorage struct {
+    GetFunc func(key string) (interface{}, bool)
+    SetFunc func(key string, value interface{}) error
 }
-```
 
-## CI/CD Integration
-
-### Test Runner Script
-
-Use the provided test runner script:
-
-```bash
-./scripts/run-tests.sh
-```
-
-### Makefile Targets
-
-```makefile
-test:
-	go test ./... -v
-
-test-coverage:
-	go test ./... -coverprofile=coverage.out
-	go tool cover -html=coverage.out -o coverage.html
-
-test-integration:
-	go test ./tests/integration -v
-
-test-parity:
-	go test ./tests/parity -v
-
-test-e2e:
-	go test ./tests/e2e -v
-
-test-regression:
-	go test ./tests/regression -v
-
-test-all: test test-integration test-parity test-e2e test-regression
-```
-
-## Performance Testing
-
-### Benchmarks
-
-Run benchmarks with:
-
-```bash
-# Run all benchmarks
-go test ./... -bench=.
-
-# Run specific benchmark
-go test ./tests/integration -bench=BenchmarkStorage
-
-# Run with memory profiling
-go test ./tests/integration -bench=. -benchmem
+func (m *MockStorage) Get(key string) (interface{}, bool) {
+    return m.GetFunc(key)
+}
 ```
 
 ## Debugging Tests
 
-### Verbose Output
-
+### Run Specific Test
 ```bash
-go test ./tests/integration -v -run TestFileStorage
+go test -run TestNewComponent ./internal/config/...
 ```
 
-### Race Detection
-
+### Run with Race Detector
 ```bash
-go test ./... -race
+go test -race ./...
 ```
 
-### Timeout Control
-
+### Generate HTML Coverage Report
 ```bash
-# Default timeout is 10 minutes
-go test ./tests/e2e -timeout 5m
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+open coverage.html
 ```
 
-## Test Independence from TypeScript
+## Known Issues
 
-### Independence Verification
-
-Tests in `tests/regression/` verify the Go CLI can operate independently:
-
-1. No shared configuration files
-2. No TypeScript runtime dependencies
-3. No parent directory file access
-4. Self-contained binary
-
-### Verifying Independence
-
-```bash
-# Build Go binary
-go build -o cline ./cmd/cline
-
-# Move to isolated location
-cp cline /tmp/test-cline
-cd /tmp
-
-# Run tests
-./test-cline version
-./test-cline config list
-```
-
-## Known Issues and Regressions
-
-### Tracking Known Issues
-
-Add known issues to `KnownIssues` map in `tests/regression/regression_test.go`:
-
-```go
-var KnownIssues = map[string]*RegressionTest{
-    "CLI-001": {
-        ID:          "CLI-001",
-        Description: "Config corruption on concurrent access",
-        RelatedBug:  "https://github.com/cline/cline/issues/123",
-        Category:    "storage",
-        Steps: []RegressionStep{
-            // Test steps
-        },
-    },
-}
-```
-
-## Best Practices
-
-1. **Always clean up** - Use `defer os.RemoveAll(tempDir)` for temporary files
-2. **Skip when unavailable** - Use `t.Skip()` when dependencies are missing
-3. **Table-driven tests** - Use test tables for multiple test cases
-4. **Subtests** - Use `t.Run()` for organized test output
-5. **Parallel execution** - Use `t.Parallel()` for independent tests
-6. **Timeout handling** - Set appropriate timeouts for E2E tests
-7. **Environment isolation** - Use temporary directories for test data
-8. **Binary detection** - Automatically find test binaries
-
-## Test Data
-
-### Test Fixtures
-
-Place test fixtures in `tests/fixtures/`:
-
-```
-tests/
-├── fixtures/
-│   ├── config/
-│   │   └── sample.json
-│   ├── history/
-│   │   └── sample.json
-│   └── providers/
-│       └── responses/
-```
-
-### Mock Servers
-
-Integration tests use `httptest` for mocking API providers:
-
-```go
-server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
-    json.NewEncoder(w).Encode(mockResponse)
-}))
-defer server.Close()
-```
-
-## Contributing
-
-When adding new features:
-
-1. Write unit tests for new functions
-2. Add integration tests for new APIs
-3. Update parity tests if behavior changes
-4. Add regression tests for bug fixes
-5. Ensure coverage remains above 80%
+- Storage tests may take time due to file I/O
+- TUI tests require terminal emulator
+- Some tests require network access (marked with `//go:build integration`)

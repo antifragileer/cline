@@ -339,3 +339,13 @@ type ProgressUpdateMsg struct {
 	Current int
 	Total   int
 }
+
+// StreamStateMsg is sent when the stream state changes
+type StreamStateMsg struct {
+	State interface{} // StreamState from host package
+}
+
+// StreamMessageMsg is sent when a message is received from the stream
+type StreamMessageMsg struct {
+	Message Message
+}

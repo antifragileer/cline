@@ -348,7 +348,7 @@ func (m WelcomeModel) View() string {
 }
 
 // renderHeader renders the header section.
-func (m WelcomeModel) renderHeader() string {
+func (m *WelcomeModel) renderHeader() string {
 	var content strings.Builder
 
 	// ASCII art logo
@@ -456,6 +456,17 @@ func (m *WelcomeModel) Reset() {
 	m.cursor = 0
 	m.showInput = false
 	m.inputValue = ""
+}
+
+// SetMode sets the mode (act/plan).
+func (m *WelcomeModel) SetMode(mode string) {
+	// Mode is not used in welcome screen, but interface requires it
+}
+
+// SetDimensions sets the terminal dimensions.
+func (m *WelcomeModel) SetDimensions(width, height int) {
+	m.width = width
+	m.height = height
 }
 
 // truncateString truncates a string to the given length.

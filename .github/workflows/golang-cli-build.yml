@@ -1,0 +1,456 @@
+name: Go CLI Build & Distribution
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'golang-cli/**'
+      - '.github/workflows/golang-cli-build.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: false
+        default: ''
+      create_release:
+        description: 'Create release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}/${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+          - os: darwin
+            arch: amd64
+            runner: macos-latest
+          - os: darwin
+            arch: arm64
+            runner: macos-latest
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Set Version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="$(git describe --tags --always --dirty)"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        shell: bash
+        working-directory: golang-cli
+        run: |
+          mkdir -p build dist
+          
+          EXT=""
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            EXT=".exe"
+          fi
+          
+          BINARY_NAME="cline-${{ env.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}${EXT}"
+          
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 \
+            go build \
+            -ldflags "-s -w \
+              -X github.com/cline/cline/golang-cli/cmd/cline.Version=${{ env.VERSION }} \
+              -X github.com/cline/cline/golang-cli/cmd/cline.BuildTime=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+              -X github.com/cline/cline/golang-cli/cmd/cline.GitCommit=${{ github.sha }}" \
+            -trimpath \
+            -o "build/${BINARY_NAME}" \
+            ./cmd/cline
+          
+          ls -lh build/
+
+      - name: Sign macOS Binary (macOS only)
+        if: matrix.os == 'darwin'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_CERTIFICATE_NAME: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+          MACOS_NOTARIZATION_APPLE_ID: ${{ secrets.MACOS_NOTARIZATION_APPLE_ID }}
+          MACOS_NOTARIZATION_TEAM_ID: ${{ secrets.MACOS_NOTARIZATION_TEAM_ID }}
+          MACOS_NOTARIZATION_PWD: ${{ secrets.MACOS_NOTARIZATION_PASSWORD }}
+        run: |
+          echo "Signing macOS binary..."
+          # Decode certificate
+          echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
+          
+          # Create keychain
+          security create-keychain -p "temp_password" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "temp_password" build.keychain
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-keychain-settings -t 3600 -u build.keychain
+          
+          # Sign binary
+          EXT=""
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            EXT=".exe"
+          fi
+          BINARY_NAME="cline-${{ env.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}${EXT}"
+          /usr/bin/codesign --force --options runtime --sign "$MACOS_CERTIFICATE_NAME" --timestamp "./golang-cli/build/${BINARY_NAME}"
+          
+          # Verify signature
+          /usr/bin/codesign -vvv --deep --strict "./golang-cli/build/${BINARY_NAME}"
+
+      - name: Create Archive
+        shell: bash
+        working-directory: golang-cli
+        run: |
+          mkdir -p dist
+          
+          EXT=""
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            EXT=".exe"
+          fi
+          BINARY_NAME="cline-${{ env.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}${EXT}"
+          
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            cd build && zip "../dist/${BINARY_NAME%.exe}.zip" "${BINARY_NAME}" && cd ..
+          else
+            cd build && tar -czf "../dist/${BINARY_NAME}.tar.gz" "${BINARY_NAME}" && cd ..
+          fi
+          
+          ls -lh dist/
+
+      - name: Generate Checksum
+        shell: bash
+        working-directory: golang-cli/dist
+        run: |
+          if command -v sha256sum &> /dev/null; then
+            sha256sum * > checksums.txt
+          else
+            shasum -a 256 * > checksums.txt
+          fi
+          cat checksums.txt
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cline-${{ env.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            golang-cli/dist/*
+            golang-cli/build/*
+          if-no-files-found: error
+          retention-days: 30
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Run Tests
+        working-directory: golang-cli
+        run: |
+          go test ./... -v -race -coverprofile=coverage.out
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: golang-cli/coverage.out
+          flags: golang-cli
+          name: golang-cli-coverage
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: golang-cli
+          args: --timeout=5m
+
+  generate-packages:
+    name: Generate Package Manifests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Set Version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="$(git describe --tags --always --dirty)"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: cline-${{ env.VERSION }}-*
+          merge-multiple: true
+
+      - name: Generate Homebrew Formula
+        working-directory: golang-cli
+        run: |
+          mkdir -p dist
+          
+          # Organize artifacts by platform
+          mkdir -p dist/{darwin,linux,windows}-{amd64,arm64}
+          
+          # Find and organize tar.gz files
+          find ../artifacts -name "*.tar.gz" -o -name "*.zip" | while read f; do
+            case "$f" in
+              *darwin*amd64*) cp "$f" dist/darwin-amd64/ ;;
+              *darwin*arm64*) cp "$f" dist/darwin-arm64/ ;;
+              *linux*amd64*) cp "$f" dist/linux-amd64/ ;;
+              *linux*arm64*) cp "$f" dist/linux-arm64/ ;;
+              *windows*amd64*) cp "$f" dist/windows-amd64/ ;;
+            esac
+          done
+          
+          # Generate formula using local mode
+          go run ./scripts/generate_homebrew.go \
+            -version "${{ env.VERSION }}" \
+            -local \
+            -binary-dir dist \
+            -output Formula/cline.rb \
+            -base-url "https://github.com/cline/cline/releases/download/${{ env.VERSION }}"
+          
+          cat Formula/cline.rb
+
+      - name: Generate Scoop Manifest
+        working-directory: golang-cli
+        run: |
+          # Generate scoop manifest
+          go run ./scripts/generate_scoop.go \
+            -version "${{ env.VERSION }}" \
+            -local \
+            -binary-dir dist \
+            -output bucket/cline.json \
+            -base-url "https://github.com/cline/cline/releases/download/${{ env.VERSION }}"
+          
+          cat bucket/cline.json
+
+      - name: Upload Package Manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-manifests
+          path: |
+            golang-cli/Formula/*.rb
+            golang-cli/bucket/*.json
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: [build, test, generate-packages]
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') ||
+      github.event.inputs.create_release == 'true'
+    
+    steps:
+      - name: Set Version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: cline-${{ env.VERSION }}-*
+          merge-multiple: true
+
+      - name: Download Package Manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: package-manifests
+          path: release-manifests
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
+          draft: false
+          prerelease: ${{ contains(env.VERSION, 'beta') || contains(env.VERSION, 'alpha') || contains(env.VERSION, 'rc') }}
+          files: |
+            release-artifacts/*.tar.gz
+            release-artifacts/*.zip
+            release-artifacts/checksums.txt
+            release-manifests/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+
+  publish-npm:
+    name: Publish NPM Package
+    needs: release
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') ||
+      github.event.inputs.create_release == 'true'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update NPM Package Version
+        working-directory: golang-cli/npm-wrapper
+        run: |
+          # Extract version from tag (remove 'v' prefix if present)
+          VERSION="${{ env.VERSION }}"
+          VERSION="${VERSION#v}"
+          npm version "$VERSION" --no-git-tag-version
+
+      - name: Publish to NPM
+        working-directory: golang-cli/npm-wrapper
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  update-homebrew-tap:
+    name: Update Homebrew Tap
+    needs: release
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
+      !contains(github.ref_name, 'beta') &&
+      !contains(github.ref_name, 'alpha') &&
+      !contains(github.ref_name, 'rc')
+    
+    steps:
+      - name: Checkout Homebrew Tap
+        uses: actions/checkout@v4
+        with:
+          repository: cline/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Download Package Manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: package-manifests
+          path: manifests
+
+      - name: Update Formula
+        run: |
+          cp manifests/Formula/cline.rb homebrew-tap/Formula/
+          
+          cd homebrew-tap
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/cline.rb
+          git commit -m "Update cline to ${{ github.ref_name }}" || echo "No changes to commit"
+          git push
+
+  update-scoop-bucket:
+    name: Update Scoop Bucket
+    needs: release
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
+      !contains(github.ref_name, 'beta') &&
+      !contains(github.ref_name, 'alpha') &&
+      !contains(github.ref_name, 'rc')
+    
+    steps:
+      - name: Checkout Scoop Bucket
+        uses: actions/checkout@v4
+        with:
+          repository: cline/scoop-cline
+          token: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          path: scoop-bucket
+
+      - name: Download Package Manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: package-manifests
+          path: manifests
+
+      - name: Update Manifest
+        run: |
+          cp manifests/bucket/cline.json scoop-bucket/bucket/
+          
+          cd scoop-bucket
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add bucket/cline.json
+          git commit -m "Update cline to ${{ github.ref_name }}" || echo "No changes to commit"
+          git push

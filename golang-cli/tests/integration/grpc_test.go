@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,7 +20,9 @@ import (
 // MockTaskService implements the TaskService for testing
 type MockTaskService struct {
 	cline.UnimplementedTaskServiceServer
-	tasks map[string]*cline.TaskResponse
+	mu     sync.RWMutex
+	tasks  map[string]*cline.TaskResponse
+	taskID int
 }
 
 func NewMockTaskService() *MockTaskService {
@@ -29,7 +32,11 @@ func NewMockTaskService() *MockTaskService {
 }
 
 func (m *MockTaskService) NewTask(ctx context.Context, req *cline.NewTaskRequest) (*cline.String, error) {
-	taskID := fmt.Sprintf("test-task-%d", len(m.tasks)+1)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.taskID++
+	taskID := fmt.Sprintf("test-task-%d", m.taskID)
 	task := &cline.TaskResponse{
 		Id:   taskID,
 		Task: req.GetText(),
@@ -39,6 +46,9 @@ func (m *MockTaskService) NewTask(ctx context.Context, req *cline.NewTaskRequest
 }
 
 func (m *MockTaskService) ShowTaskWithId(ctx context.Context, req *cline.StringRequest) (*cline.TaskResponse, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	task, ok := m.tasks[req.Value]
 	if !ok {
 		return nil, fmt.Errorf("task not found: %s", req.Value)

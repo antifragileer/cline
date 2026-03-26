@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -160,6 +161,7 @@ type MigratableStorage struct {
 	backupDir  string
 	registry   *MigrationRegistry
 	data       map[string]any
+	dataMu     sync.RWMutex // Protects data map for concurrent access
 	fileMode   os.FileMode
 	backupMode os.FileMode
 }
@@ -423,12 +425,16 @@ func (s *MigratableStorage) restoreFromBackup(backupPath string) error {
 
 // Get retrieves a value from storage.
 func (s *MigratableStorage) Get(key string) (any, bool) {
+	s.dataMu.RLock()
+	defer s.dataMu.RUnlock()
 	val, ok := s.data[key]
 	return val, ok
 }
 
 // GetString retrieves a string value from storage.
 func (s *MigratableStorage) GetString(key string) (string, bool) {
+	s.dataMu.RLock()
+	defer s.dataMu.RUnlock()
 	val, ok := s.data[key]
 	if !ok {
 		return "", false
@@ -446,6 +452,8 @@ func (s *MigratableStorage) GetString(key string) (string, bool) {
 
 // GetInt retrieves an int value from storage.
 func (s *MigratableStorage) GetInt(key string) (int, bool) {
+	s.dataMu.RLock()
+	defer s.dataMu.RUnlock()
 	val, ok := s.data[key]
 	if !ok {
 		return 0, false
@@ -468,6 +476,8 @@ func (s *MigratableStorage) GetInt(key string) (int, bool) {
 
 // Set stores a value in storage.
 func (s *MigratableStorage) Set(key string, value any) {
+	s.dataMu.Lock()
+	defer s.dataMu.Unlock()
 	if value == nil {
 		delete(s.data, key)
 	} else {
@@ -477,11 +487,15 @@ func (s *MigratableStorage) Set(key string, value any) {
 
 // Delete removes a key from storage.
 func (s *MigratableStorage) Delete(key string) {
+	s.dataMu.Lock()
+	defer s.dataMu.Unlock()
 	delete(s.data, key)
 }
 
 // Keys returns all keys in storage.
 func (s *MigratableStorage) Keys() []string {
+	s.dataMu.RLock()
+	defer s.dataMu.RUnlock()
 	keys := make([]string, 0, len(s.data))
 	for k := range s.data {
 		keys = append(keys, k)
@@ -492,11 +506,15 @@ func (s *MigratableStorage) Keys() []string {
 
 // GetVersion returns the current storage version.
 func (s *MigratableStorage) GetVersion() int {
+	s.dataMu.RLock()
+	defer s.dataMu.RUnlock()
 	return GetCurrentVersion(s.data)
 }
 
 // GetData returns a copy of the underlying data map.
 func (s *MigratableStorage) GetData() map[string]any {
+	s.dataMu.RLock()
+	defer s.dataMu.RUnlock()
 	result := make(map[string]any, len(s.data))
 	for k, v := range s.data {
 		result[k] = v
@@ -506,6 +524,8 @@ func (s *MigratableStorage) GetData() map[string]any {
 
 // SetData replaces the entire data map.
 func (s *MigratableStorage) SetData(data map[string]any) {
+	s.dataMu.Lock()
+	defer s.dataMu.Unlock()
 	s.data = make(map[string]any, len(data))
 	for k, v := range data {
 		s.data[k] = v

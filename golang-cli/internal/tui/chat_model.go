@@ -174,6 +174,10 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = ChatStateIdle
 		}
 
+	case StreamMessageMsg:
+		// Handle messages from gRPC stream
+		m.handleStreamMessage(msg.Message)
+
 	case ApprovalRequestMsg:
 		m.state = ChatStateWaitingForApproval
 		m.pendingApproval = &ApprovalRequest{
@@ -182,6 +186,15 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Response: msg.Response,
 		}
 		m.inputEnabled = false
+
+	case StreamStateMsg:
+		// Handle stream state changes
+		switch msg.State {
+		case 2: // StreamStateReady
+			m.state = ChatStateIdle
+		case 3: // StreamStateReconnecting
+			m.isStreaming = true
+		}
 
 	case StatusUpdateMsg:
 		// Status updates don't change model state directly
@@ -520,3 +533,58 @@ func (m *ChatModel) IsWaitingForApproval() bool {
 	return m.state == ChatStateWaitingForApproval
 }
 
+// SetProgram sets the tea program for sending messages.
+func (m *ChatModel) SetProgram(program *tea.Program) {
+	// Store program reference if needed for sending messages
+}
+
+// ShouldReturnToWelcome returns true if user wants to return to welcome screen.
+func (m *ChatModel) ShouldReturnToWelcome() bool {
+	// Check if user pressed a shortcut to go back
+	return false
+}
+
+// SetDimensions sets the terminal dimensions.
+func (m *ChatModel) SetDimensions(width, height int) {
+	m.width = width
+	m.height = height
+	m.input.Width = width - 6
+	if m.renderer != nil {
+		m.renderer.SetWidth(width - 10)
+	}
+}
+
+// handleStreamMessage handles messages from the gRPC stream
+func (m *ChatModel) handleStreamMessage(msg Message) {
+	// Update streaming state based on partial flag
+	if msg.Partial {
+		m.isStreaming = true
+		m.state = ChatStateStreaming
+	} else {
+		m.isStreaming = false
+		m.state = ChatStateIdle
+	}
+
+	// Check if this is an update to the last message (for partial/streaming)
+	if len(m.messages) > 0 {
+		lastMsg := &m.messages[len(m.messages)-1]
+		if lastMsg.Type == msg.Type && lastMsg.Partial && msg.Partial {
+			// Update the last message
+			lastMsg.Content = msg.Content
+			lastMsg.Partial = msg.Partial
+			return
+		}
+	}
+
+	// Add as new message
+	m.messages = append(m.messages, msg)
+}
+
+// GetMessageHandler returns a function that can be used to handle messages
+func (m *ChatModel) GetMessageHandler() func(Message) {
+	return func(msg Message) {
+		// This will be called by the gRPC integration
+		// The message will be sent to the program in the actual implementation
+		m.handleStreamMessage(msg)
+	}
+}
