@@ -1,6 +1,6 @@
-// Package main provides build and distribution utilities for the Cline CLI.
+// Package scripts provides build and distribution utilities for the Cline CLI.
 // This file implements the CLI tool for generating Scoop manifests.
-package main
+package scripts
 
 import (
 	"crypto/sha256"
@@ -208,6 +208,17 @@ func validateScoopPlatform(p *ScoopPlatform, arch string) error {
 		return fmt.Errorf("%s: invalid hash format (expected sha256:<64-char-hex>)", arch)
 	}
 	return nil
+}
+
+// IsScoopSupportedArchitecture checks if an architecture is supported by Scoop.
+func IsScoopSupportedArchitecture(arch string) bool {
+	supported := ScoopSupportedArchitectures()
+	for _, a := range supported {
+		if a == arch {
+			return true
+		}
+	}
+	return false
 }
 
 func isValidScoopHash(hash string) bool {
@@ -524,10 +535,5 @@ func RunScoop(config *ScoopConfig) error {
 	return nil
 }
 
-func main() {
-	config := ParseScoopFlags()
-	if err := RunScoop(config); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-}
+// Note: This file is part of the scripts package and should be invoked via
+// the cmd/scoop-gen/main.go CLI tool or used as a library.

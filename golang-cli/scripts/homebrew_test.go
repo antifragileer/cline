@@ -582,3 +582,45 @@ func TestGetHomebrewPlatformMap(t *testing.T) {
 		})
 	}
 }
+
+func TestGetHomebrewBinaryPath(t *testing.T) {
+	binaryDir := "/tmp/binaries"
+	version := "1.0.0"
+	os := "linux"
+	arch := "amd64"
+
+	expected := "/tmp/binaries/cline_1.0.0_linux_amd64.tar.gz"
+	result := GetHomebrewBinaryPath(binaryDir, version, os, arch)
+
+	if result != expected {
+		t.Errorf("GetHomebrewBinaryPath() = %q, expected %q", result, expected)
+	}
+}
+
+func TestCheckHomebrewBinariesExist(t *testing.T) {
+	// Create temp directory with test binaries
+	tempDir := t.TempDir()
+	version := "1.0.0"
+
+	// Test with no binaries (should fail)
+	err := CheckHomebrewBinariesExist(tempDir, version)
+	if err == nil {
+		t.Error("Expected error when binaries don't exist")
+	}
+
+	// Create dummy binaries
+	platforms := HomebrewSupportedPlatforms()
+	for _, p := range platforms {
+		binaryName := GetHomebrewBinaryName(version, p.OS, p.Arch)
+		binaryPath := filepath.Join(tempDir, binaryName)
+		if err := os.WriteFile(binaryPath, []byte("dummy"), 0644); err != nil {
+			t.Fatalf("Failed to create dummy binary: %v", err)
+		}
+	}
+
+	// Test with all binaries present (should pass)
+	err = CheckHomebrewBinariesExist(tempDir, version)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}

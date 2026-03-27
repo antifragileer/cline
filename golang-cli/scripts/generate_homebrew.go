@@ -1,6 +1,6 @@
-// Package main provides build and distribution utilities for the Cline CLI.
+// Package scripts provides build and distribution utilities for the Cline CLI.
 // This file implements the CLI tool for generating Homebrew formulas.
-package main
+package scripts
 
 import (
 	"crypto/sha256"
@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"text/template"
 	"time"
@@ -229,6 +230,29 @@ func CalculateSHA256FromFile(path string) (string, error) {
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// CalculateSHA256FromBytes calculates the SHA256 checksum of byte content.
+func CalculateSHA256FromBytes(content []byte) string {
+	hasher := sha256.New()
+	hasher.Write(content)
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+// DetectHomebrewPlatform detects the current platform for Homebrew.
+func DetectHomebrewPlatform() (string, string) {
+	return runtime.GOOS, runtime.GOARCH
+}
+
+// IsHomebrewSupportedPlatform checks if a platform is supported by Homebrew formula.
+func IsHomebrewSupportedPlatform(os, arch string) bool {
+	supported := HomebrewSupportedPlatforms()
+	for _, p := range supported {
+		if p.OS == os && p.Arch == arch {
+			return true
+		}
+	}
+	return false
 }
 
 // DefaultHomebrewTap returns a HomebrewTap with default values for Cline.
@@ -671,10 +695,5 @@ func ListHomebrewRequiredBinaries(version string) []string {
 	return binaries
 }
 
-func main() {
-	config := ParseFlags()
-	if err := RunHomebrew(config); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-}
+// Note: This file is part of the scripts package and should be invoked via
+// the cmd/homebrew-gen/main.go CLI tool or used as a library.

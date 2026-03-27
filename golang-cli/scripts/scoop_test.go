@@ -488,7 +488,7 @@ func TestIsScoopSupportedArchitecture(t *testing.T) {
 	}
 }
 
-func TestIsValidSHA256Hash(t *testing.T) {
+func TestIsValidScoopHash(t *testing.T) {
 	tests := []struct {
 		name     string
 		hash     string
@@ -528,9 +528,9 @@ func TestIsValidSHA256Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isValidSHA256Hash(tt.hash)
+			result := isValidScoopHash(tt.hash)
 			if result != tt.expected {
-				t.Errorf("isValidSHA256Hash(%q) = %v, want %v", tt.hash, result, tt.expected)
+				t.Errorf("isValidScoopHash(%q) = %v, want %v", tt.hash, result, tt.expected)
 			}
 		})
 	}

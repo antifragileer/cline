@@ -85,17 +85,17 @@ type ImageData struct {
 
 // NewTaskRequest represents a request to create a new task
 type NewTaskRequest struct {
-	TaskID      string            `json:"taskId"`
-	Prompt      string            `json:"prompt"`
-	Mode        TaskMode          `json:"mode"`
-	Images      []ImageData       `json:"images,omitempty"`
-	Model       string            `json:"model"`
-	Timeout     int64             `json:"timeout"` // seconds
-	Yolo        bool              `json:"yolo"`
-	Thinking    bool              `json:"thinking"`
-	Cwd         string            `json:"cwd"`
-	Timestamp   int64             `json:"timestamp"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	TaskID    string            `json:"taskId"`
+	Prompt    string            `json:"prompt"`
+	Mode      TaskMode          `json:"mode"`
+	Images    []ImageData       `json:"images,omitempty"`
+	Model     string            `json:"model"`
+	Timeout   int64             `json:"timeout"` // seconds
+	Yolo      bool              `json:"yolo"`
+	Thinking  bool              `json:"thinking"`
+	Cwd       string            `json:"cwd"`
+	Timestamp int64             `json:"timestamp"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
 // NewTaskResponse represents a response from creating a new task
@@ -108,13 +108,13 @@ type NewTaskResponse struct {
 
 // TaskHistoryEntry represents a single entry in the task history
 type TaskHistoryEntry struct {
-	TaskID    string    `json:"taskId"`
-	Prompt    string    `json:"prompt"`
-	Mode      TaskMode  `json:"mode"`
-	Cwd       string    `json:"cwd"`
-	Model     string    `json:"model"`
-	CreatedAt int64     `json:"createdAt"`
-	Status    string    `json:"status"`
+	TaskID    string   `json:"taskId"`
+	Prompt    string   `json:"prompt"`
+	Mode      TaskMode `json:"mode"`
+	Cwd       string   `json:"cwd"`
+	Model     string   `json:"model"`
+	CreatedAt int64    `json:"createdAt"`
+	Status    string   `json:"status"`
 }
 
 // InitOptions provides options for task initialization
@@ -370,8 +370,14 @@ func (i *Initializer) loadAndValidateImages(paths []string) ([]ImageData, error)
 	return images, nil
 }
 
-// loadImage loads and validates a single image file
-func (i *Initializer) loadImage(path string) (*ImageData, error) {
+// LoadAndValidateImage is an exported function to load and validate an image file
+// This is useful for testing image loading functionality without creating an Initializer
+func LoadAndValidateImage(path string) (*ImageData, error) {
+	return loadImageInternal(path)
+}
+
+// loadImageInternal loads and validates a single image file
+func loadImageInternal(path string) (*ImageData, error) {
 	// Expand path if needed
 	if strings.HasPrefix(path, "~") {
 		homeDir, err := os.UserHomeDir()
@@ -419,6 +425,11 @@ func (i *Initializer) loadImage(path string) (*ImageData, error) {
 		MimeType: mimeType,
 		Size:     info.Size(),
 	}, nil
+}
+
+// loadImage loads and validates a single image file
+func (i *Initializer) loadImage(path string) (*ImageData, error) {
+	return loadImageInternal(path)
 }
 
 // getMimeType returns the MIME type for a given file extension
@@ -514,20 +525,20 @@ func (i *Initializer) sendNewTaskRequest(ctx context.Context, taskID string, cfg
 
 	// Create a TaskStreamHandler for bidirectional communication
 	handler := host.NewTaskStreamHandler(taskID)
-	
+
 	// Set up message callbacks
 	handler.OnTextMessage = func(text string) {
 		if cfg.Verbose {
 			fmt.Fprintf(i.output, "Assistant: %s\n", text)
 		}
 	}
-	
+
 	handler.OnCompletion = func(result string) {
 		if cfg.Verbose {
 			fmt.Fprintf(i.output, "Task completed: %s\n", result)
 		}
 	}
-	
+
 	handler.OnError = func(err error) {
 		fmt.Fprintf(i.output, "Error: %v\n", err)
 	}
@@ -557,7 +568,7 @@ func (i *Initializer) sendNewTaskRequest(ctx context.Context, taskID string, cfg
 	if cfg.Timeout > 0 {
 		ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 		defer cancel()
-		
+
 		if err := handler.WaitForCompletion(ctx); err != nil {
 			return nil, fmt.Errorf("task execution failed: %w", err)
 		}

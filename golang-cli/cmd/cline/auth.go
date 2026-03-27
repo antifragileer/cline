@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/cline/cline/golang-cli/internal/api"
 	"github.com/cline/cline/golang-cli/internal/storage"
 )
 
@@ -536,32 +537,88 @@ func saveAuthConfig(ctx *storage.StorageContext, provider, apiKey, model, baseUR
 
 // testProviderAuth tests authentication with a specific provider
 func testProviderAuth(provider, apiKey string) error {
-	// This is a placeholder for actual API testing
-	// In a real implementation, this would make a test API call
+	discovery := api.NewModelDiscovery()
+
 	switch provider {
 	case "anthropic":
-		// Would test with Anthropic API
-		return nil
+		return discovery.ValidateProviderAuth(api.ProviderAnthropic, apiKey, "")
 	case "openrouter":
-		// Would test with OpenRouter API
-		return nil
+		return discovery.ValidateProviderAuth(api.ProviderOpenRouter, apiKey, "")
 	case "openai", "openai-native":
-		// Would test with OpenAI API
-		return nil
+		return discovery.ValidateProviderAuth(api.ProviderOpenAI, apiKey, "")
 	case "gemini":
-		// Would test with Google Gemini API
-		return nil
-	case "bedrock":
-		// Would test with AWS Bedrock
-		return nil
+		return discovery.ValidateProviderAuth(api.ProviderGemini, apiKey, "")
 	case "ollama":
-		// Would test with local Ollama instance
+		return discovery.ValidateProviderAuth(api.ProviderOllama, "", "http://localhost:11434")
+	case "bedrock":
+		// Bedrock requires complex AWS credentials, skip validation
 		return nil
 	case "moonshot":
-		// Would test with Moonshot API
+		// Moonshot validation not yet implemented
 		return nil
 	default:
 		return fmt.Errorf("unknown provider: %s", provider)
+	}
+}
+
+// fetchProviderModels dynamically fetches available models from a provider
+func fetchProviderModels(provider, apiKey, baseURL string) ([]string, error) {
+	discovery := api.NewModelDiscovery()
+
+	switch provider {
+	case "anthropic":
+		models, err := discovery.FetchAnthropicModels(apiKey)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]string, len(models))
+		for i, m := range models {
+			result[i] = m.ID
+		}
+		return result, nil
+	case "openrouter":
+		models, err := discovery.FetchOpenRouterModels(apiKey)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]string, len(models))
+		for i, m := range models {
+			result[i] = m.ID
+		}
+		return result, nil
+	case "openai", "openai-native":
+		models, err := discovery.FetchOpenAIModels(apiKey)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]string, len(models))
+		for i, m := range models {
+			result[i] = m.ID
+		}
+		return result, nil
+	case "gemini":
+		models, err := discovery.FetchGeminiModels(apiKey)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]string, len(models))
+		for i, m := range models {
+			result[i] = m.ID
+		}
+		return result, nil
+	case "ollama":
+		models, err := discovery.FetchOllamaModels(baseURL)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]string, len(models))
+		for i, m := range models {
+			result[i] = m.ID
+		}
+		return result, nil
+	default:
+		// Return empty for providers without dynamic discovery
+		return nil, nil
 	}
 }
 

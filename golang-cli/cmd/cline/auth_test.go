@@ -157,20 +157,33 @@ func TestSelectModelInteractive(t *testing.T) {
 }
 
 func TestTestProviderAuth(t *testing.T) {
-	// Test with each supported provider
-	for providerName := range SupportedProviders {
-		t.Run(providerName, func(t *testing.T) {
-			err := testProviderAuth(providerName, "test-key")
-			if err != nil {
-				t.Errorf("testProviderAuth(%s) returned error: %v", providerName, err)
-			}
-		})
-	}
-
 	// Test with unknown provider
 	err := testProviderAuth("unknown", "test-key")
 	if err == nil {
 		t.Error("Expected error for unknown provider")
+	}
+
+	// Test with bedrock (should skip validation)
+	err = testProviderAuth("bedrock", "test-key")
+	if err != nil {
+		t.Errorf("testProviderAuth(bedrock) should skip validation: %v", err)
+	}
+
+	// Test with moonshot (not yet implemented)
+	err = testProviderAuth("moonshot", "test-key")
+	if err != nil {
+		t.Errorf("testProviderAuth(moonshot) should not error: %v", err)
+	}
+}
+
+func TestFetchProviderModels(t *testing.T) {
+	// Test with unsupported provider
+	models, err := fetchProviderModels("unsupported", "key", "")
+	if err != nil {
+		t.Errorf("fetchProviderModels should not error for unsupported provider: %v", err)
+	}
+	if models != nil {
+		t.Error("fetchProviderModels should return nil for unsupported provider")
 	}
 }
 

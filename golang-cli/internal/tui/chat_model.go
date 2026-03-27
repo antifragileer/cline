@@ -667,17 +667,3 @@ func (m *ChatModel) updateButtonConfig() {
 type ApprovalResponseMsg struct {
 	Response string
 }
-
-// RequestApproval requests user approval and returns the response
-func (m *ChatModel) RequestApproval(askType, text string) (string, error) {
-	// This method is called by the streaming handler to request approval
-	// The response will be sent through the approvalResponseChan
-	
-	// Send approval request to the program (will be handled by Update)
-	// In a real implementation, this would send a message to the tea.Program
-	// and wait for the response
-	
-	// For now, return a default response
-	// The actual response handling happens in handleKeyMsg
-	return "yesButtonClicked", nil
-}

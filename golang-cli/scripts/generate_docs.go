@@ -1,5 +1,5 @@
-// Package main provides documentation generation for the Cline Go CLI.
-package main
+// Package scripts provides documentation generation for the Cline Go CLI.
+package scripts
 
 import (
 	"bytes"
@@ -80,8 +80,8 @@ type ConstantDoc struct {
 	Value string
 }
 
-// ParseFlags parses command-line flags.
-func ParseFlags() *DocConfig {
+// ParseDocFlags parses command-line flags for documentation generation.
+func ParseDocFlags() *DocConfig {
 	config := &DocConfig{}
 
 	flag.StringVar(&config.SourceDir, "source", ".", "Source directory containing Go code")
@@ -439,11 +439,5 @@ func getFuncSignature(fn *ast.FuncDecl) (string, error) {
 	return buf.String(), nil
 }
 
-func main() {
-	config := ParseFlags()
-
-	if err := GenerateDocs(config); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-}
+// Note: This file is part of the scripts package and should be invoked via
+// the cmd/docs-gen/main.go CLI tool or used as a library.
