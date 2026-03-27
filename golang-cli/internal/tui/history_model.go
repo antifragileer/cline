@@ -2,12 +2,15 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cline/cline/golang-cli/internal/storage"
 )
 
 // HistoryItem represents a task history item.
@@ -270,6 +273,98 @@ func (m *HistoryModel) Refresh() {
 			Cost:      0.045,
 			Tokens:    3200,
 		},
+	}
+}
+
+// LoadFromStorage loads task history from the storage context.
+func (m *HistoryModel) LoadFromStorage(storageCtx *storage.StorageContext) error {
+	if storageCtx == nil {
+		return fmt.Errorf("storage context is nil")
+	}
+
+	// Get task history from global state
+	val, ok := storageCtx.GlobalState.Get("taskHistory")
+	if !ok {
+		// No history yet, that's okay
+		m.items = []HistoryItem{}
+		return nil
+	}
+
+	// Parse the task history
+	var historyData []map[string]interface{}
+	
+	switch v := val.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if m, ok := item.(map[string]interface{}); ok {
+				historyData = append(historyData, m)
+			}
+		}
+	case []map[string]interface{}:
+		historyData = v
+	default:
+		// Try to marshal/unmarshal
+		data, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("failed to marshal history data: %w", err)
+		}
+		if err := json.Unmarshal(data, &historyData); err != nil {
+			return fmt.Errorf("failed to unmarshal history data: %w", err)
+		}
+	}
+
+	// Convert to HistoryItem
+	items := make([]HistoryItem, 0, len(historyData))
+	for _, entry := range historyData {
+		item := HistoryItem{
+			ID:   getStringValue(entry["id"]),
+			Task: getStringValue(entry["task"]),
+		}
+
+		// Parse timestamp
+		if tsVal, ok := entry["ts"]; ok {
+			switch ts := tsVal.(type) {
+			case float64:
+				item.Timestamp = time.Unix(int64(ts)/1000, 0)
+			case int64:
+				item.Timestamp = time.Unix(ts/1000, 0)
+			case int:
+				item.Timestamp = time.Unix(int64(ts)/1000, 0)
+			}
+		}
+
+		// Parse model
+		item.Model = getStringValue(entry["modelId"])
+
+		// Parse cost
+		if costVal, ok := entry["totalCost"]; ok {
+			switch cost := costVal.(type) {
+			case float64:
+				item.Cost = cost
+			case float32:
+				item.Cost = float64(cost)
+			case int:
+				item.Cost = float64(cost)
+			}
+		}
+
+		items = append(items, item)
+	}
+
+	// Sort by timestamp (newest first)
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Timestamp.After(items[j].Timestamp)
+	})
+
+	m.items = items
+	return nil
+}
+
+// SetStorageContext sets the storage context and loads history.
+func (m *HistoryModel) SetStorageContext(storageCtx *storage.StorageContext) {
+	if err := m.LoadFromStorage(storageCtx); err != nil {
+		// Log error but don't fail - just show empty history
+		m.items = []HistoryItem{}
 	}
 }
 

@@ -193,13 +193,18 @@ func runAuth(cmd *cobra.Command, args []string) error {
 	provider := authFlags.provider
 	if provider != "" {
 		normalizedProvider := strings.ToLower(strings.TrimSpace(provider))
+		// Check if it's an OAuth provider
+		if IsOAuthProvider(normalizedProvider) {
+			// OAuth flow
+			return runOAuthFlow(cmd, ctx, normalizedProvider)
+		}
 		if _, ok := SupportedProviders[normalizedProvider]; !ok {
 			// Check for common aliases
 			if normalizedProvider == "openai" {
 				// Allow "openai" as an alias for configuration
 			} else {
-				return fmt.Errorf("unsupported provider: %s. Supported providers: %s", 
-					provider, getSupportedProviderList())
+				return fmt.Errorf("unsupported provider: %s. Supported providers: %s, %s", 
+					provider, getSupportedProviderList(), strings.Join(GetOAuthProviders(), ", "))
 			}
 		}
 		provider = normalizedProvider
@@ -218,7 +223,13 @@ func runAuth(cmd *cobra.Command, args []string) error {
 	// Determine execution mode:
 	// - Interactive mode: no flags or only partial flags
 	// - Quick setup: provider + key provided
+	// - OAuth flow: provider is an OAuth provider
 	// - Full setup: provider + key + model (and optionally baseurl)
+
+	if hasProvider && IsOAuthProvider(provider) {
+		// OAuth authentication flow
+		return runOAuthFlow(cmd, ctx, provider)
+	}
 
 	if hasProvider && hasKey {
 		// Quick or full setup mode - non-interactive

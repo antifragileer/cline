@@ -19,6 +19,7 @@ type ChatModel struct {
 
 	// Messages
 	messages []Message
+	messageStore *MessageStore
 
 	// Input handling
 	input   textinput.Model
@@ -31,6 +32,11 @@ type ChatModel struct {
 
 	// Approval handling
 	pendingApproval *ApprovalRequest
+	approvalResponseChan chan string
+
+	// Action buttons
+	actionButtons *ActionButtons
+	buttonConfig  ButtonConfig
 
 	// Metadata
 	taskID   string
@@ -128,8 +134,11 @@ func NewChatModel() *ChatModel {
 		WithMarkdownWidth(100),
 	)
 
+	store := NewMessageStore()
+
 	return &ChatModel{
 		messages:     make([]Message, 0),
+		messageStore: store,
 		input:        ti,
 		state:        ChatStateIdle,
 		inputEnabled: true,
@@ -137,6 +146,9 @@ func NewChatModel() *ChatModel {
 		renderer:     renderer,
 		mode:         "act",
 		yolo:         false,
+		actionButtons: NewActionButtons(ButtonConfig{}, "act", 80),
+		buttonConfig: ButtonConfig{},
+		approvalResponseChan: make(chan string, 1),
 	}
 }
 
@@ -157,14 +169,20 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.renderer != nil {
 			m.renderer.SetWidth(msg.Width - 10)
 		}
+		if m.actionButtons != nil {
+			m.actionButtons.SetTerminalWidth(msg.Width)
+		}
 
 	case tea.KeyMsg:
 		cmds = append(cmds, m.handleKeyMsg(msg)...)
 
 	case ChatUpdateMsg:
 		m.messages = msg.Messages
-		// Auto-scroll to bottom on new messages
-		return m, nil
+		// Update message store
+		m.messageStore.Clear()
+		for i := range msg.Messages {
+			m.messageStore.Add(&msg.Messages[i])
+		}
 
 	case StreamChunkMsg:
 		m.isStreaming = true
@@ -173,6 +191,8 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.isStreaming = false
 			m.state = ChatStateIdle
 		}
+		// Update button config for streaming state
+		m.updateButtonConfig()
 
 	case StreamMessageMsg:
 		// Handle messages from gRPC stream
@@ -186,6 +206,14 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Response: msg.Response,
 		}
 		m.inputEnabled = false
+		m.updateButtonConfig()
+
+	case ApprovalResponseMsg:
+		// Handle approval response
+		m.state = ChatStateIdle
+		m.pendingApproval = nil
+		m.inputEnabled = true
+		m.updateButtonConfig()
 
 	case StreamStateMsg:
 		// Handle stream state changes
@@ -195,6 +223,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case 3: // StreamStateReconnecting
 			m.isStreaming = true
 		}
+		m.updateButtonConfig()
 
 	case StatusUpdateMsg:
 		// Status updates don't change model state directly
@@ -207,12 +236,13 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ChatErrorMsg:
 		m.state = ChatStateError
 		// Add error message
-		m.messages = append(m.messages, Message{
+		m.AddMessage(Message{
 			Type:      MessageTypeError,
 			Content:   msg.Error.Error(),
 			Timestamp: time.Now(),
 		})
 		m.state = ChatStateIdle
+		m.updateButtonConfig()
 	}
 
 	// Update input component
@@ -232,11 +262,12 @@ func (m *ChatModel) handleKeyMsg(msg tea.KeyMsg) []tea.Cmd {
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
 		if m.state == ChatStateWaitingForApproval && m.pendingApproval != nil {
-			// Cancel approval
+			// Cancel approval - send reject
 			m.pendingApproval.Response <- "noButtonClicked"
 			m.pendingApproval = nil
 			m.state = ChatStateIdle
 			m.inputEnabled = true
+			m.updateButtonConfig()
 		} else {
 			// Quit the application
 			return []tea.Cmd{tea.Quit}
@@ -244,11 +275,13 @@ func (m *ChatModel) handleKeyMsg(msg tea.KeyMsg) []tea.Cmd {
 
 	case tea.KeyEnter:
 		if m.state == ChatStateWaitingForApproval && m.pendingApproval != nil {
-			// Approve with Enter
-			m.pendingApproval.Response <- "yesButtonClicked"
+			// Approve with Enter (primary action)
+			response := HandleButtonAction(m.buttonConfig.PrimaryAction, m.pendingApproval.AskType)
+			m.pendingApproval.Response <- response
 			m.pendingApproval = nil
 			m.state = ChatStateIdle
 			m.inputEnabled = true
+			m.updateButtonConfig()
 		} else if m.inputEnabled && m.input.Value() != "" {
 			// Submit user message
 			cmds = append(cmds, m.handleUserInput(m.input.Value()))
@@ -256,7 +289,7 @@ func (m *ChatModel) handleKeyMsg(msg tea.KeyMsg) []tea.Cmd {
 		}
 
 	case tea.KeyRunes:
-		// Handle quick approval keys
+		// Handle quick approval keys and button shortcuts
 		if m.state == ChatStateWaitingForApproval && m.pendingApproval != nil {
 			switch msg.String() {
 			case "y", "Y":
@@ -264,11 +297,42 @@ func (m *ChatModel) handleKeyMsg(msg tea.KeyMsg) []tea.Cmd {
 				m.pendingApproval = nil
 				m.state = ChatStateIdle
 				m.inputEnabled = true
+				m.updateButtonConfig()
 			case "n", "N":
 				m.pendingApproval.Response <- "noButtonClicked"
 				m.pendingApproval = nil
 				m.state = ChatStateIdle
 				m.inputEnabled = true
+				m.updateButtonConfig()
+			}
+		}
+
+		// Handle button shortcuts (1 for primary, 2 for secondary)
+		if m.buttonConfig.EnableButtons && m.state == ChatStateWaitingForApproval {
+			input := msg.String()
+			hasPrimary := m.buttonConfig.PrimaryText != ""
+			hasSecondary := m.buttonConfig.SecondaryText != ""
+
+			if input == "1" {
+				var action ButtonActionType
+				if hasPrimary {
+					action = m.buttonConfig.PrimaryAction
+				} else if hasSecondary {
+					action = m.buttonConfig.SecondaryAction
+				}
+				response := HandleButtonAction(action, m.pendingApproval.AskType)
+				m.pendingApproval.Response <- response
+				m.pendingApproval = nil
+				m.state = ChatStateIdle
+				m.inputEnabled = true
+				m.updateButtonConfig()
+			} else if input == "2" && hasPrimary && hasSecondary {
+				response := HandleButtonAction(m.buttonConfig.SecondaryAction, m.pendingApproval.AskType)
+				m.pendingApproval.Response <- response
+				m.pendingApproval = nil
+				m.state = ChatStateIdle
+				m.inputEnabled = true
+				m.updateButtonConfig()
 			}
 		}
 	}
@@ -279,14 +343,14 @@ func (m *ChatModel) handleKeyMsg(msg tea.KeyMsg) []tea.Cmd {
 // handleUserInput handles user input submission.
 func (m *ChatModel) handleUserInput(input string) tea.Cmd {
 	return func() tea.Msg {
-		// This would be connected to the task runner
-		// For now, just echo the message
+		// Add user message
+		m.AddMessage(Message{
+			Type:      MessageTypeUser,
+			Content:   input,
+			Timestamp: time.Now(),
+		})
 		return ChatUpdateMsg{
-			Messages: append(m.messages, Message{
-				Type:      MessageTypeUser,
-				Content:   input,
-				Timestamp: time.Now(),
-			}),
+			Messages: m.messages,
 		}
 	}
 }
@@ -300,11 +364,13 @@ func (m ChatModel) View() string {
 	content.WriteString(messagesView)
 	content.WriteString("\n")
 
-	// Render approval dialog if waiting
-	if m.state == ChatStateWaitingForApproval && m.pendingApproval != nil {
-		approvalView := m.renderApprovalDialog()
-		content.WriteString(approvalView)
-		content.WriteString("\n")
+	// Render action buttons if enabled
+	if m.actionButtons != nil && m.actionButtons.ShouldShow() {
+		buttonsView := m.actionButtons.Render()
+		if buttonsView != "" {
+			content.WriteString(buttonsView)
+			content.WriteString("\n")
+		}
 	}
 
 	// Render input if enabled
@@ -413,37 +479,6 @@ func (m ChatModel) renderSystemMessage(msg Message) string {
 	return m.styles.systemMsgStyle.Render(msg.Content)
 }
 
-// renderApprovalDialog renders the approval dialog.
-func (m ChatModel) renderApprovalDialog() string {
-	if m.pendingApproval == nil {
-		return ""
-	}
-
-	var content strings.Builder
-
-	// Title based on ask type
-	title := "Approval Required"
-	switch m.pendingApproval.AskType {
-	case "command":
-		title = "Command Approval"
-	case "tool":
-		title = "Tool Approval"
-	case "browser_action_launch":
-		title = "Browser Action"
-	}
-	content.WriteString(m.styles.systemMsgStyle.Render(title))
-	content.WriteString("\n\n")
-
-	// Content
-	content.WriteString(m.pendingApproval.Text)
-	content.WriteString("\n\n")
-
-	// Options
-	content.WriteString(m.styles.systemMsgStyle.Render("[Y]es / [N]o / [Enter]=Yes / [Esc]=No"))
-
-	return m.styles.approvalBoxStyle.Render(content.String())
-}
-
 // renderStatusBar renders the status bar.
 func (m ChatModel) renderStatusBar() string {
 	var parts []string
@@ -486,9 +521,10 @@ func (m *ChatModel) SetTaskID(taskID string) {
 // SetMode sets the mode (act/plan).
 func (m *ChatModel) SetMode(mode string) {
 	m.mode = mode
+	m.actionButtons.SetMode(mode)
 }
 
-// SetYolo sets yolo mode.
+// SetYolo sets yolo mode for auto-approve.
 func (m *ChatModel) SetYolo(yolo bool) {
 	m.yolo = yolo
 }
@@ -496,6 +532,7 @@ func (m *ChatModel) SetYolo(yolo bool) {
 // AddMessage adds a message to the chat.
 func (m *ChatModel) AddMessage(msg Message) {
 	m.messages = append(m.messages, msg)
+	m.messageStore.Add(&msg)
 }
 
 // GetMessages returns all messages.
@@ -516,6 +553,7 @@ func (m *ChatModel) SetInput(value string) {
 // ClearMessages clears all messages.
 func (m *ChatModel) ClearMessages() {
 	m.messages = make([]Message, 0)
+	m.messageStore.Clear()
 }
 
 // IsIdle returns true if the chat is idle.
@@ -531,6 +569,11 @@ func (m *ChatModel) IsStreaming() bool {
 // IsWaitingForApproval returns true if waiting for approval.
 func (m *ChatModel) IsWaitingForApproval() bool {
 	return m.state == ChatStateWaitingForApproval
+}
+
+// GetPendingApproval returns the pending approval request.
+func (m *ChatModel) GetPendingApproval() *ApprovalRequest {
+	return m.pendingApproval
 }
 
 // SetProgram sets the tea program for sending messages.
@@ -551,6 +594,9 @@ func (m *ChatModel) SetDimensions(width, height int) {
 	m.input.Width = width - 6
 	if m.renderer != nil {
 		m.renderer.SetWidth(width - 10)
+	}
+	if m.actionButtons != nil {
+		m.actionButtons.SetTerminalWidth(width)
 	}
 }
 
@@ -578,6 +624,10 @@ func (m *ChatModel) handleStreamMessage(msg Message) {
 
 	// Add as new message
 	m.messages = append(m.messages, msg)
+	m.messageStore.Add(&msg)
+	
+	// Update button config based on new message
+	m.updateButtonConfig()
 }
 
 // GetMessageHandler returns a function that can be used to handle messages
@@ -587,4 +637,47 @@ func (m *ChatModel) GetMessageHandler() func(Message) {
 		// The message will be sent to the program in the actual implementation
 		m.handleStreamMessage(msg)
 	}
+}
+
+// updateButtonConfig updates the button configuration based on current state
+func (m *ChatModel) updateButtonConfig() {
+	var msgType, msgSubType string
+	var isPartial bool
+	
+	// Get the last message info
+	if len(m.messages) > 0 {
+		lastMsg := m.messages[len(m.messages)-1]
+		msgType = string(lastMsg.Type)
+		if askType, ok := lastMsg.GetMetadata("askType"); ok {
+			msgSubType = askType.(string)
+		} else if lastMsg.Type == MessageTypeAsk {
+			// Try to extract from message content or use default
+			msgSubType = "tool"
+		}
+		isPartial = lastMsg.Partial
+	}
+
+	m.buttonConfig = GetButtonConfig(msgType, msgSubType, m.isStreaming, isPartial)
+	if m.actionButtons != nil {
+		m.actionButtons.SetConfig(m.buttonConfig)
+	}
+}
+
+// ApprovalResponseMsg is sent when an approval response is received
+type ApprovalResponseMsg struct {
+	Response string
+}
+
+// RequestApproval requests user approval and returns the response
+func (m *ChatModel) RequestApproval(askType, text string) (string, error) {
+	// This method is called by the streaming handler to request approval
+	// The response will be sent through the approvalResponseChan
+	
+	// Send approval request to the program (will be handled by Update)
+	// In a real implementation, this would send a message to the tea.Program
+	// and wait for the response
+	
+	// For now, return a default response
+	// The actual response handling happens in handleKeyMsg
+	return "yesButtonClicked", nil
 }

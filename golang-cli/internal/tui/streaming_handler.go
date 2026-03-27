@@ -30,6 +30,7 @@ type StreamingHandler struct {
 	streamingMsg *Message
 	isStreaming  bool
 	taskID       string
+	yolo         bool // Yolo mode - auto-approve
 }
 
 // NewStreamingHandler creates a new streaming handler
@@ -51,6 +52,13 @@ func (h *StreamingHandler) SetTaskID(taskID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.taskID = taskID
+}
+
+// SetYolo sets yolo mode for auto-approval
+func (h *StreamingHandler) SetYolo(yolo bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.yolo = yolo
 }
 
 // OnSay handles a SAY message from the assistant
@@ -113,10 +121,8 @@ func (h *StreamingHandler) OnSay(sayType string, text string, partial bool) {
 // OnAsk handles an ASK message that requires user response
 func (h *StreamingHandler) OnAsk(askType string, text string) (string, error) {
 	h.mu.Lock()
-	if h.program == nil {
-		h.mu.Unlock()
-		return "yesButtonClicked", nil // Auto-approve if no TUI
-	}
+	yolo := h.yolo
+	program := h.program
 	h.mu.Unlock()
 
 	// Finalize any streaming message first
@@ -141,6 +147,32 @@ func (h *StreamingHandler) OnAsk(askType string, text string) (string, error) {
 		msgType = MessageTypeAsk
 	}
 
+	// Check for yolo mode auto-approval
+	if yolo && h.shouldAutoApproveInYolo(askType) {
+		// Add the ask message for display
+		h.mu.Lock()
+		h.messages = append(h.messages, Message{
+			Type:      msgType,
+			Content:   text,
+			Timestamp: time.Now(),
+			Partial:   false,
+			Metadata: map[string]interface{}{
+				"askType":   askType,
+				"autoApproved": true,
+			},
+		})
+		h.mu.Unlock()
+
+		if program != nil {
+			program.Send(ChatUpdateMsg{
+				Messages: h.GetMessages(),
+			})
+		}
+
+		// Return auto-approval response
+		return "yesButtonClicked", nil
+	}
+
 	// Add the ask message
 	h.mu.Lock()
 	h.messages = append(h.messages, Message{
@@ -154,26 +186,47 @@ func (h *StreamingHandler) OnAsk(askType string, text string) (string, error) {
 	})
 	h.mu.Unlock()
 
-	// Send update to TUI
-	h.program.Send(ChatUpdateMsg{
-		Messages: h.GetMessages(),
-	})
+	if program != nil {
+		// Send update to TUI
+		program.Send(ChatUpdateMsg{
+			Messages: h.GetMessages(),
+		})
 
-	// Send approval request to TUI
-	responseChan := make(chan string, 1)
-	h.program.Send(ApprovalRequestMsg{
-		AskType:  askType,
-		Text:     text,
-		Response: responseChan,
-	})
+		// Send approval request to TUI
+		responseChan := make(chan string, 1)
+		program.Send(ApprovalRequestMsg{
+			AskType:  askType,
+			Text:     text,
+			Response: responseChan,
+		})
 
-	// Wait for response with timeout
-	select {
-	case response := <-responseChan:
-		return response, nil
-	case <-time.After(30 * time.Minute): // Long timeout for user interaction
-		return "noButtonClicked", fmt.Errorf("approval timeout")
+		// Wait for response with timeout
+		select {
+		case response := <-responseChan:
+			return response, nil
+		case <-time.After(30 * time.Minute): // Long timeout for user interaction
+			return "noButtonClicked", fmt.Errorf("approval timeout")
+		}
 	}
+
+	// No program available, auto-approve
+	return "yesButtonClicked", nil
+}
+
+// shouldAutoApproveInYolo returns true if this ask type should be auto-approved in yolo mode
+func (h *StreamingHandler) shouldAutoApproveInYolo(askType string) bool {
+	// These ask types genuinely need user input even in yolo mode
+	interactiveAsks := map[string]bool{
+		"completion_result":      true,
+		"command":                true, // Only from AttemptCompletionHandler
+		"followup":               true,
+		"plan_mode_respond":      true,
+		"resume_task":            true,
+		"resume_completed_task":  true,
+		"new_task":               true,
+	}
+
+	return !interactiveAsks[askType]
 }
 
 // OnInfo handles informational messages

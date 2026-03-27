@@ -21,6 +21,7 @@ type AppModel struct {
 	welcome  *WelcomeModel
 	history  *HistoryModel
 	settings *SettingsModel
+	help     *HelpModel
 	chat     *ChatModel
 	diff     DiffModel
 
@@ -50,24 +51,35 @@ const (
 	AppStateHistory
 	// AppStateSettings shows the settings screen.
 	AppStateSettings
+	// AppStateHelp shows the help screen.
+	AppStateHelp
 	// AppStateDiff shows the diff viewer.
 	AppStateDiff
 )
 
 // NewAppModel creates a new application model with dependencies.
 func NewAppModel(client *host.Client, storage *storage.StorageContext, cfg *config.LayeredConfig) *AppModel {
-	return &AppModel{
+	m := &AppModel{
 		client:   client,
 		storage:  storage,
 		config:   cfg,
 		welcome:  NewWelcomeModel(),
 		history:  NewHistoryModel(),
 		settings: NewSettingsModel(),
+		help:     NewHelpModel(),
 		chat:     NewChatModel(),
 		state:    AppStateWelcome,
 		mode:     "act",
 		yolo:     false,
 	}
+
+	// Load data from storage if available
+	if storage != nil {
+		m.history.SetStorageContext(storage)
+		m.settings.SetStorageContext(storage)
+	}
+
+	return m
 }
 
 // Init initializes the model.
@@ -77,6 +89,7 @@ func (m AppModel) Init() tea.Cmd {
 		m.welcome.Init(),
 		m.history.Init(),
 		m.settings.Init(),
+		m.help.Init(),
 		m.chat.Init(),
 	)
 }
@@ -87,16 +100,21 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		// Handle window resize - update all dimensions
 		m.width = msg.Width
 		m.height = msg.Height
+		
 		// Update dimensions for all sub-models
 		m.welcome.SetDimensions(msg.Width, msg.Height)
 		m.history.SetDimensions(msg.Width, msg.Height)
 		m.settings.SetDimensions(msg.Width, msg.Height)
 		m.chat.SetDimensions(msg.Width, msg.Height)
+		
+		// Update diff model if in diff state
 		if m.state == AppStateDiff {
 			m.diff.SetDimensions(msg.Width, msg.Height)
 		}
+		
 		return m, nil
 
 	case WelcomeResultMsg:
@@ -113,6 +131,8 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = AppStateHistory
 		case ActionSettings:
 			m.state = AppStateSettings
+		case ActionHelp:
+			m.state = AppStateHelp
 		case ActionQuit:
 			m.quitting = true
 			return m, tea.Quit
@@ -131,23 +151,57 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Route to appropriate sub-model based on state
 	switch m.state {
 	case AppStateWelcome:
-		_, cmd := m.welcome.Update(msg)
+		newWelcome, cmd := m.welcome.Update(msg)
+		if updatedModel, ok := newWelcome.(*WelcomeModel); ok {
+			m.welcome = updatedModel
+		}
 		cmds = append(cmds, cmd)
 
 	case AppStateHistory:
-		_, cmd := m.history.Update(msg)
+		newHistory, cmd := m.history.Update(msg)
+		if updatedModel, ok := newHistory.(*HistoryModel); ok {
+			m.history = updatedModel
+			if m.history.ShouldGoBack() {
+				m.state = AppStateWelcome
+				m.history.Reset()
+			}
+		}
 		cmds = append(cmds, cmd)
 
 	case AppStateSettings:
-		_, cmd := m.settings.Update(msg)
+		newSettings, cmd := m.settings.Update(msg)
+		if updatedModel, ok := newSettings.(*SettingsModel); ok {
+			m.settings = updatedModel
+			if m.settings.ShouldGoBack() {
+				m.state = AppStateWelcome
+				m.settings.Reset()
+			}
+		}
+		cmds = append(cmds, cmd)
+
+	case AppStateHelp:
+		newHelp, cmd := m.help.Update(msg)
+		if updatedModel, ok := newHelp.(*HelpModel); ok {
+			m.help = updatedModel
+			if m.help.ShouldGoBack() {
+				m.state = AppStateWelcome
+				m.help.Reset()
+			}
+		}
 		cmds = append(cmds, cmd)
 
 	case AppStateChat:
-		_, cmd := m.chat.Update(msg)
+		newChat, cmd := m.chat.Update(msg)
+		if updatedModel, ok := newChat.(*ChatModel); ok {
+			m.chat = updatedModel
+		}
 		cmds = append(cmds, cmd)
 
 	case AppStateDiff:
-		_, cmd := m.diff.Update(msg)
+		newDiff, cmd := m.diff.Update(msg)
+		if updatedModel, ok := newDiff.(DiffModel); ok {
+			m.diff = updatedModel
+		}
 		cmds = append(cmds, cmd)
 	}
 
@@ -167,6 +221,8 @@ func (m AppModel) View() string {
 		return m.chat.View()
 	case AppStateDiff:
 		return m.diff.View()
+	case AppStateHelp:
+		return m.help.View()
 	default:
 		return "Unknown state"
 	}
@@ -229,6 +285,16 @@ func (m *AppModel) GetHistoryModel() *HistoryModel {
 // GetSettingsModel returns the settings model.
 func (m *AppModel) GetSettingsModel() *SettingsModel {
 	return m.settings
+}
+
+// GetWidth returns the current terminal width.
+func (m *AppModel) GetWidth() int {
+	return m.width
+}
+
+// GetHeight returns the current terminal height.
+func (m *AppModel) GetHeight() int {
+	return m.height
 }
 
 // AppStyles holds application-wide styles.

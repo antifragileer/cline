@@ -1150,23 +1150,70 @@ func (h *TaskStreamHandler) handleAskMessage(msg *ClineMessageProto) {
 		}
 	case ClineAsk_COMMAND:
 		// Command approval request
-		if h.OnCommandRequest != nil {
-			// For now, auto-approve in non-interactive mode
-			// TODO: Add interactive approval
-			h.SendAskResponse("yesButtonClicked", "", nil, nil)
-		}
+		h.handleApprovalRequest(msg, "command")
 	case ClineAsk_TOOL:
 		// Tool approval request
-		if msg.SayTool != nil && h.OnToolRequest != nil {
-			// For now, auto-approve in non-interactive mode
-			// TODO: Add interactive approval
-			h.SendAskResponse("yesButtonClicked", "", nil, nil)
-		}
+		h.handleApprovalRequest(msg, "tool")
+	case ClineAsk_BROWSER_ACTION_LAUNCH:
+		// Browser action approval request
+		h.handleApprovalRequest(msg, "browser_action_launch")
+	case ClineAsk_USE_MCP_SERVER:
+		// MCP server approval request
+		h.handleApprovalRequest(msg, "use_mcp_server")
 	case ClineAsk_COMPLETION_RESULT:
 		if h.OnCompletion != nil {
 			h.OnCompletion(msg.Text)
 		}
+		// Also handle as approval request for task completion
+		h.handleApprovalRequest(msg, "completion_result")
+	case ClineAsk_RESUME_TASK:
+		h.handleApprovalRequest(msg, "resume_task")
+	case ClineAsk_RESUME_COMPLETED_TASK:
+		h.handleApprovalRequest(msg, "resume_completed_task")
+	case ClineAsk_NEW_TASK:
+		h.handleApprovalRequest(msg, "new_task")
 	}
+}
+
+// handleApprovalRequest handles approval requests with proper callback integration
+func (h *TaskStreamHandler) handleApprovalRequest(msg *ClineMessageProto, askType string) {
+	var response string
+	var err error
+
+	// Determine the appropriate callback based on ask type
+	switch askType {
+	case "command":
+		if h.OnCommandRequest != nil {
+			err = h.OnCommandRequest(msg.Text)
+		}
+	case "tool":
+		if msg.SayTool != nil && h.OnToolRequest != nil {
+			err = h.OnToolRequest(msg.SayTool)
+		}
+	default:
+		// For other approval types, use OnAskQuestion if available
+		if h.OnAskQuestion != nil {
+			question := &ClineAskQuestion{
+				Question: msg.Text,
+			}
+			response, err = h.OnAskQuestion(question)
+		}
+	}
+
+	if err != nil {
+		// User rejected or error occurred
+		if h.OnError != nil {
+			h.OnError(err)
+		}
+		h.SendAskResponse("noButtonClicked", err.Error(), nil, nil)
+		return
+	}
+
+	// Use response from callback if provided, otherwise default to approval
+	if response == "" {
+		response = "yesButtonClicked"
+	}
+	h.SendAskResponse(response, "", nil, nil)
 }
 
 // WaitForCompletion blocks until the task completes or an error occurs

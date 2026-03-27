@@ -2,10 +2,12 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cline/cline/golang-cli/internal/storage"
 )
 
 // SettingItem represents a settings item.
@@ -387,4 +389,69 @@ func (m *SettingsModel) Reset() {
 	m.goBack = false
 	m.editing = false
 	m.editValue = ""
+}
+
+// LoadFromStorage loads settings from the storage context.
+func (m *SettingsModel) LoadFromStorage(storageCtx *storage.StorageContext) {
+	if storageCtx == nil {
+		return
+	}
+
+	// Update settings values from storage
+	for i := range m.items {
+		item := &m.items[i]
+		var val interface{}
+		var ok bool
+
+		// Try global state first, then workspace state
+		val, ok = storageCtx.GlobalState.Get(item.Key)
+		if !ok {
+			val, ok = storageCtx.WorkspaceState.Get(item.Key)
+		}
+
+		if ok {
+			switch v := val.(type) {
+			case string:
+				item.Value = v
+			case bool:
+				item.Value = fmt.Sprintf("%t", v)
+			case int, int64:
+				item.Value = fmt.Sprintf("%d", v)
+			case float64:
+				item.Value = fmt.Sprintf("%g", v)
+			}
+		}
+	}
+}
+
+// SaveToStorage saves the current settings to storage.
+func (m *SettingsModel) SaveToStorage(storageCtx *storage.StorageContext) error {
+	if storageCtx == nil {
+		return fmt.Errorf("storage context is nil")
+	}
+
+	for _, item := range m.items {
+		var val interface{}
+		
+		switch item.Type {
+		case "bool":
+			val = item.Value == "true"
+		case "select", "string":
+			val = item.Value
+		default:
+			val = item.Value
+		}
+
+		// Save to global state
+		if err := storageCtx.GlobalState.Set(item.Key, val); err != nil {
+			return fmt.Errorf("failed to save setting %s: %w", item.Key, err)
+		}
+	}
+
+	return nil
+}
+
+// SetStorageContext loads settings from storage.
+func (m *SettingsModel) SetStorageContext(storageCtx *storage.StorageContext) {
+	m.LoadFromStorage(storageCtx)
 }

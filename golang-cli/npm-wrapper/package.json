@@ -4,12 +4,12 @@
 	"description": "Cline CLI - AI-powered coding assistant (Go implementation)",
 	"main": "index.js",
 	"bin": {
-		"cline-go": "./bin/cline-go",
-		"cline": "./bin/cline-go"
+		"cline-go": "./index.js",
+		"cline": "./index.js"
 	},
 	"scripts": {
 		"postinstall": "node install.js",
-		"test": "node test.js"
+		"test": "node platform.test.js"
 	},
 	"repository": {
 		"type": "git",
@@ -45,6 +45,8 @@
 	"files": [
 		"index.js",
 		"install.js",
+		"platform.js",
+		"platform.test.js",
 		"bin/",
 		"README.md"
 	]
