@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	TaskService_Stream_FullMethodName                    = "/cline.TaskService/Stream"
 	TaskService_CancelTask_FullMethodName                = "/cline.TaskService/cancelTask"
 	TaskService_CancelBackgroundCommand_FullMethodName   = "/cline.TaskService/cancelBackgroundCommand"
 	TaskService_ClearTask_FullMethodName                 = "/cline.TaskService/clearTask"
@@ -41,6 +42,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskServiceClient interface {
+	// Bidirectional streaming RPC for real-time task communication
+	Stream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ClineMessage, ClineMessage], error)
 	// Cancels the currently running task
 	CancelTask(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Cancels the currently running background command
@@ -82,6 +85,19 @@ type taskServiceClient struct {
 func NewTaskServiceClient(cc grpc.ClientConnInterface) TaskServiceClient {
 	return &taskServiceClient{cc}
 }
+
+func (c *taskServiceClient) Stream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ClineMessage, ClineMessage], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &TaskService_ServiceDesc.Streams[0], TaskService_Stream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ClineMessage, ClineMessage]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type TaskService_StreamClient = grpc.BidiStreamingClient[ClineMessage, ClineMessage]
 
 func (c *taskServiceClient) CancelTask(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -247,6 +263,8 @@ func (c *taskServiceClient) ExplainChanges(ctx context.Context, in *ExplainChang
 // All implementations must embed UnimplementedTaskServiceServer
 // for forward compatibility.
 type TaskServiceServer interface {
+	// Bidirectional streaming RPC for real-time task communication
+	Stream(grpc.BidiStreamingServer[ClineMessage, ClineMessage]) error
 	// Cancels the currently running task
 	CancelTask(context.Context, *EmptyRequest) (*Empty, error)
 	// Cancels the currently running background command
@@ -289,6 +307,9 @@ type TaskServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedTaskServiceServer struct{}
 
+func (UnimplementedTaskServiceServer) Stream(grpc.BidiStreamingServer[ClineMessage, ClineMessage]) error {
+	return status.Error(codes.Unimplemented, "method Stream not implemented")
+}
 func (UnimplementedTaskServiceServer) CancelTask(context.Context, *EmptyRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelTask not implemented")
 }
@@ -357,6 +378,13 @@ func RegisterTaskServiceServer(s grpc.ServiceRegistrar, srv TaskServiceServer) {
 	}
 	s.RegisterService(&TaskService_ServiceDesc, srv)
 }
+
+func _TaskService_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TaskServiceServer).Stream(&grpc.GenericServerStream[ClineMessage, ClineMessage]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type TaskService_StreamServer = grpc.BidiStreamingServer[ClineMessage, ClineMessage]
 
 func _TaskService_CancelTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EmptyRequest)
@@ -718,6 +746,13 @@ var TaskService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _TaskService_ExplainChanges_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Stream",
+			Handler:       _TaskService_Stream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "cline/task.proto",
 }

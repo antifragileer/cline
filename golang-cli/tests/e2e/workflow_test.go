@@ -149,9 +149,9 @@ func (r *E2ERunner) RunTest(test E2ETest) E2EResult {
 
 // FindBinary finds the CLI binary
 func FindBinary() string {
-	binaryName := "cline"
+	binaryName := "cline-go"
 	if runtime.GOOS == "windows" {
-		binaryName = "cline.exe"
+		binaryName = "cline-go.exe"
 	}
 
 	locations := []string{

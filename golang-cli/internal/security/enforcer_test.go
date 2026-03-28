@@ -9,6 +9,7 @@ import (
 	"github.com/cline/cline/golang-cli/internal/audit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // MockCommandPermissionController is a mock controller for testing.
@@ -62,7 +63,14 @@ func TestNewPermissionEnforcerWithController(t *testing.T) {
 
 func TestNewPermissionEnforcerWithOptions(t *testing.T) {
 	executor := mockExecutor("output", 0, nil)
-	auditor, _ := audit.NewLogger(audit.LoggerConfig{Enabled: false})
+	
+	// Use default config which has proper LogDir set
+	config := audit.DefaultConfig()
+	config.Enabled = false
+	config.SyncWrite = true
+	auditor, err := audit.NewLogger(config)
+	require.NoError(t, err)
+	defer auditor.Close()
 
 	enforcer := NewPermissionEnforcer(
 		WithCommandExecutor(executor),

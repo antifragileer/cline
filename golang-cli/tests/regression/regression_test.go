@@ -103,9 +103,9 @@ func (r *RegressionRunner) RunTest(test *RegressionTest) RegressionResult {
 
 // FindBinary finds the CLI binary
 func FindBinary() string {
-	binaryName := "cline"
+	binaryName := "cline-go"
 	if runtime.GOOS == "windows" {
-		binaryName = "cline.exe"
+		binaryName = "cline-go.exe"
 	}
 
 	locations := []string{

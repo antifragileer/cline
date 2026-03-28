@@ -591,9 +591,9 @@ func truncate(s string, maxLen int) string {
 
 // FindGoBinary attempts to find the Go CLI binary
 func FindGoBinary() string {
-	binaryName := "cline"
+	binaryName := "cline-go"
 	if runtime.GOOS == "windows" {
-		binaryName = "cline.exe"
+		binaryName = "cline-go.exe"
 	}
 
 	locations := []string{
@@ -627,6 +627,10 @@ func FindGoBinary() string {
 // FindTSBinary attempts to find the TypeScript CLI binary
 func FindTSBinary() string {
 	locations := []string{
+		filepath.Join("..", "..", "..", "cli", "dist", "cli.mjs"),
+		filepath.Join("..", "..", "cli", "dist", "cli.mjs"),
+		filepath.Join("..", "cli", "dist", "cli.mjs"),
+		filepath.Join("cli", "dist", "cli.mjs"),
 		filepath.Join("..", "..", "..", "cli", "bin", "cline"),
 		filepath.Join("..", "..", "cli", "bin", "cline"),
 		filepath.Join("..", "cli", "bin", "cline"),

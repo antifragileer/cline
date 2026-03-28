@@ -161,32 +161,33 @@ proto:
 # Generate Homebrew formula
 release-homebrew: release
 	@echo "Generating Homebrew formula..."
-	go run scripts/generate_homebrew.go -version $(VERSION) -local -binary-dir $(DIST_DIR) -output $(DIST_DIR)/cline.rb
+	go run ./cmd/generate-homebrew/main.go -version $(VERSION) -local -binary-dir $(DIST_DIR) -output $(DIST_DIR)/cline.rb
 
 # Generate NPM package structure
 release-npm: release
 	@echo "Creating NPM package structure..."
 	mkdir -p $(DIST_DIR)/npm
-	cp scripts/package.json scripts/install.js scripts/index.js $(DIST_DIR)/npm/
+	cp npm-wrapper/package.json npm-wrapper/index.js npm-wrapper/platform.js npm-wrapper/install.js $(DIST_DIR)/npm/
 	mkdir -p $(DIST_DIR)/npm/bin
 	# Copy binaries for each platform to npm package
 	cp $(DIST_DIR)/cline-$(VERSION)-darwin-amd64.tar.gz $(DIST_DIR)/npm/bin/ 2>/dev/null || true
 	cp $(DIST_DIR)/cline-$(VERSION)-darwin-arm64.tar.gz $(DIST_DIR)/npm/bin/ 2>/dev/null || true
 	cp $(DIST_DIR)/cline-$(VERSION)-linux-amd64.tar.gz $(DIST_DIR)/npm/bin/ 2>/dev/null || true
 	cp $(DIST_DIR)/cline-$(VERSION)-linux-arm64.tar.gz $(DIST_DIR)/npm/bin/ 2>/dev/null || true
-	cp $(DIST_DIR)/cline-$(VERSION)-windows-amd64.tar.gz $(DIST_DIR)/npm/bin/ 2>/dev/null || true
+	cp $(DIST_DIR)/cline-$(VERSION)-windows-amd64.zip $(DIST_DIR)/npm/bin/ 2>/dev/null || true
 	@echo "NPM package structure created in $(DIST_DIR)/npm/"
 	@echo "To publish: cd $(DIST_DIR)/npm && npm publish --access public"
 
 # Generate Scoop manifest
 release-scoop: release
 	@echo "Generating Scoop manifest..."
-	go run scripts/generate_scoop.go -version $(VERSION) -local -binary-dir $(DIST_DIR) -output $(DIST_DIR)/cline.json
+	go run ./cmd/scoop-generate/main.go -version $(VERSION) -local -binary-dir $(DIST_DIR) -output $(DIST_DIR)/cline.json
 
 # Generate Linux packages
 release-linux: release
 	@echo "Generating Linux packages..."
-	go run scripts/generate_linux_packages.go -version $(VERSION) -binary-dir $(BUILD_DIR) -output-dir $(DIST_DIR)
+	@echo "Linux packages would be generated here (DEB/RPM)"
+	@echo "Skipping Linux package generation - requires additional tooling"
 
 # Create all distribution packages
 dist: release release-homebrew release-npm release-scoop release-linux

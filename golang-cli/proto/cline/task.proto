@@ -4,12 +4,15 @@ package cline;
 
 import "cline/common.proto";
 import "cline/state.proto";
+import "cline/ui.proto";
 
 option go_package = "github.com/cline/grpc-go/cline";
 option java_multiple_files = true;
 option java_package = "bot.cline.proto";
 
 service TaskService {
+  // Bidirectional streaming RPC for real-time task communication
+  rpc Stream(stream ClineMessage) returns (stream ClineMessage);
   // Cancels the currently running task
   rpc cancelTask(EmptyRequest) returns (Empty);
   // Cancels the currently running background command

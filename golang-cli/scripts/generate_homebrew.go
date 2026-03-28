@@ -287,7 +287,7 @@ func (t *HomebrewTap) GetFormulaPath(rootPath, formulaName string) string {
 
 // GenerateHomebrewReleaseURL generates a download URL for a release asset.
 func GenerateHomebrewReleaseURL(baseURL, version, binaryName, os, arch string) string {
-	assetName := fmt.Sprintf("%s_%s_%s_%s.tar.gz", binaryName, version, os, arch)
+	assetName := fmt.Sprintf("%s-%s-%s-%s.tar.gz", binaryName, version, os, arch)
 	return fmt.Sprintf("%s/v%s/%s", baseURL, version, assetName)
 }
 
@@ -490,7 +490,7 @@ func GenerateHomebrew(config *HomebrewConfig) (*HomebrewFormula, error) {
 
 		if config.LocalMode {
 			// Use local file for SHA256 calculation
-			binaryName := fmt.Sprintf("cline_%s_%s_%s.tar.gz", config.Version, p.OS, p.Arch)
+			binaryName := fmt.Sprintf("cline-%s-%s-%s.tar.gz", config.Version, p.OS, p.Arch)
 			localPath := filepath.Join(config.BinaryDir, binaryName)
 
 			if _, err := os.Stat(localPath); os.IsNotExist(err) {
@@ -656,7 +656,7 @@ func SanitizeHomebrewVersion(version string) string {
 
 // GetHomebrewBinaryName generates the expected binary name for a platform.
 func GetHomebrewBinaryName(version, os, arch string) string {
-	return fmt.Sprintf("cline_%s_%s_%s.tar.gz", version, os, arch)
+	return fmt.Sprintf("cline-%s-%s-%s.tar.gz", version, os, arch)
 }
 
 // GetHomebrewBinaryPath generates the full path to a binary.

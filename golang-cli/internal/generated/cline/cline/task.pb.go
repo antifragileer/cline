@@ -780,7 +780,7 @@ var File_cline_task_proto protoreflect.FileDescriptor
 
 const file_cline_task_proto_rawDesc = "" +
 	"\n" +
-	"\x10cline/task.proto\x12\x05cline\x1a\x12cline/common.proto\x1a\x11cline/state.proto\"\xcc\x01\n" +
+	"\x10cline/task.proto\x12\x05cline\x1a\x12cline/common.proto\x1a\x11cline/state.proto\x1a\x0ecline/ui.proto\"\xcc\x01\n" +
 	"\x0eNewTaskRequest\x12+\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x0f.cline.MetadataR\bmetadata\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12\x16\n" +
@@ -849,8 +849,9 @@ const file_cline_task_proto_rawDesc = "" +
 	"\x15ExplainChangesRequest\x12+\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x0f.cline.MetadataR\bmetadata\x12\x1d\n" +
 	"\n" +
-	"message_ts\x18\x02 \x01(\x03R\tmessageTs2\xcb\a\n" +
-	"\vTaskService\x12/\n" +
+	"message_ts\x18\x02 \x01(\x03R\tmessageTs2\x83\b\n" +
+	"\vTaskService\x126\n" +
+	"\x06Stream\x12\x13.cline.ClineMessage\x1a\x13.cline.ClineMessage(\x010\x01\x12/\n" +
 	"\n" +
 	"cancelTask\x12\x13.cline.EmptyRequest\x1a\f.cline.Empty\x12<\n" +
 	"\x17cancelBackgroundCommand\x12\x13.cline.EmptyRequest\x1a\f.cline.Empty\x12.\n" +
@@ -896,13 +897,14 @@ var file_cline_task_proto_goTypes = []any{
 	(*ExplainChangesRequest)(nil),     // 9: cline.ExplainChangesRequest
 	(*Metadata)(nil),                  // 10: cline.Metadata
 	(*Settings)(nil),                  // 11: cline.Settings
-	(*EmptyRequest)(nil),              // 12: cline.EmptyRequest
-	(*StringArrayRequest)(nil),        // 13: cline.StringArrayRequest
-	(*StringRequest)(nil),             // 14: cline.StringRequest
-	(*Int64Request)(nil),              // 15: cline.Int64Request
-	(*Empty)(nil),                     // 16: cline.Empty
-	(*Int64)(nil),                     // 17: cline.Int64
-	(*String)(nil),                    // 18: cline.String
+	(*ClineMessage)(nil),              // 12: cline.ClineMessage
+	(*EmptyRequest)(nil),              // 13: cline.EmptyRequest
+	(*StringArrayRequest)(nil),        // 14: cline.StringArrayRequest
+	(*StringRequest)(nil),             // 15: cline.StringRequest
+	(*Int64Request)(nil),              // 16: cline.Int64Request
+	(*Empty)(nil),                     // 17: cline.Empty
+	(*Int64)(nil),                     // 18: cline.Int64
+	(*String)(nil),                    // 19: cline.String
 }
 var file_cline_task_proto_depIdxs = []int32{
 	10, // 0: cline.NewTaskRequest.metadata:type_name -> cline.Metadata
@@ -913,40 +915,42 @@ var file_cline_task_proto_depIdxs = []int32{
 	10, // 5: cline.AskResponseRequest.metadata:type_name -> cline.Metadata
 	10, // 6: cline.ExecuteQuickWinRequest.metadata:type_name -> cline.Metadata
 	10, // 7: cline.ExplainChangesRequest.metadata:type_name -> cline.Metadata
-	12, // 8: cline.TaskService.cancelTask:input_type -> cline.EmptyRequest
-	12, // 9: cline.TaskService.cancelBackgroundCommand:input_type -> cline.EmptyRequest
-	12, // 10: cline.TaskService.clearTask:input_type -> cline.EmptyRequest
-	12, // 11: cline.TaskService.getTotalTasksSize:input_type -> cline.EmptyRequest
-	13, // 12: cline.TaskService.deleteTasksWithIds:input_type -> cline.StringArrayRequest
-	0,  // 13: cline.TaskService.newTask:input_type -> cline.NewTaskRequest
-	14, // 14: cline.TaskService.showTaskWithId:input_type -> cline.StringRequest
-	14, // 15: cline.TaskService.exportTaskWithId:input_type -> cline.StringRequest
-	1,  // 16: cline.TaskService.toggleTaskFavorite:input_type -> cline.TaskFavoriteRequest
-	3,  // 17: cline.TaskService.getTaskHistory:input_type -> cline.GetTaskHistoryRequest
-	6,  // 18: cline.TaskService.askResponse:input_type -> cline.AskResponseRequest
-	14, // 19: cline.TaskService.taskFeedback:input_type -> cline.StringRequest
-	15, // 20: cline.TaskService.taskCompletionViewChanges:input_type -> cline.Int64Request
-	7,  // 21: cline.TaskService.executeQuickWin:input_type -> cline.ExecuteQuickWinRequest
-	12, // 22: cline.TaskService.deleteAllTaskHistory:input_type -> cline.EmptyRequest
-	9,  // 23: cline.TaskService.explainChanges:input_type -> cline.ExplainChangesRequest
-	16, // 24: cline.TaskService.cancelTask:output_type -> cline.Empty
-	16, // 25: cline.TaskService.cancelBackgroundCommand:output_type -> cline.Empty
-	16, // 26: cline.TaskService.clearTask:output_type -> cline.Empty
-	17, // 27: cline.TaskService.getTotalTasksSize:output_type -> cline.Int64
-	16, // 28: cline.TaskService.deleteTasksWithIds:output_type -> cline.Empty
-	18, // 29: cline.TaskService.newTask:output_type -> cline.String
-	2,  // 30: cline.TaskService.showTaskWithId:output_type -> cline.TaskResponse
-	16, // 31: cline.TaskService.exportTaskWithId:output_type -> cline.Empty
-	16, // 32: cline.TaskService.toggleTaskFavorite:output_type -> cline.Empty
-	4,  // 33: cline.TaskService.getTaskHistory:output_type -> cline.TaskHistoryArray
-	16, // 34: cline.TaskService.askResponse:output_type -> cline.Empty
-	16, // 35: cline.TaskService.taskFeedback:output_type -> cline.Empty
-	16, // 36: cline.TaskService.taskCompletionViewChanges:output_type -> cline.Empty
-	16, // 37: cline.TaskService.executeQuickWin:output_type -> cline.Empty
-	8,  // 38: cline.TaskService.deleteAllTaskHistory:output_type -> cline.DeleteAllTaskHistoryCount
-	16, // 39: cline.TaskService.explainChanges:output_type -> cline.Empty
-	24, // [24:40] is the sub-list for method output_type
-	8,  // [8:24] is the sub-list for method input_type
+	12, // 8: cline.TaskService.Stream:input_type -> cline.ClineMessage
+	13, // 9: cline.TaskService.cancelTask:input_type -> cline.EmptyRequest
+	13, // 10: cline.TaskService.cancelBackgroundCommand:input_type -> cline.EmptyRequest
+	13, // 11: cline.TaskService.clearTask:input_type -> cline.EmptyRequest
+	13, // 12: cline.TaskService.getTotalTasksSize:input_type -> cline.EmptyRequest
+	14, // 13: cline.TaskService.deleteTasksWithIds:input_type -> cline.StringArrayRequest
+	0,  // 14: cline.TaskService.newTask:input_type -> cline.NewTaskRequest
+	15, // 15: cline.TaskService.showTaskWithId:input_type -> cline.StringRequest
+	15, // 16: cline.TaskService.exportTaskWithId:input_type -> cline.StringRequest
+	1,  // 17: cline.TaskService.toggleTaskFavorite:input_type -> cline.TaskFavoriteRequest
+	3,  // 18: cline.TaskService.getTaskHistory:input_type -> cline.GetTaskHistoryRequest
+	6,  // 19: cline.TaskService.askResponse:input_type -> cline.AskResponseRequest
+	15, // 20: cline.TaskService.taskFeedback:input_type -> cline.StringRequest
+	16, // 21: cline.TaskService.taskCompletionViewChanges:input_type -> cline.Int64Request
+	7,  // 22: cline.TaskService.executeQuickWin:input_type -> cline.ExecuteQuickWinRequest
+	13, // 23: cline.TaskService.deleteAllTaskHistory:input_type -> cline.EmptyRequest
+	9,  // 24: cline.TaskService.explainChanges:input_type -> cline.ExplainChangesRequest
+	12, // 25: cline.TaskService.Stream:output_type -> cline.ClineMessage
+	17, // 26: cline.TaskService.cancelTask:output_type -> cline.Empty
+	17, // 27: cline.TaskService.cancelBackgroundCommand:output_type -> cline.Empty
+	17, // 28: cline.TaskService.clearTask:output_type -> cline.Empty
+	18, // 29: cline.TaskService.getTotalTasksSize:output_type -> cline.Int64
+	17, // 30: cline.TaskService.deleteTasksWithIds:output_type -> cline.Empty
+	19, // 31: cline.TaskService.newTask:output_type -> cline.String
+	2,  // 32: cline.TaskService.showTaskWithId:output_type -> cline.TaskResponse
+	17, // 33: cline.TaskService.exportTaskWithId:output_type -> cline.Empty
+	17, // 34: cline.TaskService.toggleTaskFavorite:output_type -> cline.Empty
+	4,  // 35: cline.TaskService.getTaskHistory:output_type -> cline.TaskHistoryArray
+	17, // 36: cline.TaskService.askResponse:output_type -> cline.Empty
+	17, // 37: cline.TaskService.taskFeedback:output_type -> cline.Empty
+	17, // 38: cline.TaskService.taskCompletionViewChanges:output_type -> cline.Empty
+	17, // 39: cline.TaskService.executeQuickWin:output_type -> cline.Empty
+	8,  // 40: cline.TaskService.deleteAllTaskHistory:output_type -> cline.DeleteAllTaskHistoryCount
+	17, // 41: cline.TaskService.explainChanges:output_type -> cline.Empty
+	25, // [25:42] is the sub-list for method output_type
+	8,  // [8:25] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name
 	8,  // [8:8] is the sub-list for extension extendee
 	0,  // [0:8] is the sub-list for field type_name
@@ -959,6 +963,7 @@ func file_cline_task_proto_init() {
 	}
 	file_cline_common_proto_init()
 	file_cline_state_proto_init()
+	file_cline_ui_proto_init()
 	file_cline_task_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

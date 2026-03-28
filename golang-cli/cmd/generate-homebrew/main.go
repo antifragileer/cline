@@ -116,7 +116,7 @@ func run(cfg *config) error {
 
 		if cfg.localMode {
 			// Use local file for SHA256 calculation
-			binaryName := fmt.Sprintf("cline_%s_%s_%s.tar.gz", cfg.version, p.OS, p.Arch)
+			binaryName := fmt.Sprintf("cline-%s-%s-%s.tar.gz", cfg.version, p.OS, p.Arch)
 			localPath := filepath.Join(cfg.binaryDir, binaryName)
 
 			if _, err := os.Stat(localPath); os.IsNotExist(err) {

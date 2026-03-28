@@ -82,13 +82,13 @@ func DefaultScoopManifest(version string) *ScoopManifest {
 		Autoupdate: &ScoopAutoupdate{
 			Architecture: ScoopArchitecture{
 				AMD64: ScoopPlatformUpdate{
-					URL: "https://github.com/cline/cline/releases/download/v$version/cline_$version_windows_amd64.zip",
+					URL: "https://github.com/cline/cline/releases/download/v$version/cline-$version-windows-amd64.zip",
 					Hash: ScoopHashUpdate{
 						URL: "$url.sha256",
 					},
 				},
 				ARM64: ScoopPlatformUpdate{
-					URL: "https://github.com/cline/cline/releases/download/v$version/cline_$version_windows_arm64.zip",
+					URL: "https://github.com/cline/cline/releases/download/v$version/cline-$version-windows-arm64.zip",
 					Hash: ScoopHashUpdate{
 						URL: "$url.sha256",
 					},
@@ -289,7 +289,7 @@ func (c *ScoopConfig) validate() error {
 
 // generateScoopReleaseURL generates a download URL for a release asset.
 func generateScoopReleaseURL(baseURL, version, binaryName, arch string) string {
-	assetName := fmt.Sprintf("%s_%s_windows_%s.zip", binaryName, version, arch)
+	assetName := fmt.Sprintf("%s-%s-windows-%s.zip", binaryName, version, arch)
 	return fmt.Sprintf("%s/v%s/%s", baseURL, version, assetName)
 }
 
@@ -361,27 +361,36 @@ func runScoop(config *ScoopConfig) error {
 	}
 
 	architectures := supportedArchitectures()
+	atLeastOne := false
 
 	for _, arch := range architectures {
 		url := generateScoopReleaseURL(config.BaseURL, config.Version, "cline", arch)
 
 		if config.LocalMode {
-			binaryName := fmt.Sprintf("cline_%s_windows_%s.zip", config.Version, arch)
+			binaryName := fmt.Sprintf("cline-%s-windows-%s.zip", config.Version, arch)
 			localPath := filepath.Join(config.BinaryDir, binaryName)
 
 			if _, err := os.Stat(localPath); os.IsNotExist(err) {
-				return fmt.Errorf("local binary not found: %s", localPath)
+				fmt.Fprintf(os.Stderr, "Warning: local binary not found: %s, skipping %s\n", localPath, arch)
+				continue
 			}
 
 			if err := manifest.AddPlatformWithLocalFile(arch, url, localPath); err != nil {
 				return fmt.Errorf("failed to add architecture %s: %w", arch, err)
 			}
+			atLeastOne = true
 		} else {
 			fmt.Fprintf(os.Stderr, "Downloading windows/%s binary for SHA256 calculation...\n", arch)
 			if err := manifest.AddPlatform(arch, url); err != nil {
-				return fmt.Errorf("failed to add architecture %s: %w", arch, err)
+				fmt.Fprintf(os.Stderr, "Warning: failed to download %s: %v, skipping\n", arch, err)
+				continue
 			}
+			atLeastOne = true
 		}
+	}
+
+	if !atLeastOne {
+		return fmt.Errorf("no architectures available for manifest")
 	}
 
 	// Validate the manifest
