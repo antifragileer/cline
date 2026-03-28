@@ -145,7 +145,11 @@ func outputVersionJSON(output io.Writer, info *VersionInfo) error {
 
 // outputVersionStandard outputs version info in standard format
 func outputVersionStandard(output io.Writer, info *VersionInfo) error {
-	fmt.Fprintf(output, "Cline CLI version %s\n", info.Version)
+	// Use cyan color for the version (matches TypeScript chalk.cyan)
+	cyan := "\033[36m"
+	reset := "\033[0m"
+	
+	fmt.Fprintf(output, "Cline CLI version: %s%s%s\n", cyan, info.Version, reset)
 
 	if info.GitCommit != "unknown" {
 		fmt.Fprintf(output, "  Git commit: %s\n", formatCommit(info.GitCommit))

@@ -17,6 +17,7 @@ import (
 var updateFlags struct {
 	checkOnly bool
 	force     bool
+	verbose   bool
 }
 
 // NPMRegistryResponse represents the response from npm registry
@@ -68,6 +69,7 @@ func init() {
 	// Add flags to update command
 	updateCmd.Flags().BoolVarP(&updateFlags.checkOnly, "check-only", "c", false, "Only check for updates, don't install")
 	updateCmd.Flags().BoolVarP(&updateFlags.force, "force", "f", false, "Force update check")
+	updateCmd.Flags().BoolVarP(&updateFlags.verbose, "verbose", "v", false, "Show verbose output")
 }
 
 // runUpdate executes the update command
@@ -81,6 +83,13 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	// Display update information
 	if err := displayUpdateInfo(cmd.OutOrStdout(), updateInfo); err != nil {
 		return err
+	}
+
+	// Show verbose information if requested
+	if updateFlags.verbose {
+		if err := displayVerboseInfo(cmd.OutOrStdout(), updateInfo); err != nil {
+			return err
+		}
 	}
 
 	// If check-only or no update available, we're done
@@ -151,6 +160,20 @@ func displayUpdateInfo(output io.Writer, info *UpdateInfo) error {
 		fmt.Fprintln(output, "\n✓ You're running the latest version.")
 	}
 
+	return nil
+}
+
+// displayVerboseInfo displays verbose update information
+func displayVerboseInfo(output io.Writer, info *UpdateInfo) error {
+	fmt.Fprintln(output, "\n=== Verbose Information ===")
+	fmt.Fprintf(output, "Registry URL: %s\n", npmRegistryURL)
+	fmt.Fprintf(output, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	fmt.Fprintf(output, "Go Version: %s\n", runtime.Version())
+	
+	if info.ReleaseDate != "" {
+		fmt.Fprintf(output, "Release Date (raw): %s\n", info.ReleaseDate)
+	}
+	
 	return nil
 }
 

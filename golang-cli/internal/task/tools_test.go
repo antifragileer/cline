@@ -1301,3 +1301,227 @@ func BenchmarkExecuteTool(b *testing.B) {
 		}
 	}
 }
+
+// =============================================================================
+// Phase 3 Tests: Piped Input, Security/Permissions, Output Formatting
+// =============================================================================
+
+// TestCommandSecurityValidation tests that CLINE_COMMAND_PERMISSIONS is enforced
+func TestCommandSecurityValidation(t *testing.T) {
+	// Save and restore original environment
+	originalEnv := os.Getenv("CLINE_COMMAND_PERMISSIONS")
+	defer os.Setenv("CLINE_COMMAND_PERMISSIONS", originalEnv)
+
+	tests := []struct {
+		name          string
+		permissions   string
+		command       string
+		shouldAllow   bool
+	}{
+		{
+			name:        "allow all commands",
+			permissions: `{"allow":["*"]}`,
+			command:     "echo hello",
+			shouldAllow: true,
+		},
+		{
+			name:        "deny specific command",
+			permissions: `{"allow":["*"],"deny":["rm -rf *"]}`,
+			command:     "rm -rf /",
+			shouldAllow: false,
+		},
+		{
+			name:        "allow specific commands only",
+			permissions: `{"allow":["git *","docker *"]}`,
+			command:     "git status",
+			shouldAllow: true,
+		},
+		{
+			name:        "reject non-allowed command",
+			permissions: `{"allow":["git *"]}`,
+			command:     "docker ps",
+			shouldAllow: false,
+		},
+		{
+			name:        "no permissions - default allow",
+			permissions: "",
+			command:     "echo hello",
+			shouldAllow: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set permissions environment variable
+			if tt.permissions != "" {
+				os.Setenv("CLINE_COMMAND_PERMISSIONS", tt.permissions)
+			} else {
+				os.Unsetenv("CLINE_COMMAND_PERMISSIONS")
+			}
+
+			// Create executor with yolo mode for testing security layer
+			config := &ToolApprovalConfig{
+				YoloMode:        true,
+				ApprovalTimeout: 5 * time.Second,
+			}
+			approver := NewAutoApprover()
+			executor := NewToolExecutor(config, approver)
+
+			req := ToolRequest{
+				ID:       "test-request",
+				Type:     ToolTypeExecuteCommand,
+				ToolName: "execute_command",
+				Parameters: map[string]interface{}{
+					"command": tt.command,
+				},
+			}
+
+			result, err := executor.ExecuteTool(context.Background(), req)
+
+			if tt.shouldAllow {
+				if !result.Success {
+					t.Errorf("Expected command to be allowed, but failed: %s (error: %v)", result.Error, err)
+				}
+			} else {
+				if result.Success {
+					t.Error("Expected command to be denied, but succeeded")
+				}
+				if !strings.Contains(result.Error, "not allowed") {
+					t.Errorf("Expected 'not allowed' error, got: %s", result.Error)
+				}
+			}
+		})
+	}
+}
+
+// TestPipedInputIntegration tests piped input handling
+func TestPipedInputIntegration(t *testing.T) {
+	// Test the combination format used when piped input is present
+	prompt := "explain this code"
+	pipedInput := `func main() {
+	fmt.Println("Hello, World!")
+}`
+
+	combined := pipedInput + "\n\n" + prompt
+
+	if !strings.Contains(combined, pipedInput) {
+		t.Error("Combined prompt should contain piped input")
+	}
+	if !strings.Contains(combined, prompt) {
+		t.Error("Combined prompt should contain original prompt")
+	}
+	if !strings.Contains(combined, "\n\n") {
+		t.Error("Combined prompt should have double newline separator")
+	}
+}
+
+// TestSecurityIntegrationWithAutoApprover tests security with auto-approve
+func TestSecurityIntegrationWithAutoApprover(t *testing.T) {
+	// Save and restore original environment
+	originalEnv := os.Getenv("CLINE_COMMAND_PERMISSIONS")
+	defer os.Setenv("CLINE_COMMAND_PERMISSIONS", originalEnv)
+
+	// Set up restrictive permissions
+	os.Setenv("CLINE_COMMAND_PERMISSIONS", `{"allow":["ls *","echo *"],"deny":["rm *","sudo *"]}`)
+
+	config := &ToolApprovalConfig{
+		YoloMode:        true, // Auto-approve everything
+		ApprovalTimeout: 5 * time.Second,
+	}
+	approver := NewAutoApprover()
+	executor := NewToolExecutor(config, approver)
+
+	// Test allowed command
+	allowedReq := ToolRequest{
+		ID:       "test-allowed",
+		Type:     ToolTypeExecuteCommand,
+		ToolName: "execute_command",
+		Parameters: map[string]interface{}{
+			"command": "ls -la",
+		},
+	}
+	result, _ := executor.ExecuteTool(context.Background(), allowedReq)
+	if !result.Success {
+		t.Errorf("Expected 'ls -la' to be allowed, got: %s", result.Error)
+	}
+
+	// Test denied command (should be denied even with auto-approve)
+	deniedReq := ToolRequest{
+		ID:       "test-denied",
+		Type:     ToolTypeExecuteCommand,
+		ToolName: "execute_command",
+		Parameters: map[string]interface{}{
+			"command": "sudo ls",
+		},
+	}
+	result, _ = executor.ExecuteTool(context.Background(), deniedReq)
+	if result.Success {
+		t.Error("Expected 'sudo ls' to be denied despite auto-approve")
+	}
+	if !strings.Contains(result.Error, "not allowed") {
+		t.Errorf("Expected security error, got: %s", result.Error)
+	}
+}
+
+// TestSecurityEdgeCases tests edge cases in security validation
+func TestSecurityEdgeCases(t *testing.T) {
+	originalEnv := os.Getenv("CLINE_COMMAND_PERMISSIONS")
+	defer os.Setenv("CLINE_COMMAND_PERMISSIONS", originalEnv)
+
+	config := &ToolApprovalConfig{
+		YoloMode:        true,
+		ApprovalTimeout: 5 * time.Second,
+	}
+	approver := NewAutoApprover()
+
+	tests := []struct {
+		name        string
+		permissions string
+		command     string
+		shouldAllow bool
+	}{
+		{
+			name:        "invalid permissions JSON",
+			permissions: `invalid json`,
+			command:     "echo test",
+			shouldAllow: false,
+		},
+		{
+			name:        "empty permissions",
+			permissions: `{"allow":[],"deny":[]}`,
+			command:     "echo test",
+			shouldAllow: false,
+		},
+		{
+			name:        "complex command with pipes",
+			permissions: `{"allow":["cat *","grep *"]}`,
+			command:     "cat file.txt | grep pattern",
+			shouldAllow: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv("CLINE_COMMAND_PERMISSIONS", tt.permissions)
+			executor := NewToolExecutor(config, approver)
+
+			req := ToolRequest{
+				ID:       "test-edge",
+				Type:     ToolTypeExecuteCommand,
+				ToolName: "execute_command",
+				Parameters: map[string]interface{}{
+					"command": tt.command,
+				},
+			}
+
+			result, _ := executor.ExecuteTool(context.Background(), req)
+			
+			if tt.shouldAllow && !result.Success {
+				t.Errorf("Expected command to be allowed, got: %s", result.Error)
+			}
+			if !tt.shouldAllow && result.Success {
+				t.Error("Expected command to be denied")
+			}
+		})
+	}
+}

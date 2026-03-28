@@ -121,6 +121,7 @@ func init() {
 }
 
 // runDevLog executes the dev log command
+// Opens the log file in the system's default editor (matching TypeScript CLI behavior)
 func runDevLog(cmd *cobra.Command, args []string) error {
 	logPath := getLogPath()
 
@@ -142,20 +143,38 @@ func runDevLog(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Open log file
-	file, err := os.Open(logPath)
-	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
-	}
-	defer file.Close()
-
-	// Follow mode
-	if devFlags.follow {
-		return tailLogFile(file, cmd.OutOrStdout())
+	// Open log file in system default editor (matching TypeScript CLI behavior)
+	if err := openInExternalEditor(logPath); err != nil {
+		// Fallback: display the log file path if we can't open it
+		fmt.Fprintf(cmd.OutOrStdout(), "Log file: %s\n", logPath)
+		return nil
 	}
 
-	// Read and display log entries
-	return showLogLines(file, cmd.OutOrStdout(), devFlags.lines, devFlags.all)
+	return nil
+}
+
+// openInExternalEditor opens a file in the system's default editor
+func openInExternalEditor(path string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", path)
+	default: // linux and other unix-like
+		// Try xdg-open first, then fall back to sensible defaults
+		cmd = exec.Command("xdg-open", path)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	// Detach the process so it doesn't block
+	go cmd.Wait()
+
+	return nil
 }
 
 // getLogPath returns the path to the log file

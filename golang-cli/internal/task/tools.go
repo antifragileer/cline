@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
+	"github.com/cline/cline/golang-cli/internal/security"
 )
 
 // ToolType represents the type of tool being requested.
@@ -550,6 +552,14 @@ func (e *ToolExecutor) executeCommand(ctx context.Context, req ToolRequest) *Too
 	if !ok || command == "" {
 		result.Success = false
 		result.Error = "command parameter is required"
+		return result
+	}
+
+	// Validate command against CLINE_COMMAND_PERMISSIONS environment variable
+	if allowed, reason := security.ValidateCommand(command); !allowed {
+		result.Success = false
+		result.Error = fmt.Sprintf("command not allowed: %s", reason)
+		result.ExitCode = 1
 		return result
 	}
 

@@ -58,8 +58,9 @@ var historyFlags struct {
 
 // historyCmd represents the history command
 var historyCmd = &cobra.Command{
-	Use:   "history",
-	Short: "Display task history with pagination",
+	Use:     "history",
+	Aliases: []string{"h"},
+	Short:   "Display task history with pagination",
 	Long: `Display the history of tasks executed with Cline.
 
 This command shows a paginated list of past tasks, including their

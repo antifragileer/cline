@@ -408,7 +408,7 @@ func TestImageAttachments(t *testing.T) {
 }
 
 // TestTaskExecutionFlow tests the complete task execution flow
-func TestTaskExecutionFlow(t *testing.T) {
+func TestTaskExecutionLifecycle(t *testing.T) {
 	t.Run("task lifecycle with state tracking", func(t *testing.T) {
 		tempDir := t.TempDir()
 		taskID := "lifecycle-task"

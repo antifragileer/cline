@@ -51,8 +51,9 @@ var taskFlags struct {
 
 // taskCmd represents the task command
 var taskCmd = &cobra.Command{
-	Use:   "task [prompt]",
-	Short: "Execute a task with Cline",
+	Use:     "task [prompt]",
+	Aliases: []string{"t"},
+	Short:   "Execute a task with Cline",
 	Long: `Execute a task with Cline AI assistant.
 
 This command allows you to send a task to Cline with various options

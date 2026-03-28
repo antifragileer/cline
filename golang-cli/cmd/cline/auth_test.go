@@ -316,31 +316,31 @@ func TestAuthFlags(t *testing.T) {
 		t.Errorf("provider flag should have shorthand 'p', got '%s'", providerFlag.Shorthand)
 	}
 	
-	// Check --key / -k flag
-	keyFlag := cmd.Flags().Lookup("key")
-	if keyFlag == nil {
-		t.Error("auth command should have --key flag")
+	// Check --apikey / -k flag
+	apikeyFlag := cmd.Flags().Lookup("apikey")
+	if apikeyFlag == nil {
+		t.Error("auth command should have --apikey flag")
 	}
-	if keyFlag.Shorthand != "k" {
-		t.Errorf("key flag should have shorthand 'k', got '%s'", keyFlag.Shorthand)
-	}
-	
-	// Check --model / -m flag
-	modelFlag := cmd.Flags().Lookup("model")
-	if modelFlag == nil {
-		t.Error("auth command should have --model flag")
-	}
-	if modelFlag.Shorthand != "m" {
-		t.Errorf("model flag should have shorthand 'm', got '%s'", modelFlag.Shorthand)
+	if apikeyFlag.Shorthand != "k" {
+		t.Errorf("apikey flag should have shorthand 'k', got '%s'", apikeyFlag.Shorthand)
 	}
 	
-	// Check --baseurl flag (no shorthand)
+	// Check --modelid / -m flag
+	modelidFlag := cmd.Flags().Lookup("modelid")
+	if modelidFlag == nil {
+		t.Error("auth command should have --modelid flag")
+	}
+	if modelidFlag.Shorthand != "m" {
+		t.Errorf("modelid flag should have shorthand 'm', got '%s'", modelidFlag.Shorthand)
+	}
+	
+	// Check --baseurl / -b flag
 	baseurlFlag := cmd.Flags().Lookup("baseurl")
 	if baseurlFlag == nil {
 		t.Error("auth command should have --baseurl flag")
 	}
-	if baseurlFlag.Shorthand != "" {
-		t.Errorf("baseurl flag should not have shorthand, got '%s'", baseurlFlag.Shorthand)
+	if baseurlFlag.Shorthand != "b" {
+		t.Errorf("baseurl flag should have shorthand 'b', got '%s'", baseurlFlag.Shorthand)
 	}
 	
 	// Check --cwd / -c flag
@@ -520,16 +520,16 @@ func TestRunQuickAuthSetup(t *testing.T) {
 	// Reset auth flags
 	authFlags = struct {
 		provider string
-		key      string
-		model    string
+		apikey   string
+		modelid  string
 		baseurl  string
 		cwd      string
 		verbose  bool
 		config   string
 	}{
 		provider: "anthropic",
-		key:      "sk-ant-test123",
-		model:    "claude-3-opus-20240229",
+		apikey:   "sk-ant-test123",
+		modelid:  "claude-3-opus-20240229",
 		verbose:  true,
 	}
 
@@ -566,16 +566,16 @@ func TestRunQuickAuthSetupWithBaseURL(t *testing.T) {
 	// Reset auth flags
 	authFlags = struct {
 		provider string
-		key      string
-		model    string
+		apikey   string
+		modelid  string
 		baseurl  string
 		cwd      string
 		verbose  bool
 		config   string
 	}{
 		provider: "openai",
-		key:      "sk-test123",
-		model:    "gpt-4o",
+		apikey:   "sk-test123",
+		modelid:  "gpt-4o",
 		baseurl:  "https://api.example.com/v1",
 		verbose:  false,
 	}
@@ -607,16 +607,16 @@ func TestRunQuickAuthSetupDefaultModel(t *testing.T) {
 	// Reset auth flags - no model specified
 	authFlags = struct {
 		provider string
-		key      string
-		model    string
+		apikey   string
+		modelid  string
 		baseurl  string
 		cwd      string
 		verbose  bool
 		config   string
 	}{
 		provider: "anthropic",
-		key:      "sk-ant-test123",
-		model:    "", // No model specified
+		apikey:   "sk-ant-test123",
+		modelid:  "", // No model specified
 		verbose:  false,
 	}
 
@@ -681,16 +681,16 @@ func TestBedrockQuickSetupNotAllowed(t *testing.T) {
 	// Reset auth flags for bedrock
 	authFlags = struct {
 		provider string
-		key      string
-		model    string
+		apikey   string
+		modelid  string
 		baseurl  string
 		cwd      string
 		verbose  bool
 		config   string
 	}{
 		provider: "bedrock",
-		key:      "some-key",
-		model:    "",
+		apikey:   "some-key",
+		modelid:  "",
 		verbose:  false,
 	}
 
@@ -741,22 +741,22 @@ func TestBaseURLValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset auth flags
-			authFlags = struct {
-				provider string
-				key      string
-				model    string
-				baseurl  string
-				cwd      string
-				verbose  bool
-				config   string
-			}{
-				provider: tt.provider,
-				key:      "sk-test123",
-				model:    "gpt-4o",
-				baseurl:  tt.baseurl,
-				verbose:  false,
-			}
+	// Reset auth flags
+	authFlags = struct {
+		provider string
+		apikey   string
+		modelid  string
+		baseurl  string
+		cwd      string
+		verbose  bool
+		config   string
+	}{
+		provider: tt.provider,
+		apikey:   "sk-test123",
+		modelid:  "gpt-4o",
+		baseurl:  tt.baseurl,
+		verbose:  false,
+	}
 
 			output := &bytes.Buffer{}
 			cmd := &mockCommand{output: output}
@@ -784,16 +784,16 @@ func TestWelcomeViewCompletedAfterAuth(t *testing.T) {
 	// Reset auth flags
 	authFlags = struct {
 		provider string
-		key      string
-		model    string
+		apikey   string
+		modelid  string
 		baseurl  string
 		cwd      string
 		verbose  bool
 		config   string
 	}{
 		provider: "anthropic",
-		key:      "sk-ant-test123",
-		model:    "claude-3-opus-20240229",
+		apikey:   "sk-ant-test123",
+		modelid:  "claude-3-opus-20240229",
 		verbose:  false,
 	}
 
@@ -828,16 +828,16 @@ func TestVerboseFlagOutput(t *testing.T) {
 	// Reset auth flags with verbose enabled
 	authFlags = struct {
 		provider string
-		key      string
-		model    string
+		apikey   string
+		modelid  string
 		baseurl  string
 		cwd      string
 		verbose  bool
 		config   string
 	}{
 		provider: "anthropic",
-		key:      "sk-ant-test123",
-		model:    "claude-3-opus-20240229",
+		apikey:   "sk-ant-test123",
+		modelid:  "claude-3-opus-20240229",
 		verbose:  true,
 		config:   "",
 	}

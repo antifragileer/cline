@@ -14,8 +14,8 @@ import (
 // authFlags holds the parsed flag values for auth command
 var authFlags struct {
 	provider string
-	key      string
-	model    string
+	apikey   string
+	modelid  string
 	baseurl  string
 	cwd      string
 	verbose  bool
@@ -158,9 +158,9 @@ func init() {
 
 	// Add flags to auth command - aligned with NodeJS implementation
 	authCmd.Flags().StringVarP(&authFlags.provider, "provider", "p", "", "Provider ID for quick setup (e.g., openai-native, anthropic, moonshot)")
-	authCmd.Flags().StringVarP(&authFlags.key, "key", "k", "", "API key for the provider")
-	authCmd.Flags().StringVarP(&authFlags.model, "model", "m", "", "Model ID to configure (e.g., gpt-4o, claude-sonnet-4-6, kimi-k2.5)")
-	authCmd.Flags().StringVar(&authFlags.baseurl, "baseurl", "", "Base URL (optional, only for openai provider)")
+	authCmd.Flags().StringVarP(&authFlags.apikey, "apikey", "k", "", "API key for the provider")
+	authCmd.Flags().StringVarP(&authFlags.modelid, "modelid", "m", "", "Model ID to configure (e.g., gpt-4o, claude-sonnet-4-6, kimi-k2.5)")
+	authCmd.Flags().StringVarP(&authFlags.baseurl, "baseurl", "b", "", "Base URL (optional, only for openai provider)")
 	authCmd.Flags().StringVarP(&authFlags.cwd, "cwd", "c", "", "Working directory for the task")
 	authCmd.Flags().BoolVarP(&authFlags.verbose, "verbose", "v", false, "Show verbose output")
 	authCmd.Flags().StringVar(&authFlags.config, "config", "", "Path to Cline configuration directory")
@@ -177,8 +177,8 @@ func runAuth(cmd *cobra.Command, args []string) error {
 
 	// Determine the mode based on provided flags
 	hasProvider := authFlags.provider != ""
-	hasKey := authFlags.key != ""
-	hasModel := authFlags.model != ""
+	hasKey := authFlags.apikey != ""
+	hasModel := authFlags.modelid != ""
 	hasBaseURL := authFlags.baseurl != ""
 
 	// Log verbose output if enabled
@@ -260,13 +260,13 @@ func runQuickAuthSetup(cmd commandOutputter, ctx *storage.StorageContext, provid
 	}
 
 	// Get API key
-	apiKey := authFlags.key
+	apiKey := authFlags.apikey
 	if providerInfo.RequiresKey && apiKey == "" {
 		return fmt.Errorf("API key is required for provider: %s", provider)
 	}
 
 	// Get model selection
-	model := authFlags.model
+	model := authFlags.modelid
 	if !hasModel {
 		// Use default model if not provided
 		model = providerInfo.DefaultModel
@@ -324,7 +324,7 @@ func runInteractiveAuth(cmd *cobra.Command, ctx *storage.StorageContext, preSele
 	}
 
 	// Get API key if required
-	apiKey := authFlags.key
+	apiKey := authFlags.apikey
 	if providerInfo.RequiresKey && apiKey == "" {
 		var err error
 		apiKey, err = promptForKey(cmd.InOrStdin(), cmd.OutOrStdout(), providerInfo.Name)
@@ -334,7 +334,7 @@ func runInteractiveAuth(cmd *cobra.Command, ctx *storage.StorageContext, preSele
 	}
 
 	// Get model selection
-	model := authFlags.model
+	model := authFlags.modelid
 	if model == "" {
 		var err error
 		model, err = selectModelInteractive(cmd.InOrStdin(), cmd.OutOrStdout(), providerInfo)
