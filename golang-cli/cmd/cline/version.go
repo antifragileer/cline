@@ -101,7 +101,17 @@ func init() {
 func runVersion(cmd *cobra.Command, args []string) error {
 	info := GetVersionInfo()
 
-	// Short format - just version number
+	// Handle --json --short combination - should output valid JSON
+	if versionFlags.json && versionFlags.short {
+		shortJSON := map[string]string{
+			"version": info.Version,
+		}
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(shortJSON)
+	}
+
+	// Short format - just version number (plain text)
 	if versionFlags.short {
 		fmt.Fprintln(cmd.OutOrStdout(), info.Version)
 		return nil

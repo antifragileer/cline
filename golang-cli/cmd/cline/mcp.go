@@ -22,6 +22,7 @@ var mcpFlags struct {
 	env         []string
 	timeout     int
 	autoApprove bool
+	json        bool
 }
 
 // MCPServer represents an MCP server configuration
@@ -185,6 +186,9 @@ func init() {
 	mcpAddCmd.Flags().StringArrayVar(&mcpFlags.env, "env", nil, "Environment variables (KEY=value format)")
 	mcpAddCmd.Flags().IntVar(&mcpFlags.timeout, "timeout", 60, "Timeout in seconds")
 	mcpAddCmd.Flags().BoolVar(&mcpFlags.autoApprove, "auto-approve", false, "Auto-approve all tool requests from this server")
+	
+	// Add flags for mcp list
+	mcpListCmd.Flags().BoolVarP(&mcpFlags.json, "json", "j", false, "Output in JSON format")
 	
 	// Add flags for marketplace
 	mcpMarketplaceCmd.Flags().StringVar(&mcpFlags.name, "search", "", "Search term")
@@ -484,12 +488,49 @@ func runMCPList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(servers) == 0 {
+		if mcpFlags.json {
+			emptyResult := map[string]interface{}{
+				"servers": []interface{}{},
+			}
+			encoder := json.NewEncoder(cmd.OutOrStdout())
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(emptyResult)
+		}
 		fmt.Fprintln(cmd.OutOrStdout(), "No MCP servers configured.")
 		fmt.Fprintln(cmd.OutOrStdout(), "\nRun 'cline mcp marketplace' to browse available servers.")
 		return nil
 	}
 
-	// Output servers
+	// Output as JSON if requested
+	if mcpFlags.json {
+		serverList := make([]map[string]interface{}, 0, len(servers))
+		for name, server := range servers {
+			serverInfo := map[string]interface{}{
+				"name":     name,
+				"command":  server.Command,
+				"args":     server.Args,
+				"disabled": server.Disabled,
+			}
+			if server.Description != "" {
+				serverInfo["description"] = server.Description
+			}
+			if server.AutoApprove {
+				serverInfo["autoApprove"] = true
+			}
+			if len(server.Env) > 0 {
+				serverInfo["env"] = server.Env
+			}
+			serverList = append(serverList, serverInfo)
+		}
+		result := map[string]interface{}{
+			"servers": serverList,
+		}
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(result)
+	}
+
+	// Output servers in human-readable format
 	fmt.Fprintln(cmd.OutOrStdout(), "Configured MCP Servers:")
 	fmt.Fprintln(cmd.OutOrStdout())
 

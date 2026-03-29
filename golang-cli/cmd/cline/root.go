@@ -131,11 +131,16 @@ Usage:
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
-	return rootCmd.Execute()
+	// Execute command with custom handling for unknown commands
+	if err := rootCmd.Execute(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, initLogger)
+	cobra.OnInitialize(initConfig, initLogger, initCommands)
 
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is $HOME/.%s/%s.%s)", ConfigDirName, DefaultConfigName, DefaultConfigType))
@@ -232,6 +237,15 @@ func initLogger() {
 	})
 	logger = slog.New(handler)
 	slog.SetDefault(logger)
+}
+
+// initCommands initializes all subcommands
+func initCommands() {
+	// Import/Export commands (already initialized via init())
+	initImportExportCommands()
+	
+	// Register completion functions
+	registerCompletionFunctions()
 }
 
 // RootOptions holds all parsed root command options

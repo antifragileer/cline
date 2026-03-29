@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -20,6 +21,7 @@ var authFlags struct {
 	cwd      string
 	verbose  bool
 	config   string
+	json     bool
 }
 
 // ProviderInfo holds information about supported providers
@@ -164,6 +166,25 @@ func init() {
 	authCmd.Flags().StringVarP(&authFlags.cwd, "cwd", "c", "", "Working directory for the task")
 	authCmd.Flags().BoolVarP(&authFlags.verbose, "verbose", "v", false, "Show verbose output")
 	authCmd.Flags().StringVar(&authFlags.config, "config", "", "Path to Cline configuration directory")
+
+	// Add subcommands
+	authCmd.AddCommand(authListCmd)
+	
+	// Add flags to auth list subcommand
+	authListCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
+}
+
+// authListCmd represents the auth list subcommand
+var authListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List configured authentication providers",
+	Long:  `List all configured authentication providers and their status.`,
+	Example: `  # List configured providers
+  cline auth list
+
+  # List as JSON
+  cline auth list --json`,
+	RunE: runAuthList,
 }
 
 // runAuth executes the auth command
@@ -652,4 +673,80 @@ func GetAPIKey(ctx *storage.StorageContext, provider string) (string, error) {
 	}
 
 	return apiKey, nil
+}
+
+// runAuthList executes the auth list command
+func runAuthList(cmd *cobra.Command, args []string) error {
+	// Initialize storage context
+	ctx, err := storage.NewStorageContext(authFlags.config, "")
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Get current provider
+	provider, err := GetCurrentProvider(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current provider: %w", err)
+	}
+
+	// Build auth info
+	authInfo := map[string]interface{}{
+		"providers": []string{},
+	}
+
+	if provider != "" {
+		authInfo["currentProvider"] = provider
+
+		// Get model for current provider
+		modelKey := provider + "Model"
+		if modelVal, ok := ctx.GlobalState.Get(modelKey); ok {
+			if model, ok := modelVal.(string); ok {
+				authInfo["currentModel"] = model
+			}
+		}
+
+		// Check if API key is configured (without exposing it)
+		hasKey := false
+		if _, err := GetAPIKey(ctx, provider); err == nil {
+			secretKeyName := provider + "ApiKey"
+			if _, ok := ctx.Secrets.Get(secretKeyName); ok {
+				hasKey = true
+			}
+		}
+		authInfo["hasApiKey"] = hasKey
+		authInfo["providers"] = []string{provider}
+	}
+
+	// Output as JSON if requested
+	if authFlags.json {
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(authInfo)
+	}
+
+	// Human-readable output
+	if provider == "" {
+		fmt.Fprintln(cmd.OutOrStdout(), "No authentication configured.")
+		fmt.Fprintln(cmd.OutOrStdout(), "\nRun 'cline auth' to configure a provider.")
+		return nil
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Authentication Configuration:")
+	fmt.Fprintln(cmd.OutOrStdout())
+	fmt.Fprintf(cmd.OutOrStdout(), "  Current Provider: %s\n", provider)
+
+	if model, ok := authInfo["currentModel"].(string); ok && model != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "  Current Model: %s\n", model)
+	}
+
+	if hasKey, ok := authInfo["hasApiKey"].(bool); ok {
+		if hasKey {
+			fmt.Fprintln(cmd.OutOrStdout(), "  API Key: configured")
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), "  API Key: not configured")
+		}
+	}
+
+	return nil
 }

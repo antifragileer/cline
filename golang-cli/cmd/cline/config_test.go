@@ -114,7 +114,7 @@ func TestGetConfigPath(t *testing.T) {
 	}
 }
 
-func TestPrintConfigSection(t *testing.T) {
+func TestPrintConfigSectionFormatted(t *testing.T) {
 	data := map[string]interface{}{
 		"apiProvider": "anthropic",
 		"nested": map[string]interface{}{
@@ -124,7 +124,7 @@ func TestPrintConfigSection(t *testing.T) {
 	}
 
 	// Just verify it doesn't panic - function writes to stdout
-	printConfigSection(data, "")
+	printConfigSectionFormatted(data, "")
 }
 
 func TestConfigJSONOutput(t *testing.T) {

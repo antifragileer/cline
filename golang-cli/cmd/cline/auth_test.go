@@ -526,6 +526,7 @@ func TestRunQuickAuthSetup(t *testing.T) {
 		cwd      string
 		verbose  bool
 		config   string
+		json     bool
 	}{
 		provider: "anthropic",
 		apikey:   "sk-ant-test123",
@@ -572,6 +573,7 @@ func TestRunQuickAuthSetupWithBaseURL(t *testing.T) {
 		cwd      string
 		verbose  bool
 		config   string
+		json     bool
 	}{
 		provider: "openai",
 		apikey:   "sk-test123",
@@ -613,6 +615,7 @@ func TestRunQuickAuthSetupDefaultModel(t *testing.T) {
 		cwd      string
 		verbose  bool
 		config   string
+		json     bool
 	}{
 		provider: "anthropic",
 		apikey:   "sk-ant-test123",
@@ -687,6 +690,7 @@ func TestBedrockQuickSetupNotAllowed(t *testing.T) {
 		cwd      string
 		verbose  bool
 		config   string
+		json     bool
 	}{
 		provider: "bedrock",
 		apikey:   "some-key",
@@ -750,6 +754,7 @@ func TestBaseURLValidation(t *testing.T) {
 		cwd      string
 		verbose  bool
 		config   string
+		json     bool
 	}{
 		provider: tt.provider,
 		apikey:   "sk-test123",
@@ -790,6 +795,7 @@ func TestWelcomeViewCompletedAfterAuth(t *testing.T) {
 		cwd      string
 		verbose  bool
 		config   string
+		json     bool
 	}{
 		provider: "anthropic",
 		apikey:   "sk-ant-test123",
@@ -834,6 +840,7 @@ func TestVerboseFlagOutput(t *testing.T) {
 		cwd      string
 		verbose  bool
 		config   string
+		json     bool
 	}{
 		provider: "anthropic",
 		apikey:   "sk-ant-test123",

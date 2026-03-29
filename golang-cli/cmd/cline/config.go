@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -18,6 +19,7 @@ var configFlags struct {
 	json   bool
 	edit   bool
 	global bool
+	list   bool
 }
 
 // configCmd represents the config command
@@ -52,6 +54,25 @@ func init() {
 	configCmd.Flags().BoolVarP(&configFlags.global, "global", "g", false, "Show only global configuration")
 }
 
+// configListCmd represents the config list subcommand
+var configListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all configuration settings",
+	Long:  `List all configuration settings in human-readable or JSON format.`,
+	Example: `  cline config list
+  cline config list --json`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		configFlags.list = true
+		return runConfig(cmd, args)
+	},
+}
+
+func init() {
+	configCmd.AddCommand(configListCmd)
+	configListCmd.Flags().BoolVarP(&configFlags.json, "json", "j", false, "Output in JSON format")
+	configListCmd.Flags().BoolVarP(&configFlags.global, "global", "g", false, "Show only global configuration")
+}
+
 // runConfig executes the config command
 func runConfig(cmd *cobra.Command, args []string) error {
 	// Initialize storage context
@@ -74,10 +95,15 @@ func runConfig(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("usage: cline config get <key>")
 			}
 			return getConfigValue(ctx, args[1], configFlags.global)
-		case "list":
-			// config list is the same as no subcommand
-			return displayConfigHuman(ctx, configFlags.global)
 		}
+	}
+
+	// Handle list subcommand (from configListCmd)
+	if configFlags.list {
+		if configFlags.json {
+			return displayConfigJSON(ctx, configFlags.global)
+		}
+		return displayConfigHuman(ctx, configFlags.global)
 	}
 
 	// Handle edit mode
@@ -511,38 +537,35 @@ func displayConfigJSON(ctx *storage.StorageContext, globalOnly bool) error {
 
 // displayConfigHuman displays configuration in human-readable format
 func displayConfigHuman(ctx *storage.StorageContext, globalOnly bool) error {
-	configData := make(map[string]interface{})
-
-	// Add global state
+	// Get global state
 	globalData := ctx.GlobalState.GetAll()
-	if len(globalData) > 0 {
-		configData["global"] = globalData
+	
+	// Get workspace state if available and not global-only
+	var workspaceData map[string]interface{}
+	if !globalOnly && ctx.WorkspaceState != nil {
+		workspaceData = ctx.WorkspaceState.GetAll()
 	}
 
-	// Add workspace state if available and not global-only
-	if !globalOnly && ctx.WorkspaceState != nil {
-		workspaceData := ctx.WorkspaceState.GetAll()
-		if len(workspaceData) > 0 {
-			configData["workspace"] = workspaceData
-		}
-	}
+	// Filter and format the data
+	filteredGlobal := filterConfigData(globalData)
+	filteredWorkspace := filterConfigData(workspaceData)
 
 	// Display global configuration
-	if globalData, ok := configData["global"].(map[string]interface{}); ok && len(globalData) > 0 {
+	if len(filteredGlobal) > 0 {
 		fmt.Println("=== Global Configuration ===")
-		printConfigSection(globalData, "")
+		printConfigSectionFormatted(filteredGlobal, "")
 		fmt.Println()
 	}
 
 	// Display workspace configuration
-	if workspaceData, ok := configData["workspace"].(map[string]interface{}); ok && len(workspaceData) > 0 {
+	if len(filteredWorkspace) > 0 {
 		fmt.Println("=== Workspace Configuration ===")
-		printConfigSection(workspaceData, "")
+		printConfigSectionFormatted(filteredWorkspace, "")
 		fmt.Println()
 	}
 
 	// If no configuration found
-	if len(configData) == 0 {
+	if len(filteredGlobal) == 0 && len(filteredWorkspace) == 0 {
 		fmt.Println("No configuration found.")
 		fmt.Println("\nGlobal config location: ~/.cline/data/globalState.json")
 		fmt.Println("Workspace config location: ~/.cline/data/workspaces/<hash>/workspaceState.json")
@@ -551,26 +574,152 @@ func displayConfigHuman(ctx *storage.StorageContext, globalOnly bool) error {
 	return nil
 }
 
-// printConfigSection prints a configuration section recursively
-func printConfigSection(data map[string]interface{}, indent string) {
+// filterConfigData filters out sensitive and internal fields from config data
+func filterConfigData(data map[string]interface{}) map[string]interface{} {
+	if data == nil {
+		return nil
+	}
+
+	filtered := make(map[string]interface{})
 	for key, value := range data {
+		// Skip internal/toggle keys
+		if shouldExcludeConfigKey(key) {
+			continue
+		}
+
+		// Mask sensitive values
+		if isSensitiveConfigKey(key) {
+			if strVal, ok := value.(string); ok && strVal != "" {
+				filtered[key] = maskSensitiveValue(key, strVal)
+			} else {
+				filtered[key] = value
+			}
+		} else {
+			filtered[key] = value
+		}
+	}
+
+	return filtered
+}
+
+// shouldExcludeConfigKey returns true if the key should be excluded from display
+func shouldExcludeConfigKey(key string) bool {
+	excludedSuffixes := []string{
+		"Toggles",
+		"RulesToggles",
+		"WorkflowToggles",
+	}
+	excludedPrefixes := []string{
+		"apiConfig_",
+	}
+	excludedKeys := []string{
+		"taskHistory",
+	}
+
+	lowerKey := strings.ToLower(key)
+
+	// Check excluded keys
+	for _, excluded := range excludedKeys {
+		if strings.EqualFold(key, excluded) {
+			return true
+		}
+	}
+
+	// Check excluded suffixes
+	for _, suffix := range excludedSuffixes {
+		if strings.HasSuffix(key, suffix) {
+			return true
+		}
+	}
+
+	// Check excluded prefixes
+	for _, prefix := range excludedPrefixes {
+		if strings.HasPrefix(lowerKey, strings.ToLower(prefix)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isSensitiveConfigKey returns true if the key contains sensitive data
+func isSensitiveConfigKey(key string) bool {
+	sensitivePatterns := []string{
+		"apiKey",
+		"api_key",
+		"secret",
+		"password",
+		"token",
+		"auth",
+		"credential",
+		"private",
+	}
+
+	lowerKey := strings.ToLower(key)
+	for _, pattern := range sensitivePatterns {
+		if strings.Contains(lowerKey, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// printConfigSectionFormatted prints configuration with better formatting
+func printConfigSectionFormatted(data map[string]interface{}, indent string) {
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	for i := 0; i < len(keys); i++ {
+		for j := i + 1; j < len(keys); j++ {
+			if keys[i] > keys[j] {
+				keys[i], keys[j] = keys[j], keys[i]
+			}
+		}
+	}
+
+	for _, key := range keys {
+		value := data[key]
 		switch v := value.(type) {
 		case map[string]interface{}:
 			fmt.Printf("%s%s:\n", indent, key)
-			printConfigSection(v, indent+"  ")
+			printConfigSectionFormatted(v, indent+"  ")
 		case []interface{}:
-			fmt.Printf("%s%s: [", indent, key)
-			for i, item := range v {
-				if i > 0 {
-					fmt.Print(", ")
+			// Format arrays more nicely
+			if len(v) == 0 {
+				fmt.Printf("%s%s: []\n", indent, key)
+			} else {
+				fmt.Printf("%s%s:\n", indent, key)
+				for i, item := range v {
+					switch itemVal := item.(type) {
+					case map[string]interface{}:
+						fmt.Printf("%s  [%d]:\n", indent, i)
+						printConfigSectionFormatted(itemVal, indent+"    ")
+					default:
+						fmt.Printf("%s  - %v\n", indent, item)
+					}
 				}
-				fmt.Printf("%v", item)
 			}
-			fmt.Println("]")
+		case string:
+			if v == "" {
+				fmt.Printf("%s%s: (empty)\n", indent, key)
+			} else {
+				fmt.Printf("%s%s: %s\n", indent, key, v)
+			}
+		case nil:
+			fmt.Printf("%s%s: (null)\n", indent, key)
+		case bool:
+			fmt.Printf("%s%s: %t\n", indent, key, v)
+		case float64:
+			// Print integers without decimal
+			if v == float64(int64(v)) {
+				fmt.Printf("%s%s: %.0f\n", indent, key, v)
+			} else {
+				fmt.Printf("%s%s: %g\n", indent, key, v)
+			}
 		default:
-			// Mask sensitive values
-			displayValue := maskSensitiveValue(key, fmt.Sprintf("%v", v))
-			fmt.Printf("%s%s: %s\n", indent, key, displayValue)
+			fmt.Printf("%s%s: %v\n", indent, key, v)
 		}
 	}
 }
