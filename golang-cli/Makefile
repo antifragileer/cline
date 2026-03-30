@@ -115,6 +115,21 @@ test-parity:
 	@echo "Running parity tests..."
 	$(GOTEST) -v ./tests/parity -count=1 -timeout=10m -parallel=2
 
+# Run functional tests (Phase 5)
+test-functional:
+	@echo "Running functional tests..."
+	$(GOTEST) -v ./tests/functional -count=1 -timeout=15m -parallel=2
+
+# Run dual testing framework (Phase 5)
+test-dual:
+	@echo "Running dual testing framework..."
+	$(GOTEST) -v ./tests/dual -count=1 -timeout=15m -parallel=2
+
+# Run comprehensive parity tests (Phase 5)
+test-comprehensive:
+	@echo "Running comprehensive parity tests..."
+	$(GOTEST) -v ./tests/parity -run TestComprehensiveParity -count=1 -timeout=30m
+
 # Run E2E tests (requires built binary)
 test-e2e: build
 	@echo "Running E2E tests..."
@@ -390,6 +405,9 @@ help:
 	@echo "  make test-coverage      - Run tests with coverage report"
 	@echo "  make test-integration   - Run integration tests"
 	@echo "  make test-parity        - Run parity tests"
+	@echo "  make test-functional    - Run functional tests (Phase 5)"
+	@echo "  make test-dual          - Run dual testing framework (Phase 5)"
+	@echo "  make test-comprehensive - Run comprehensive parity tests (Phase 5)"
 	@echo "  make test-e2e           - Run E2E tests"
 	@echo "  make test-regression    - Run regression tests"
 	@echo "  make test-all           - Run all tests"
