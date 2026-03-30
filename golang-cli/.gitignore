@@ -1,0 +1,73 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage_filtered.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Build directories
+build/
+dist/
+tmp/
+
+# Binary names
+cline
+cline-go
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Air live reload
+tmp/
+
+# Profiling outputs
+cpu.prof
+mem.prof
+*.prof
+
+# Log files
+*.log
+build-errors.log
+
+# Local environment files
+.env
+.env.local
+
+# Test artifacts
+/test-results/
+/coverage/
+
+# Debug files
+debug/
+__debug_bin
+
+# Protobuf generated files (if generated during build)
+*.pb.go
+*_grpc.pb.go
+
+# Backup files
+*.bak
+*.backup
