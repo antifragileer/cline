@@ -83,6 +83,40 @@ var hooksDisableCmd = &cobra.Command{
 	RunE:  runHooksDisable,
 }
 
+// hooksAddCmd represents the hooks add subcommand
+var hooksAddCmd = &cobra.Command{
+	Use:   "add <name>",
+	Short: "Add a new hook",
+	Long: `Add a new hook to Cline's configuration.
+
+Hooks are custom scripts that run at specific points during Cline's execution.
+Available hook types:
+  - before-task: Runs before a task starts
+  - after-task: Runs after a task completes
+  - before-tool: Runs before a tool is executed
+  - after-tool: Runs after a tool is executed
+  - on-error: Runs when an error occurs`,
+	Example: `  # Add a hook that runs before each task
+  cline hooks add pre-check --type before-task --script "echo 'Starting task'"
+
+  # Add a hook from a file
+  cline hooks add validate --type before-tool --file ./validate.sh`,
+	Args: cobra.ExactArgs(1),
+	RunE: runHooksAdd,
+}
+
+// hooksRemoveCmd represents the hooks remove subcommand
+var hooksRemoveCmd = &cobra.Command{
+	Use:     "remove <name>",
+	Aliases: []string{"rm", "delete"},
+	Short:   "Remove a hook",
+	Long:    `Remove a hook from Cline's configuration permanently.`,
+	Example: `  cline hooks remove my-hook
+  cline hooks rm my-hook`,
+	Args: cobra.ExactArgs(1),
+	RunE: runHooksRemove,
+}
+
 func init() {
 	rootCmd.AddCommand(hooksCmd)
 
@@ -90,10 +124,19 @@ func init() {
 	hooksCmd.AddCommand(hooksListCmd)
 	hooksCmd.AddCommand(hooksEnableCmd)
 	hooksCmd.AddCommand(hooksDisableCmd)
+	hooksCmd.AddCommand(hooksAddCmd)
+	hooksCmd.AddCommand(hooksRemoveCmd)
 
 	// Add flags
 	hooksListCmd.Flags().BoolVarP(&hooksFlags.json, "json", "j", false, "Output in JSON format")
 	hooksListCmd.Flags().BoolVarP(&hooksFlags.global, "global", "g", false, "Show only global hooks")
+
+	// Add command flags
+	hooksAddCmd.Flags().String("type", "before-task", "Hook type (before-task, after-task, before-tool, after-tool, on-error)")
+	hooksAddCmd.Flags().String("script", "", "Hook script content")
+	hooksAddCmd.Flags().String("file", "", "Path to script file")
+	hooksAddCmd.Flags().String("description", "", "Hook description")
+	hooksAddCmd.Flags().BoolVarP(&hooksFlags.global, "global", "g", false, "Add as global hook")
 }
 
 // runHooksList executes the hooks list command
@@ -105,12 +148,29 @@ func runHooksList(cmd *cobra.Command, args []string) error {
 	}
 	defer ctx.Close()
 
+	// Reload to get latest data from disk
+	if err := ctx.GlobalState.Reload(); err != nil && verbose {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Debug: failed to reload: %v\n", err)
+	}
+
+	if verbose {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Debug: storage path: %s\n", ctx.GlobalState.FilePath())
+		fmt.Fprintf(cmd.ErrOrStderr(), "Debug: all keys: %v\n", getKeys(ctx.GlobalState.GetAll()))
+	}
+
 	// Load global hooks
 	var globalHooks []Hook
 	if val, ok := ctx.GlobalState.Get("globalHooks"); ok {
+		if verbose {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Debug: found globalHooks, type=%T\n", val)
+		}
 		if hooks, err := parseHooks(val); err == nil {
 			globalHooks = hooks
+		} else if verbose {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Debug: failed to parse hooks: %v\n", err)
 		}
+	} else if verbose {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Debug: globalHooks not found in storage\n")
 	}
 
 	// Load workspace hooks
@@ -201,6 +261,9 @@ func runHooksEnable(cmd *cobra.Command, args []string) error {
 	}
 	defer ctx.Close()
 
+	// Reload to get latest data from disk
+	ctx.GlobalState.Reload()
+
 	// Try to find and enable the hook in global hooks first
 	if val, ok := ctx.GlobalState.Get("globalHooks"); ok {
 		if hooks, err := parseHooks(val); err == nil {
@@ -256,9 +319,22 @@ func runHooksDisable(cmd *cobra.Command, args []string) error {
 	}
 	defer ctx.Close()
 
+	// Reload to get latest data from disk
+	ctx.GlobalState.Reload()
+
+	if verbose {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Debug: Looking for hook '%s'\n", hookName)
+	}
+
 	// Try to find and disable the hook in global hooks first
 	if val, ok := ctx.GlobalState.Get("globalHooks"); ok {
+		if verbose {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Debug: Found globalHooks in storage\n")
+		}
 		if hooks, err := parseHooks(val); err == nil {
+			if verbose {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Debug: Parsed %d hooks\n", len(hooks))
+			}
 			for i, hook := range hooks {
 				if hook.Name == hookName {
 					hooks[i].Enabled = false
@@ -269,7 +345,11 @@ func runHooksDisable(cmd *cobra.Command, args []string) error {
 					return nil
 				}
 			}
+		} else if verbose {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Debug: Failed to parse hooks: %v\n", err)
 		}
+	} else if verbose {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Debug: globalHooks not found in storage\n")
 	}
 
 	// Try workspace hooks
@@ -407,4 +487,174 @@ func CreateHook(name, script, hookType string, global bool) (*Hook, error) {
 	}
 
 	return hook, nil
+}
+
+// getKeys returns all keys from a map
+func getKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// runHooksAdd executes the hooks add command
+func runHooksAdd(cmd *cobra.Command, args []string) error {
+	hookName := args[0]
+
+	// Get flags
+	hookType, _ := cmd.Flags().GetString("type")
+	script, _ := cmd.Flags().GetString("script")
+	scriptFile, _ := cmd.Flags().GetString("file")
+	description, _ := cmd.Flags().GetString("description")
+	isGlobal, _ := cmd.Flags().GetBool("global")
+
+	// If script file is provided, read it
+	if scriptFile != "" {
+		content, err := os.ReadFile(scriptFile)
+		if err != nil {
+			return fmt.Errorf("failed to read script file: %w", err)
+		}
+		script = string(content)
+	}
+
+	// Validate that we have a script
+	if strings.TrimSpace(script) == "" {
+		return fmt.Errorf("hook script is required (use --script or --file)")
+	}
+
+	// Create the hook
+	hook, err := CreateHook(hookName, script, hookType, isGlobal)
+	if err != nil {
+		return err
+	}
+
+	if description != "" {
+		hook.Description = description
+	}
+
+	// Initialize storage
+	ctx, err := storage.NewStorageContext("", getWorkspaceHash())
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Add to appropriate storage
+	if isGlobal {
+		// Load existing hooks
+		var hooks []Hook
+		if val, ok := ctx.GlobalState.Get("globalHooks"); ok {
+			if existingHooks, err := parseHooks(val); err == nil {
+				hooks = existingHooks
+			}
+		}
+
+		// Check for duplicate
+		for _, h := range hooks {
+			if h.Name == hookName {
+				return fmt.Errorf("hook '%s' already exists", hookName)
+			}
+		}
+
+		// Add new hook
+		hooks = append(hooks, *hook)
+		if err := ctx.GlobalState.Set("globalHooks", hooks); err != nil {
+			return fmt.Errorf("failed to save hook: %w", err)
+		}
+	} else {
+		// Load existing workspace hooks
+		var wsHooks []WorkspaceHooks
+		if val, ok := ctx.WorkspaceState.Get("workspaceHooks"); ok {
+			if existing, err := parseWorkspaceHooks(val); err == nil {
+				wsHooks = existing
+			}
+		}
+
+		// Find or create workspace entry
+		workspaceName := getWorkspaceHash()
+		found := false
+		for i, ws := range wsHooks {
+			if ws.WorkspaceName == workspaceName {
+				// Check for duplicate
+				for _, h := range ws.Hooks {
+					if h.Name == hookName {
+						return fmt.Errorf("hook '%s' already exists in this workspace", hookName)
+					}
+				}
+				wsHooks[i].Hooks = append(wsHooks[i].Hooks, *hook)
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			wsHooks = append(wsHooks, WorkspaceHooks{
+				WorkspaceName: workspaceName,
+				Hooks:         []Hook{*hook},
+			})
+		}
+
+		if err := ctx.WorkspaceState.Set("workspaceHooks", wsHooks); err != nil {
+			return fmt.Errorf("failed to save hook: %w", err)
+		}
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Hook '%s' added successfully\n", hookName)
+	return nil
+}
+
+// runHooksRemove executes the hooks remove command
+func runHooksRemove(cmd *cobra.Command, args []string) error {
+	hookName := args[0]
+
+	// Initialize storage
+	ctx, err := storage.NewStorageContext("", getWorkspaceHash())
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Reload to get latest data from disk
+	ctx.GlobalState.Reload()
+
+	// Try to remove from global hooks first
+	if val, ok := ctx.GlobalState.Get("globalHooks"); ok {
+		if hooks, err := parseHooks(val); err == nil {
+			for i, hook := range hooks {
+				if hook.Name == hookName {
+					// Remove this hook
+					hooks = append(hooks[:i], hooks[i+1:]...)
+					if err := ctx.GlobalState.Set("globalHooks", hooks); err != nil {
+						return fmt.Errorf("failed to remove hook: %w", err)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "✓ Hook '%s' removed\n", hookName)
+					return nil
+				}
+			}
+		}
+	}
+
+	// Try to remove from workspace hooks
+	if ctx.WorkspaceState != nil {
+		if val, ok := ctx.WorkspaceState.Get("workspaceHooks"); ok {
+			if wsHooks, err := parseWorkspaceHooks(val); err == nil {
+				for wi, ws := range wsHooks {
+					for hi, hook := range ws.Hooks {
+						if hook.Name == hookName {
+							// Remove this hook
+							wsHooks[wi].Hooks = append(ws.Hooks[:hi], ws.Hooks[hi+1:]...)
+							if err := ctx.WorkspaceState.Set("workspaceHooks", wsHooks); err != nil {
+								return fmt.Errorf("failed to remove hook: %w", err)
+							}
+							fmt.Fprintf(cmd.OutOrStdout(), "✓ Hook '%s' removed\n", hookName)
+							return nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("hook '%s' not found", hookName)
 }

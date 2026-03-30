@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -18,13 +17,8 @@ func main() {
 
 // runCLI executes the CLI and returns the appropriate exit code
 func runCLI() exit.Code {
-	// Create exit handler for proper exit code management
-	handler := exit.NewHandler()
-
-	// Run the CLI with exit code handling
-	err := handler.Run(context.Background(), func(ctx context.Context) error {
-		return Execute()
-	})
+	// Execute the root command directly
+	err := Execute()
 
 	// Map any error to appropriate exit code
 	if err != nil {
@@ -32,7 +26,7 @@ func runCLI() exit.Code {
 		return code
 	}
 
-	return handler.GetExitCode()
+	return exit.Success
 }
 
 // extractExitCode extracts the exit code from an error
@@ -47,12 +41,17 @@ func extractExitCode(err error) exit.Code {
 		return ee.ExitCode()
 	}
 
-	// Check for Cobra unknown command error
-	errStr := err.Error()
-	if stringsContains(errStr, "unknown command") || stringsContains(errStr, "unknown flag") {
+	// Check for Cobra unknown command or flag error
+	errStr := strings.ToLower(err.Error())
+	if strings.Contains(errStr, "unknown command") {
 		// Print error to stderr for better UX
-		fmt.Fprintf(os.Stderr, "Error: %s\n", errStr)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 		return exit.CommandNotFound
+	}
+	if strings.Contains(errStr, "unknown flag") || strings.Contains(errStr, "flag provided but not defined") {
+		// Print error to stderr for better UX
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+		return exit.GeneralError
 	}
 
 	// Fall back to mapping based on error content

@@ -33,9 +33,9 @@ func TestStatePersistence(t *testing.T) {
 		ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd1 := exec.CommandContext(ctx1, binary, "config", "set", "test.key", "test-value")
 		cmd1.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		out1, err1 := cmd1.CombinedOutput()
+		_, err1 := cmd1.CombinedOutput()
 		cancel1()
-		require.NoError(t, err1, "Config set failed: %s", string(out1))
+		require.NoError(t, err1, "Config set failed")
 
 		// Get the config value
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)

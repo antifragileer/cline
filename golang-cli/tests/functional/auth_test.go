@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -550,14 +551,14 @@ func TestAuthEdgeCases(t *testing.T) {
 // Helper functions
 func containsAny(s string, substrs []string) bool {
 	for _, substr := range substrs {
-		if contains(s, substr) {
+		if strings.Contains(s, substr) {
 			return true
 		}
 	}
 	return false
 }
 
-func contains(slice []string, item string) bool {
+func containsString(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true

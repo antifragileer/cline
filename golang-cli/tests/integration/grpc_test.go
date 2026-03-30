@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -434,30 +433,6 @@ func TestConfigurationViaGRPC(t *testing.T) {
 	})
 }
 
-// Helper functions
-func findGoBinary() string {
-	binaryName := "cline-go"
-	if runtime.GOOS == "windows" {
-		binaryName = "cline-go.exe"
-	}
-
-	locations := []string{
-		filepath.Join("..", "..", binaryName),
-		filepath.Join("..", "..", "cmd", "cline", binaryName),
-		filepath.Join("..", binaryName),
-		binaryName,
-	}
-
-	for _, loc := range locations {
-		if path, err := filepath.Abs(loc); err == nil {
-			if _, err := os.Stat(path); err == nil {
-				return path
-			}
-		}
-	}
-
-	return ""
-}
 
 // Mock gRPC server for testing
 type mockHealthServer struct {

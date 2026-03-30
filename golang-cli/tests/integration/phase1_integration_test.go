@@ -5,6 +5,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -34,6 +35,42 @@ func NewMockStateService() *MockStateService {
 
 func (m *MockStateService) GetLatestState(ctx context.Context, req *cline.EmptyRequest) (*cline.State, error) {
 	return m.state, nil
+}
+
+// MockTaskService implements the TaskService for testing
+type MockTaskService struct {
+	cline.UnimplementedTaskServiceServer
+	tasks map[string]*cline.TaskResponse
+}
+
+func NewMockTaskService() *MockTaskService {
+	return &MockTaskService{
+		tasks: make(map[string]*cline.TaskResponse),
+	}
+}
+
+func (m *MockTaskService) NewTask(ctx context.Context, req *cline.NewTaskRequest) (*cline.String, error) {
+	taskID := "task-" + fmt.Sprintf("%d", time.Now().UnixNano())
+	m.tasks[taskID] = &cline.TaskResponse{
+		Id:   taskID,
+		Task: req.Text,
+	}
+	return &cline.String{Value: taskID}, nil
+}
+
+func (m *MockTaskService) ShowTaskWithId(ctx context.Context, req *cline.StringRequest) (*cline.TaskResponse, error) {
+	if task, ok := m.tasks[req.Value]; ok {
+		return task, nil
+	}
+	return nil, fmt.Errorf("task not found")
+}
+
+func (m *MockTaskService) CancelTask(ctx context.Context, req *cline.EmptyRequest) (*cline.Empty, error) {
+	return &cline.Empty{}, nil
+}
+
+func (m *MockTaskService) GetTaskHistory(ctx context.Context, req *cline.GetTaskHistoryRequest) (*cline.TaskHistoryArray, error) {
+	return &cline.TaskHistoryArray{}, nil
 }
 
 // TestPhase1_GRPCIntegration validates gRPC connectivity with extension core

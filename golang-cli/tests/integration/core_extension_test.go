@@ -362,5 +362,10 @@ func findGoBinary() string {
 		}
 	}
 
+	// Try PATH
+	if path, err := exec.LookPath(binaryName); err == nil {
+		return path
+	}
+
 	return ""
 }

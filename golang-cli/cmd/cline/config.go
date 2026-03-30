@@ -45,15 +45,6 @@ be displayed in human-readable or JSON format.`,
 	RunE: runConfig,
 }
 
-func init() {
-	rootCmd.AddCommand(configCmd)
-
-	// Add flags to config command
-	configCmd.Flags().BoolVarP(&configFlags.json, "json", "j", false, "Output in JSON format")
-	configCmd.Flags().BoolVarP(&configFlags.edit, "edit", "e", false, "Open configuration in editor")
-	configCmd.Flags().BoolVarP(&configFlags.global, "global", "g", false, "Show only global configuration")
-}
-
 // configListCmd represents the config list subcommand
 var configListCmd = &cobra.Command{
 	Use:   "list",
@@ -68,9 +59,124 @@ var configListCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.AddCommand(configCmd)
+
+	// Add subcommands
 	configCmd.AddCommand(configListCmd)
+	configCmd.AddCommand(configSetCmd)
+	configCmd.AddCommand(configGetCmd)
+	configCmd.AddCommand(configDeleteCmd)
+
+	// Add flags to config list subcommand
 	configListCmd.Flags().BoolVarP(&configFlags.json, "json", "j", false, "Output in JSON format")
 	configListCmd.Flags().BoolVarP(&configFlags.global, "global", "g", false, "Show only global configuration")
+
+	// Add flags to config set subcommand
+	configSetCmd.Flags().BoolVarP(&configFlags.global, "global", "g", false, "Set in global configuration")
+
+	// Add flags to config get subcommand
+	configGetCmd.Flags().BoolVarP(&configFlags.global, "global", "g", false, "Get from global configuration")
+
+	// Add flags to config delete subcommand
+	configDeleteCmd.Flags().BoolVarP(&configFlags.global, "global", "g", false, "Delete from global configuration")
+}
+
+// configSetCmd represents the config set subcommand
+var configSetCmd = &cobra.Command{
+	Use:   "set <key> <value>",
+	Short: "Set a configuration value",
+	Long:  `Set a configuration value in global or workspace state.`,
+	Example: `  # Set a global config value
+  cline config set apiProvider anthropic
+
+  # Set a workspace config value
+  cline config set customModel gpt-4 --global`,
+	Args: cobra.ExactArgs(2),
+	RunE: runConfigSet,
+}
+
+// configGetCmd represents the config get subcommand
+var configGetCmd = &cobra.Command{
+	Use:   "get <key>",
+	Short: "Get a configuration value",
+	Long:  `Get a configuration value from global or workspace state.`,
+	Example: `  # Get a config value
+  cline config get apiProvider
+
+  # Get a global config value
+  cline config get apiProvider --global`,
+	Args: cobra.ExactArgs(1),
+	RunE: runConfigGet,
+}
+
+// configDeleteCmd represents the config delete subcommand
+var configDeleteCmd = &cobra.Command{
+	Use:   "delete <key>",
+	Short: "Delete a configuration value",
+	Long:  `Delete a configuration value from global or workspace state.`,
+	Example: `  # Delete a config value
+  cline config delete customModel
+
+  # Delete a global config value
+  cline config delete customModel --global`,
+	Aliases: []string{"del", "rm"},
+	Args:    cobra.ExactArgs(1),
+	RunE:    runConfigDelete,
+}
+
+// runConfigSet executes the config set subcommand
+func runConfigSet(cmd *cobra.Command, args []string) error {
+	// Initialize storage context
+	ctx, err := storage.NewStorageContext("", getWorkspaceHash())
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Get the --global flag value
+	global, _ := cmd.Flags().GetBool("global")
+	
+	return setConfigValue(ctx, args[0], args[1], global)
+}
+
+// runConfigGet executes the config get subcommand
+func runConfigGet(cmd *cobra.Command, args []string) error {
+	// Initialize storage context
+	ctx, err := storage.NewStorageContext("", getWorkspaceHash())
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Get the --global flag value
+	global, _ := cmd.Flags().GetBool("global")
+	
+	return getConfigValue(ctx, args[0], global)
+}
+
+// runConfigDelete executes the config delete subcommand
+func runConfigDelete(cmd *cobra.Command, args []string) error {
+	// Initialize storage context
+	ctx, err := storage.NewStorageContext("", getWorkspaceHash())
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Get the --global flag value
+	global, _ := cmd.Flags().GetBool("global")
+
+	storage := ctx.GlobalState
+	if !global && ctx.WorkspaceState != nil {
+		storage = ctx.WorkspaceState
+	}
+
+	if err := storage.Delete(args[0]); err != nil {
+		return fmt.Errorf("failed to delete config value: %w", err)
+	}
+
+	fmt.Printf("Deleted %s\n", args[0])
+	return nil
 }
 
 // runConfig executes the config command
@@ -81,22 +187,6 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
 	defer ctx.Close()
-
-	// Handle subcommands
-	if len(args) > 0 {
-		switch args[0] {
-		case "set":
-			if len(args) < 3 {
-				return fmt.Errorf("usage: cline config set <key> <value>")
-			}
-			return setConfigValue(ctx, args[1], args[2], configFlags.global)
-		case "get":
-			if len(args) < 2 {
-				return fmt.Errorf("usage: cline config get <key>")
-			}
-			return getConfigValue(ctx, args[1], configFlags.global)
-		}
-	}
 
 	// Handle list subcommand (from configListCmd)
 	if configFlags.list {

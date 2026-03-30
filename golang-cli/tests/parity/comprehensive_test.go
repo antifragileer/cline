@@ -888,6 +888,56 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
+func findTSBinary() string {
+	// Look for TypeScript CLI in parent directory
+	locations := []string{
+		"cline",                           // In PATH
+		"../cli/bin/cline",                // Relative to test
+		"../../cli/bin/cline",             // From nested test dir
+		filepath.Join(os.Getenv("HOME"), ".local", "bin", "cline"),
+		filepath.Join(os.Getenv("HOME"), ".npm", "global", "bin", "cline"),
+	}
+
+	for _, loc := range locations {
+		if path, err := filepath.Abs(loc); err == nil {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+	}
+
+	return ""
+}
+
+func findGoBinary() string {
+	binaryName := "cline-go"
+	if runtime.GOOS == "windows" {
+		binaryName = "cline-go.exe"
+	}
+
+	locations := []string{
+		filepath.Join("..", "..", binaryName),
+		filepath.Join("..", "..", "cmd", "cline", binaryName),
+		filepath.Join("..", binaryName),
+		binaryName,
+	}
+
+	for _, loc := range locations {
+		if path, err := filepath.Abs(loc); err == nil {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+	}
+
+	// Try PATH
+	if path, err := exec.LookPath(binaryName); err == nil {
+		return path
+	}
+
+	return ""
+}
+
 // TestComprehensiveParity runs the full comprehensive parity test suite
 func TestComprehensiveParity(t *testing.T) {
 	goPath := findGoBinary()

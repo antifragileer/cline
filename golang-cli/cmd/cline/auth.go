@@ -166,6 +166,7 @@ func init() {
 	authCmd.Flags().StringVarP(&authFlags.cwd, "cwd", "c", "", "Working directory for the task")
 	authCmd.Flags().BoolVarP(&authFlags.verbose, "verbose", "v", false, "Show verbose output")
 	authCmd.Flags().StringVar(&authFlags.config, "config", "", "Path to Cline configuration directory")
+	authCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
 
 	// Add subcommands
 	authCmd.AddCommand(authListCmd)

@@ -125,18 +125,20 @@ Usage:
   cline --config /path/to/config.yaml "explain this code"`,
 		RunE: runRoot,
 		Args: cobra.ArbitraryArgs,
+		SilenceErrors: true, // We handle errors in main.go
+		SilenceUsage:  true, // We handle usage display in main.go
 	}
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
-	// Execute command with custom handling for unknown commands
-	if err := rootCmd.Execute(); err != nil {
-		return err
-	}
+	// Set silence options for better error handling control
+	rootCmd.SilenceErrors = true
+	rootCmd.SilenceUsage = true
 
-	return nil
+	// Execute command
+	return rootCmd.Execute()
 }
 
 func init() {

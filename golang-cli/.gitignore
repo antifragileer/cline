@@ -25,10 +25,6 @@ build/
 dist/
 tmp/
 
-# Binary names
-cline
-cline-go
-
 # IDE specific files
 .idea/
 .vscode/
