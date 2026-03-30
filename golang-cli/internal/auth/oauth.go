@@ -46,6 +46,16 @@ const (
 	ProviderOllama = "ollama"
 	// ProviderLMStudio is the LM Studio local provider
 	ProviderLMStudio = "lmstudio"
+	// ProviderCerebras is the Cerebras provider
+	ProviderCerebras = "cerebras"
+	// ProviderTogether is the Together AI provider
+	ProviderTogether = "together"
+	// ProviderPerplexity is the Perplexity provider
+	ProviderPerplexity = "perplexity"
+	// ProviderMistral is the Mistral AI provider
+	ProviderMistral = "mistral"
+	// ProviderDeepSeek is the DeepSeek provider
+	ProviderDeepSeek = "deepseek"
 )
 
 var (

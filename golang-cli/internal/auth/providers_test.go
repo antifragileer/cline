@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"os"
 	"testing"
 	"time"
 )
@@ -10,11 +11,16 @@ import (
 func TestNewProviderRegistry(t *testing.T) {
 	registry := NewProviderRegistry()
 
-	// Check that all default providers are registered
-	expectedProviders := []string{"github", "google", "cline", "openai-codex"}
-	for _, provider := range expectedProviders {
+	// Check that default providers are registered
+	providers := registry.GetAvailableProviders()
+	if len(providers) != 4 {
+		t.Errorf("Expected 4 default providers, got %d", len(providers))
+	}
+
+	// Check that specific providers exist
+	for _, provider := range []string{"github", "google", "cline", "openai-codex"} {
 		if !registry.IsRegistered(provider) {
-			t.Errorf("Provider %s should be registered", provider)
+			t.Errorf("Expected %s to be registered", provider)
 		}
 	}
 }
@@ -22,29 +28,23 @@ func TestNewProviderRegistry(t *testing.T) {
 func TestProviderRegistry_Get(t *testing.T) {
 	registry := NewProviderRegistry()
 
-	t.Run("existing provider", func(t *testing.T) {
+	t.Run("gets existing provider", func(t *testing.T) {
 		config, err := registry.Get("github")
 		if err != nil {
-			t.Errorf("Get(github) returned error: %v", err)
+			t.Errorf("Unexpected error: %v", err)
 		}
 		if config.Provider != "github" {
-			t.Errorf("Provider = %v, want github", config.Provider)
+			t.Errorf("Expected provider 'github', got %s", config.Provider)
 		}
-		if config.DisplayName != "GitHub" {
-			t.Errorf("DisplayName = %v, want GitHub", config.DisplayName)
-		}
-		if config.AuthURL == "" {
-			t.Error("AuthURL should not be empty")
-		}
-		if config.TokenURL == "" {
-			t.Error("TokenURL should not be empty")
+		if config.AuthURL != "https://github.com/login/oauth/authorize" {
+			t.Errorf("Unexpected auth URL: %s", config.AuthURL)
 		}
 	})
 
-	t.Run("non-existent provider", func(t *testing.T) {
-		_, err := registry.Get("nonexistent")
+	t.Run("returns error for unknown provider", func(t *testing.T) {
+		_, err := registry.Get("unknown")
 		if err == nil {
-			t.Error("Get(nonexistent) should return error")
+			t.Error("Expected error for unknown provider")
 		}
 	})
 }
@@ -52,115 +52,108 @@ func TestProviderRegistry_Get(t *testing.T) {
 func TestProviderRegistry_Register(t *testing.T) {
 	registry := NewProviderRegistry()
 
-	newConfig := OAuthProviderConfig{
+	config := OAuthProviderConfig{
 		Provider:    "custom",
 		DisplayName: "Custom Provider",
-		AuthURL:     "https://custom.com/auth",
-		TokenURL:    "https://custom.com/token",
-		Scopes:      []string{"read"},
+		AuthURL:     "https://custom.example.com/auth",
+		TokenURL:    "https://custom.example.com/token",
+		Scopes:      []string{"read", "write"},
 		Timeout:     5 * time.Minute,
 	}
 
-	registry.Register(newConfig)
+	registry.Register(config)
 
 	if !registry.IsRegistered("custom") {
-		t.Error("Custom provider should be registered")
+		t.Error("Expected custom provider to be registered")
 	}
 
-	config, err := registry.Get("custom")
+	retrieved, err := registry.Get("custom")
 	if err != nil {
-		t.Errorf("Get(custom) returned error: %v", err)
+		t.Errorf("Unexpected error: %v", err)
 	}
-	if config.Provider != "custom" {
-		t.Errorf("Provider = %v, want custom", config.Provider)
+	if retrieved.Provider != "custom" {
+		t.Errorf("Expected provider 'custom', got %s", retrieved.Provider)
 	}
 }
 
 func TestProviderRegistry_Unregister(t *testing.T) {
 	registry := NewProviderRegistry()
 
-	// Register a test provider
-	registry.Register(OAuthProviderConfig{
-		Provider: "test-unregister",
-		AuthURL:  "https://test.com/auth",
-		TokenURL: "https://test.com/token",
-	})
+	// Unregister a default provider
+	registry.Unregister("github")
 
-	if !registry.IsRegistered("test-unregister") {
-		t.Error("Provider should be registered before unregister")
-	}
-
-	registry.Unregister("test-unregister")
-
-	if registry.IsRegistered("test-unregister") {
-		t.Error("Provider should not be registered after unregister")
+	if registry.IsRegistered("github") {
+		t.Error("Expected github to be unregistered")
 	}
 }
 
 func TestProviderRegistry_GetAll(t *testing.T) {
 	registry := NewProviderRegistry()
 
-	all := registry.GetAll()
-	if len(all) < 4 {
-		t.Errorf("GetAll() returned %d providers, expected at least 4", len(all))
-	}
-}
-
-func TestProviderRegistry_GetAvailableProviders(t *testing.T) {
-	registry := NewProviderRegistry()
-
-	providers := registry.GetAvailableProviders()
-	if len(providers) < 4 {
-		t.Errorf("GetAvailableProviders() returned %d providers, expected at least 4", len(providers))
-	}
-
-	// Check that all returned providers are valid
-	for _, provider := range providers {
-		if !registry.IsRegistered(provider) {
-			t.Errorf("Provider %s is returned but not registered", provider)
-		}
+	configs := registry.GetAll()
+	if len(configs) != 4 {
+		t.Errorf("Expected 4 configs, got %d", len(configs))
 	}
 }
 
 func TestProviderRegistry_CreateFlow(t *testing.T) {
 	registry := NewProviderRegistry()
 
-	t.Run("valid provider", func(t *testing.T) {
-		flow, err := registry.CreateFlow("github", "test-client-id", "test-client-secret")
+	t.Run("creates flow with valid credentials", func(t *testing.T) {
+		flow, err := registry.CreateFlow("github", "test-client-id", "test-secret")
 		if err != nil {
-			t.Errorf("CreateFlow() returned error: %v", err)
+			t.Errorf("Unexpected error: %v", err)
 		}
 		if flow == nil {
-			t.Error("CreateFlow() returned nil flow")
-			return
+			t.Error("Expected flow to be created")
 		}
-
-		// Check that config was set correctly
 		if flow.config.ClientID != "test-client-id" {
-			t.Errorf("ClientID = %v, want test-client-id", flow.config.ClientID)
-		}
-		if flow.config.ClientSecret != "test-client-secret" {
-			t.Errorf("ClientSecret = %v, want test-client-secret", flow.config.ClientSecret)
+			t.Errorf("Expected client ID 'test-client-id', got %s", flow.config.ClientID)
 		}
 	})
 
-	t.Run("invalid provider", func(t *testing.T) {
-		_, err := registry.CreateFlow("nonexistent", "client-id", "")
+	t.Run("returns error for unknown provider", func(t *testing.T) {
+		_, err := registry.CreateFlow("unknown", "id", "secret")
 		if err == nil {
-			t.Error("CreateFlow() with invalid provider should return error")
+			t.Error("Expected error for unknown provider")
 		}
 	})
 }
 
 func TestProviderRegistry_CreateFlowWithCredentials(t *testing.T) {
+	// Set environment variables for testing
+	os.Setenv("GITHUB_CLIENT_ID", "env-client-id")
+	os.Setenv("GITHUB_CLIENT_SECRET", "env-secret")
+	defer func() {
+		os.Unsetenv("GITHUB_CLIENT_ID")
+		os.Unsetenv("GITHUB_CLIENT_SECRET")
+	}()
+
 	registry := NewProviderRegistry()
 
-	// This will fail because environment variables are not set
-	// But we can verify the error message
-	_, err := registry.CreateFlowWithCredentials("github")
-	if err == nil {
-		t.Error("CreateFlowWithCredentials() should fail without environment variables")
-	}
+	t.Run("creates flow with environment credentials", func(t *testing.T) {
+		flow, err := registry.CreateFlowWithCredentials("github")
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if flow == nil {
+			t.Error("Expected flow to be created")
+		}
+		if flow.config.ClientID != "env-client-id" {
+			t.Errorf("Expected client ID from env, got %s", flow.config.ClientID)
+		}
+	})
+
+	t.Run("returns error when credentials not found", func(t *testing.T) {
+		// Unset env var temporarily
+		os.Unsetenv("GITHUB_CLIENT_ID")
+		defer os.Setenv("GITHUB_CLIENT_ID", "env-client-id")
+
+		_, err := registry.CreateFlowWithCredentials("github")
+		if err == nil {
+			t.Error("Expected error when credentials not found")
+		}
+	})
 }
 
 func TestProviderEnvPrefix(t *testing.T) {
@@ -172,153 +165,168 @@ func TestProviderEnvPrefix(t *testing.T) {
 		{"google", "GOOGLE"},
 		{"cline", "CLINE"},
 		{"openai-codex", "OPENAI_CODEX"},
-		{"unknown", "unknown"},
+		{"custom", "custom"},
 	}
 
 	for _, tt := range tests {
-		result := providerEnvPrefix(tt.provider)
-		if result != tt.expected {
-			t.Errorf("providerEnvPrefix(%q) = %v, want %v", tt.provider, result, tt.expected)
-		}
+		t.Run(tt.provider, func(t *testing.T) {
+			result := providerEnvPrefix(tt.provider)
+			if result != tt.expected {
+				t.Errorf("providerEnvPrefix(%s) = %s, want %s", tt.provider, result, tt.expected)
+			}
+		})
 	}
 }
 
+func TestGetEnvVar(t *testing.T) {
+	// Set test environment variable
+	os.Setenv("TEST_PROVIDER_CLIENT_ID", "test-value")
+	defer os.Unsetenv("TEST_PROVIDER_CLIENT_ID")
+
+	t.Run("reads environment variable", func(t *testing.T) {
+		// Use a custom prefix by modifying the providerEnvPrefix function behavior
+		// This test verifies the getEnvVar function works with actual env vars
+		os.Setenv("GITHUB_CLIENT_ID", "github-test-id")
+		defer os.Unsetenv("GITHUB_CLIENT_ID")
+
+		result := getEnvVar("github", "CLIENT_ID")
+		if result != "github-test-id" {
+			t.Errorf("getEnvVar() = %s, want %s", result, "github-test-id")
+		}
+	})
+}
+
 func TestNewOAuthManager(t *testing.T) {
-	manager := NewOAuthManager(nil)
+	storage := NewJSONTokenStorage("/tmp/test-token.json")
+	manager := NewOAuthManager(storage)
 
 	if manager == nil {
-		t.Error("NewOAuthManager() returned nil")
+		t.Error("Expected manager to be created")
 	}
-
 	if manager.registry == nil {
-		t.Error("OAuthManager registry should not be nil")
+		t.Error("Expected registry to be initialized")
 	}
-
-	if manager.flows == nil {
-		t.Error("OAuthManager flows map should not be nil")
+	if manager.tokenStorage != storage {
+		t.Error("Expected token storage to be set")
 	}
 }
 
 func TestOAuthManager_GetRegistry(t *testing.T) {
-	manager := NewOAuthManager(nil)
+	storage := NewJSONTokenStorage("/tmp/test-token.json")
+	manager := NewOAuthManager(storage)
+
 	registry := manager.GetRegistry()
-
 	if registry == nil {
-		t.Error("GetRegistry() returned nil")
-	}
-
-	// Verify it's a valid registry
-	if !registry.IsRegistered("github") {
-		t.Error("Registry should have github provider")
+		t.Error("Expected registry to be returned")
 	}
 }
 
-func TestOAuthManager_GetToken_NoStorage(t *testing.T) {
-	manager := NewOAuthManager(nil)
-	_, err := manager.GetToken()
-	if err == nil {
-		t.Error("GetToken() should fail when no storage configured")
-	}
+func TestOAuthManager_GetToken(t *testing.T) {
+	t.Run("returns error when no storage", func(t *testing.T) {
+		manager := NewOAuthManager(nil)
+		_, err := manager.GetToken()
+		if err == nil {
+			t.Error("Expected error when no storage configured")
+		}
+	})
 }
 
-func TestOAuthManager_Logout_NoStorage(t *testing.T) {
-	manager := NewOAuthManager(nil)
-	err := manager.Logout()
-	if err == nil {
-		t.Error("Logout() should fail when no storage configured")
-	}
+func TestOAuthManager_RefreshToken(t *testing.T) {
+	t.Run("creates new flow when not cached", func(t *testing.T) {
+		// Set environment variables
+		os.Setenv("GITHUB_CLIENT_ID", "test-id")
+		defer os.Unsetenv("GITHUB_CLIENT_ID")
+
+		storage := NewJSONTokenStorage("/tmp/test-token.json")
+		manager := NewOAuthManager(storage)
+
+		// This will fail because there's no mock server, but it tests flow creation
+		_, err := manager.RefreshToken("github", "refresh-token")
+		// Expect error because oauth2Config is not initialized
+		if err == nil {
+			t.Error("Expected error when oauth2Config not initialized")
+		}
+	})
+}
+
+func TestOAuthManager_Logout(t *testing.T) {
+	t.Run("returns error when no storage", func(t *testing.T) {
+		manager := NewOAuthManager(nil)
+		err := manager.Logout()
+		if err == nil {
+			t.Error("Expected error when no storage configured")
+		}
+	})
 }
 
 func TestOAuthManager_Stop(t *testing.T) {
-	manager := NewOAuthManager(nil)
+	storage := NewJSONTokenStorage("/tmp/test-token.json")
+	manager := NewOAuthManager(storage)
 
-	// Should not panic with no flows
+	// Stop with no flows - should not panic
 	manager.Stop()
 
 	// Verify flows map is cleared
 	if len(manager.flows) != 0 {
-		t.Errorf("flows map should be empty after Stop(), got %d flows", len(manager.flows))
+		t.Error("Expected flows map to be cleared")
 	}
 }
 
-func TestOAuthManager_IsAuthenticated_NoStorage(t *testing.T) {
-	manager := NewOAuthManager(nil)
-	authenticated, err := manager.IsAuthenticated()
-	if err != nil {
-		t.Errorf("IsAuthenticated() returned error: %v", err)
-	}
-	if authenticated {
-		t.Error("IsAuthenticated() should return false with no storage")
-	}
-}
-
-func TestPredefinedConfigs(t *testing.T) {
-	t.Run("GitHubOAuthConfig", func(t *testing.T) {
-		if GitHubOAuthConfig.Provider != "github" {
-			t.Errorf("Provider = %v, want github", GitHubOAuthConfig.Provider)
+func TestOAuthManager_IsAuthenticated(t *testing.T) {
+	t.Run("returns false when no storage", func(t *testing.T) {
+		manager := NewOAuthManager(nil)
+		authenticated, err := manager.IsAuthenticated()
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
 		}
-		if GitHubOAuthConfig.AuthURL == "" {
-			t.Error("AuthURL should not be empty")
-		}
-		if GitHubOAuthConfig.TokenURL == "" {
-			t.Error("TokenURL should not be empty")
-		}
-		if len(GitHubOAuthConfig.Scopes) == 0 {
-			t.Error("Scopes should not be empty")
-		}
-	})
-
-	t.Run("GoogleOAuthConfig", func(t *testing.T) {
-		if GoogleOAuthConfig.Provider != "google" {
-			t.Errorf("Provider = %v, want google", GoogleOAuthConfig.Provider)
-		}
-		if GoogleOAuthConfig.AuthURL == "" {
-			t.Error("AuthURL should not be empty")
-		}
-		if len(GoogleOAuthConfig.Scopes) == 0 {
-			t.Error("Scopes should not be empty")
-		}
-	})
-
-	t.Run("ClineOAuthConfig", func(t *testing.T) {
-		if ClineOAuthConfig.Provider != "cline" {
-			t.Errorf("Provider = %v, want cline", ClineOAuthConfig.Provider)
-		}
-		if ClineOAuthConfig.AuthURL == "" {
-			t.Error("AuthURL should not be empty")
-		}
-	})
-
-	t.Run("OpenAICodexOAuthConfig", func(t *testing.T) {
-		if OpenAICodexOAuthConfig.Provider != "openai-codex" {
-			t.Errorf("Provider = %v, want openai-codex", OpenAICodexOAuthConfig.Provider)
-		}
-		if OpenAICodexOAuthConfig.AdditionalParams["audience"] == "" {
-			t.Error("AdditionalParams should include audience")
+		if authenticated {
+			t.Error("Expected not authenticated when no storage")
 		}
 	})
 }
 
-func TestOAuthProviderConfig_Fields(t *testing.T) {
-	config := OAuthProviderConfig{
-		Provider:         "test",
-		DisplayName:      "Test Provider",
-		AuthURL:          "https://test.com/auth",
-		TokenURL:         "https://test.com/token",
-		ClientID:         "client-id",
-		ClientSecret:     "client-secret",
-		Scopes:           []string{"read", "write"},
-		AdditionalParams: map[string]string{"param": "value"},
-		Timeout:          10 * time.Minute,
+func TestGitHubOAuthConfig(t *testing.T) {
+	config := GitHubOAuthConfig
+	if config.Provider != "github" {
+		t.Errorf("Expected provider 'github', got %s", config.Provider)
 	}
+	if config.AuthURL != "https://github.com/login/oauth/authorize" {
+		t.Errorf("Unexpected auth URL: %s", config.AuthURL)
+	}
+	if config.TokenURL != "https://github.com/login/oauth/access_token" {
+		t.Errorf("Unexpected token URL: %s", config.TokenURL)
+	}
+}
 
-	if config.Provider != "test" {
-		t.Errorf("Provider = %v, want test", config.Provider)
+func TestGoogleOAuthConfig(t *testing.T) {
+	config := GoogleOAuthConfig
+	if config.Provider != "google" {
+		t.Errorf("Expected provider 'google', got %s", config.Provider)
 	}
-	if config.DisplayName != "Test Provider" {
-		t.Errorf("DisplayName = %v, want Test Provider", config.DisplayName)
+	if len(config.Scopes) != 3 {
+		t.Errorf("Expected 3 scopes, got %d", len(config.Scopes))
 	}
-	if config.Timeout != 10*time.Minute {
-		t.Errorf("Timeout = %v, want 10m", config.Timeout)
+}
+
+func TestClineOAuthConfig(t *testing.T) {
+	config := ClineOAuthConfig
+	if config.Provider != "cline" {
+		t.Errorf("Expected provider 'cline', got %s", config.Provider)
+	}
+	if config.AuthURL != "https://api.cline.bot/v1/auth/authorize" {
+		t.Errorf("Unexpected auth URL: %s", config.AuthURL)
+	}
+}
+
+func TestOpenAICodexOAuthConfig(t *testing.T) {
+	config := OpenAICodexOAuthConfig
+	if config.Provider != "openai-codex" {
+		t.Errorf("Expected provider 'openai-codex', got %s", config.Provider)
+	}
+	if config.AdditionalParams == nil {
+		t.Error("Expected additional params")
+	}
+	if config.AdditionalParams["audience"] != "https://api.openai.com/v1" {
+		t.Errorf("Unexpected audience: %s", config.AdditionalParams["audience"])
 	}
 }

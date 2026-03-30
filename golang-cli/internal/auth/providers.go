@@ -4,6 +4,7 @@ package auth
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -205,9 +206,9 @@ func providerEnvPrefix(provider string) string {
 }
 
 func getEnvVar(provider, suffix string) string {
-	// This would need to be implemented with actual environment variable reading
-	// For now, return empty string
-	return ""
+	prefix := providerEnvPrefix(provider)
+	envVar := prefix + "_" + suffix
+	return os.Getenv(envVar)
 }
 
 // OAuthManager manages OAuth authentication for multiple providers

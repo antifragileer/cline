@@ -99,22 +99,36 @@ func TestNewAPIKeyManager(t *testing.T) {
 		mock := newMockSecretsManager()
 		manager, err := NewAPIKeyManager(mock)
 		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 
 		providers := manager.ListProviders()
-		expectedProviders := []string{
-			string(ProviderAnthropic),
-			string(ProviderOpenAI),
-			string(ProviderOpenRouter),
-			string(ProviderGemini),
-			string(ProviderBedrock),
-			string(ProviderOllama),
-			string(ProviderLMStudio),
+		if len(providers) != 12 {
+			t.Errorf("expected 12 providers, got %d", len(providers))
 		}
 
-		if len(providers) != len(expectedProviders) {
-			t.Fatalf("expected %d providers, got %d", len(expectedProviders), len(providers))
+		// Check for specific providers
+		expectedProviders := []string{
+			ProviderAnthropic,
+			ProviderOpenAI,
+			ProviderOpenRouter,
+			ProviderGemini,
+			ProviderBedrock,
+			ProviderOllama,
+			ProviderLMStudio,
+			ProviderCerebras,
+			ProviderTogether,
+			ProviderPerplexity,
+			ProviderMistral,
+			ProviderDeepSeek,
+		}
+
+		// Verify each expected provider exists
+		for _, expected := range expectedProviders {
+			_, ok := manager.GetProvider(expected)
+			if !ok {
+				t.Errorf("expected provider %s to be registered", expected)
+			}
 		}
 	})
 }

@@ -3,12 +3,13 @@
 package formatter
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
+
+	"github.com/cline/cline/golang-cli/internal/exit"
+	"github.com/cline/cline/golang-cli/internal/task"
 )
 
 // Format represents the output format type
@@ -23,7 +24,7 @@ const (
 	FormatJSONLines Format = "jsonl"
 )
 
-// Message represents a structured output message
+// Message represents a structured output message (legacy, kept for compatibility)
 type Message struct {
 	// Type is the message type (say, ask, error, info, status, progress)
 	Type string `json:"type"`
@@ -43,20 +44,23 @@ type Message struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// ProgressInfo represents progress information
+// ProgressInfo represents progress information (legacy)
 type ProgressInfo struct {
 	Current int `json:"current"`
 	Total   int `json:"total"`
 }
 
-// Formatter handles output formatting
+// Formatter handles output formatting (legacy interface, kept for compatibility)
 type Formatter struct {
 	format   Format
 	output   io.Writer
 	errOut   io.Writer
 	useColor bool
 	verbose  bool
-	encoder  *json.Encoder
+	
+	// New formatters
+	jsonFormatter  *JSONFormatter
+	plainFormatter *PlainFormatter
 }
 
 // FormatterOption configures a Formatter
@@ -111,53 +115,43 @@ func NewFormatter(opts ...FormatterOption) *Formatter {
 		opt(f)
 	}
 
-	// Set up JSON encoder if needed
-	if f.format == FormatJSON || f.format == FormatJSONLines {
-		f.encoder = json.NewEncoder(f.output)
-		if f.format == FormatJSON {
-			f.encoder.SetIndent("", "  ")
-		}
-	}
+	// Initialize sub-formatters
+	f.jsonFormatter = NewJSONFormatter(f.output, f.errOut, f.format == FormatJSONLines)
+	f.plainFormatter = NewPlainFormatter(f.output, f.errOut, f.useColor, f.verbose)
 
 	return f
+}
+
+// SetExitHandler sets the exit handler for all formatters
+func (f *Formatter) SetExitHandler(handler *exit.Handler) {
+	if f.plainFormatter != nil {
+		f.plainFormatter.SetExitHandler(handler)
+	}
 }
 
 // FormatSay formats a SAY message
 func (f *Formatter) FormatSay(sayType string, text string, partial bool) error {
 	switch f.format {
 	case FormatJSON, FormatJSONLines:
-		msg := Message{
-			Type:      "say",
-			SubType:   sayType,
-			Text:      text,
-			Partial:   partial,
-			Timestamp: time.Now(),
-		}
-		return f.encoder.Encode(msg)
+		return f.jsonFormatter.FormatSayMessage(sayType, text, partial, nil)
 	case FormatPlain:
-		f.printPlainSay(sayType, text, partial)
-		return nil
+		return f.plainFormatter.FormatSayMessage(sayType, text, partial)
 	default:
 		return fmt.Errorf("unknown format: %s", f.format)
 	}
 }
 
 // FormatAsk formats an ASK message
-func (f *Formatter) FormatAsk(askType string, text string) error {
+func (f *Formatter) FormatAsk(askType string, text string) (string, error) {
 	switch f.format {
 	case FormatJSON, FormatJSONLines:
-		msg := Message{
-			Type:      "ask",
-			SubType:   askType,
-			Text:      text,
-			Timestamp: time.Now(),
-		}
-		return f.encoder.Encode(msg)
+		// JSON mode auto-approves for scripting
+		f.jsonFormatter.FormatAskMessage(askType, text, nil)
+		return "yesButtonClicked", nil
 	case FormatPlain:
-		f.printPlainAsk(askType, text)
-		return nil
+		return f.plainFormatter.FormatAskMessage(askType, text)
 	default:
-		return fmt.Errorf("unknown format: %s", f.format)
+		return "", fmt.Errorf("unknown format: %s", f.format)
 	}
 }
 
@@ -165,15 +159,9 @@ func (f *Formatter) FormatAsk(askType string, text string) error {
 func (f *Formatter) FormatError(err error) error {
 	switch f.format {
 	case FormatJSON, FormatJSONLines:
-		msg := Message{
-			Type:      "error",
-			Error:     err.Error(),
-			Timestamp: time.Now(),
-		}
-		return f.encoder.Encode(msg)
+		return f.jsonFormatter.FormatError(err)
 	case FormatPlain:
-		f.printPlainError(err)
-		return nil
+		return f.plainFormatter.FormatError(err)
 	default:
 		return fmt.Errorf("unknown format: %s", f.format)
 	}
@@ -187,15 +175,9 @@ func (f *Formatter) FormatInfo(text string) error {
 
 	switch f.format {
 	case FormatJSON, FormatJSONLines:
-		msg := Message{
-			Type:      "info",
-			Text:      text,
-			Timestamp: time.Now(),
-		}
-		return f.encoder.Encode(msg)
+		return f.jsonFormatter.FormatSayMessage("info", text, false, nil)
 	case FormatPlain:
-		f.printPlainInfo(text)
-		return nil
+		return f.plainFormatter.FormatStatus(text)
 	default:
 		return fmt.Errorf("unknown format: %s", f.format)
 	}
@@ -209,15 +191,9 @@ func (f *Formatter) FormatStatus(status string) error {
 
 	switch f.format {
 	case FormatJSON, FormatJSONLines:
-		msg := Message{
-			Type:      "status",
-			Text:      status,
-			Timestamp: time.Now(),
-		}
-		return f.encoder.Encode(msg)
+		return f.jsonFormatter.FormatSayMessage("info", status, false, nil)
 	case FormatPlain:
-		f.printPlainStatus(status)
-		return nil
+		return f.plainFormatter.FormatStatus(status)
 	default:
 		return fmt.Errorf("unknown format: %s", f.format)
 	}
@@ -231,15 +207,9 @@ func (f *Formatter) FormatProgress(current, total int) error {
 
 	switch f.format {
 	case FormatJSON, FormatJSONLines:
-		msg := Message{
-			Type:      "progress",
-			Progress:  &ProgressInfo{Current: current, Total: total},
-			Timestamp: time.Now(),
-		}
-		return f.encoder.Encode(msg)
+		return f.jsonFormatter.FormatProgress(current, total, fmt.Sprintf("%d/%d", current, total))
 	case FormatPlain:
-		f.printPlainProgress(current, total)
-		return nil
+		return f.plainFormatter.FormatProgress(current, total, "")
 	default:
 		return fmt.Errorf("unknown format: %s", f.format)
 	}
@@ -247,180 +217,18 @@ func (f *Formatter) FormatProgress(current, total int) error {
 
 // Flush flushes any buffered output
 func (f *Formatter) Flush() error {
-	if flusher, ok := f.output.(interface{ Flush() error }); ok {
-		return flusher.Flush()
+	if f.jsonFormatter != nil {
+		f.jsonFormatter.Flush()
+	}
+	if f.plainFormatter != nil {
+		f.plainFormatter.Flush()
 	}
 	return nil
 }
 
-// printPlainSay prints a SAY message in plain text format
-func (f *Formatter) printPlainSay(sayType string, text string, partial bool) {
-	if partial {
-		// Don't print partial messages in plain text
-		return
-	}
-
-	switch sayType {
-	case "text":
-		fmt.Fprintln(f.output, text)
-	case "error":
-		f.printError(text)
-	case "command":
-		f.printCommand(text)
-	case "command_output":
-		fmt.Fprintln(f.output, text)
-	case "tool":
-		f.printTool(text)
-	case "completion_result":
-		fmt.Fprintf(f.output, "\n%s\n", f.styleSuccess(text))
-	case "thinking":
-		if f.verbose {
-			f.printThinking(text)
-		}
-	default:
-		if f.verbose {
-			fmt.Fprintf(f.output, "[%s] %s\n", sayType, text)
-		}
-	}
-}
-
-// printPlainAsk prints an ASK message in plain text format
-func (f *Formatter) printPlainAsk(askType string, text string) {
-	fmt.Fprintln(f.output)
-	fmt.Fprintln(f.output, f.styleQuestion(text))
-	switch askType {
-	case "command_approval":
-		fmt.Fprintln(f.output, f.styleHint("Approve command execution? (y/n/a): "))
-	case "tool_approval":
-		fmt.Fprintln(f.output, f.styleHint("Approve tool use? (y/n/a): "))
-	case "browser_action_launch":
-		fmt.Fprintln(f.output, f.styleHint("Approve browser action? (y/n/a): "))
-	default:
-		fmt.Fprintln(f.output, f.styleHint("Response (y/n/a): "))
-	}
-}
-
-// printPlainError prints an error message in plain text format
-func (f *Formatter) printPlainError(err error) {
-	fmt.Fprintf(f.errOut, "%s: %v\n", f.styleError("Error"), err)
-}
-
-// printPlainInfo prints an info message in plain text format
-func (f *Formatter) printPlainInfo(text string) {
-	fmt.Fprintf(f.output, "%s %s\n", f.styleInfo("[INFO]"), text)
-}
-
-// printPlainStatus prints a status message in plain text format
-func (f *Formatter) printPlainStatus(status string) {
-	fmt.Fprintf(f.output, "%s %s\n", f.styleInfo("[STATUS]"), status)
-}
-
-// printPlainProgress prints a progress message in plain text format
-func (f *Formatter) printPlainProgress(current, total int) {
-	percentage := 0.0
-	if total > 0 {
-		percentage = float64(current) * 100.0 / float64(total)
-	}
-	bar := f.renderProgressBar(current, total, 30)
-	fmt.Fprintf(f.output, "\r%s %3.0f%% %s", f.styleInfo("[PROGRESS]"), percentage, bar)
-	if current >= total {
-		fmt.Fprintln(f.output) // New line when complete
-	}
-}
-
-// renderProgressBar renders a text-based progress bar
-func (f *Formatter) renderProgressBar(current, total, width int) string {
-	if total <= 0 {
-		return "[" + strings.Repeat("-", width) + "]"
-	}
-	filled := int(float64(current) * float64(width) / float64(total))
-	if filled > width {
-		filled = width
-	}
-	empty := width - filled
-	return "[" + strings.Repeat("=", filled) + strings.Repeat("-", empty) + "]"
-}
-
-// printCommand prints a command execution message
-func (f *Formatter) printCommand(cmd string) {
-	fmt.Fprintf(f.output, "%s %s\n", f.styleInfo("Command:"), f.styleCommand(cmd))
-}
-
-// printTool prints a tool use message
-func (f *Formatter) printTool(tool string) {
-	fmt.Fprintf(f.output, "%s %s\n", f.styleInfo("Tool:"), f.styleTool(tool))
-}
-
-// printThinking prints a thinking message
-func (f *Formatter) printThinking(text string) {
-	fmt.Fprintf(f.output, "%s %s\n", f.styleInfo("Thinking:"), f.styleDim(text))
-}
-
-// printError prints an error message
-func (f *Formatter) printError(text string) {
-	fmt.Fprintf(f.errOut, "%s: %s\n", f.styleError("Error"), text)
-}
-
-// Color/style functions
-func (f *Formatter) styleError(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[31m%s\033[0m", text) // Red
-}
-
-func (f *Formatter) styleSuccess(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[32m%s\033[0m", text) // Green
-}
-
-func (f *Formatter) styleInfo(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[36m%s\033[0m", text) // Cyan
-}
-
-func (f *Formatter) styleHint(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[33m%s\033[0m", text) // Yellow
-}
-
-func (f *Formatter) styleQuestion(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[1m\033[35m%s\033[0m", text) // Bold Magenta
-}
-
-func (f *Formatter) styleCommand(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[33m%s\033[0m", text) // Yellow
-}
-
-func (f *Formatter) styleTool(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[35m%s\033[0m", text) // Magenta
-}
-
-func (f *Formatter) styleDim(text string) string {
-	if !f.useColor {
-		return text
-	}
-	return fmt.Sprintf("\033[90m%s\033[0m", text) // Gray
-}
-
 // GetFormatFromString parses a format string
 func GetFormatFromString(s string) Format {
-	switch strings.ToLower(s) {
+	switch s {
 	case "json":
 		return FormatJSON
 	case "jsonl", "jsonlines":
@@ -430,4 +238,21 @@ func GetFormatFromString(s string) Format {
 	default:
 		return FormatPlain
 	}
+}
+
+// CreateHandler creates a MessageHandler based on the format and options
+func CreateHandler(format Format, output io.Writer, verbose, autoApprove bool) task.MessageHandler {
+	switch format {
+	case FormatJSON, FormatJSONLines:
+		return NewJSONHandler(output, verbose)
+	case FormatPlain:
+		return NewPlainHandler(output, verbose, autoApprove)
+	default:
+		return NewPlainHandler(output, verbose, autoApprove)
+	}
+}
+
+// CreateScriptingHandler creates a handler optimized for scripting/automation
+func CreateScriptingHandler(output io.Writer, verbose bool) *ScriptingHandler {
+	return NewScriptingHandler(output, verbose)
 }

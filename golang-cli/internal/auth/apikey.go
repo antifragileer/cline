@@ -258,6 +258,130 @@ func (m *APIKeyManager) registerDefaultProviders() {
 		MinKeyLength:     0,
 		MaxKeyLength:     256,
 	}
+
+	// Cerebras (cloud-based, high-performance inference)
+	m.providers[ProviderCerebras] = ProviderKeyConfig{
+		Name:        ProviderCerebras,
+		DisplayName: "Cerebras",
+		ValidateFormat: func(key string) error {
+			// Cerebras API keys are typically long alphanumeric strings
+			if len(key) < 32 {
+				return fmt.Errorf("%w: Cerebras keys must be at least 32 characters", ErrKeyTooShort)
+			}
+			if len(key) > 256 {
+				return fmt.Errorf("%w: maximum length 256 characters", ErrKeyTooLong)
+			}
+			return nil
+		},
+		TestEndpoint: "https://api.cerebras.ai/v1/models",
+		TestHeaders: func(key string) map[string]string {
+			return map[string]string{
+				"Authorization": "Bearer " + key,
+			}
+		},
+		SecretKeyName:    "cerebras_api_key",
+		SupportsRotation: true,
+		MinKeyLength:     32,
+		MaxKeyLength:     256,
+	}
+
+	// Together AI (cloud-based model hosting)
+	m.providers[ProviderTogether] = ProviderKeyConfig{
+		Name:        ProviderTogether,
+		DisplayName: "Together AI",
+		ValidateFormat: func(key string) error {
+			// Together AI keys typically start with a specific prefix
+			if !strings.HasPrefix(key, "together-") && len(key) < 32 {
+				return fmt.Errorf("%w: Together AI keys must start with 'together-' or be at least 32 characters", ErrInvalidKeyFormat)
+			}
+			if len(key) < 20 {
+				return fmt.Errorf("%w: minimum length 20 characters", ErrKeyTooShort)
+			}
+			return nil
+		},
+		TestEndpoint: "https://api.together.xyz/v1/models",
+		TestHeaders: func(key string) map[string]string {
+			return map[string]string{
+				"Authorization": "Bearer " + key,
+			}
+		},
+		SecretKeyName:    "together_api_key",
+		SupportsRotation: true,
+		MinKeyLength:     20,
+		MaxKeyLength:     256,
+	}
+
+	// Perplexity (AI search and Q&A)
+	m.providers[ProviderPerplexity] = ProviderKeyConfig{
+		Name:        ProviderPerplexity,
+		DisplayName: "Perplexity",
+		ValidateFormat: func(key string) error {
+			// Perplexity keys are typically prefixed with "pplx-"
+			if !strings.HasPrefix(key, "pplx-") {
+				return fmt.Errorf("%w: Perplexity keys must start with 'pplx-'", ErrInvalidKeyFormat)
+			}
+			if len(key) < 20 {
+				return fmt.Errorf("%w: minimum length 20 characters", ErrKeyTooShort)
+			}
+			return nil
+		},
+		TestEndpoint: "https://api.perplexity.ai/models",
+		TestHeaders: func(key string) map[string]string {
+			return map[string]string{
+				"Authorization": "Bearer " + key,
+			}
+		},
+		SecretKeyName:    "perplexity_api_key",
+		SupportsRotation: true,
+		MinKeyLength:     20,
+		MaxKeyLength:     256,
+	}
+
+	// Mistral AI
+	m.providers[ProviderMistral] = ProviderKeyConfig{
+		Name:        ProviderMistral,
+		DisplayName: "Mistral AI",
+		ValidateFormat: func(key string) error {
+			// Mistral keys typically start with a specific prefix
+			if len(key) < 32 {
+				return fmt.Errorf("%w: Mistral keys must be at least 32 characters", ErrKeyTooShort)
+			}
+			return nil
+		},
+		TestEndpoint: "https://api.mistral.ai/v1/models",
+		TestHeaders: func(key string) map[string]string {
+			return map[string]string{
+				"Authorization": "Bearer " + key,
+			}
+		},
+		SecretKeyName:    "mistral_api_key",
+		SupportsRotation: true,
+		MinKeyLength:     32,
+		MaxKeyLength:     256,
+	}
+
+	// DeepSeek
+	m.providers[ProviderDeepSeek] = ProviderKeyConfig{
+		Name:        ProviderDeepSeek,
+		DisplayName: "DeepSeek",
+		ValidateFormat: func(key string) error {
+			// DeepSeek keys are typically long alphanumeric strings
+			if len(key) < 32 {
+				return fmt.Errorf("%w: DeepSeek keys must be at least 32 characters", ErrKeyTooShort)
+			}
+			return nil
+		},
+		TestEndpoint: "https://api.deepseek.com/v1/models",
+		TestHeaders: func(key string) map[string]string {
+			return map[string]string{
+				"Authorization": "Bearer " + key,
+			}
+		},
+		SecretKeyName:    "deepseek_api_key",
+		SupportsRotation: true,
+		MinKeyLength:     32,
+		MaxKeyLength:     256,
+	}
 }
 
 // RegisterProvider registers a custom provider configuration
