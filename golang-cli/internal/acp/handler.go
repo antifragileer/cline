@@ -31,7 +31,7 @@ type ClineHandler struct {
 type ClineSession struct {
 	ID        string
 	Runner    *task.Runner
-	Config    task.Config
+	Config    task.TaskConfig
 	CreatedAt int64
 	Updates   chan *SessionUpdate
 	Done      chan struct{}
@@ -165,15 +165,14 @@ func (h *ClineHandler) CreateSession(ctx context.Context, req *CreateSessionRequ
 	h.logger.Info("Creating ACP session", "sessionID", sessionID)
 
 	// Determine mode
-	mode := task.ModeAct
+	mode := task.TaskModeAct
 	if req.Mode == "plan" {
-		mode = task.ModePlan
+		mode = task.TaskModePlan
 	}
 
 	// Build task config
-	config := task.Config{
+	config := task.TaskConfig{
 		Mode:     mode,
-		JSON:     false, // ACP mode doesn't use JSON output
 		Verbose:  h.logger.Enabled(ctx, slog.LevelDebug),
 		Cwd:      "", // Use current directory
 		TaskID:   sessionID,
@@ -264,7 +263,7 @@ func (h *ClineHandler) SendMessage(ctx context.Context, req *SendMessageRequest)
 
 	// Run the task in a goroutine
 	go func() {
-		if err := session.Runner.RunWithStreaming(context.Background(), config, handler); err != nil {
+		if err := session.Runner.Run(context.Background(), config, handler); err != nil {
 			h.logger.Error("Task execution failed", "error", err, "sessionID", req.SessionID)
 			// Send error update
 			select {

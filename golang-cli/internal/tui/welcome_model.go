@@ -56,39 +56,39 @@ func DefaultWelcomeStyles() WelcomeStyles {
 			Padding(2, 4),
 
 		titleStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")).
+			Foreground(lipgloss.Color(PrimaryBlue)).
 			Bold(true).
 			MarginBottom(1),
 
 		subtitleStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#808080")).
+			Foreground(lipgloss.Color(Gray)).
 			MarginBottom(2),
 
 		actionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFFFF")).
+			Foreground(lipgloss.Color(White)).
 			PaddingLeft(2),
 
 		selectedStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00D9FF")).
+			Foreground(lipgloss.Color(SelectionBlue)).
 			Bold(true).
 			PaddingLeft(2).
 			Background(lipgloss.Color("#1a1a1a")),
 
 		disabledStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#505050")).
+			Foreground(lipgloss.Color(DimGray)).
 			PaddingLeft(2),
 
 		shortcutStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")).
+			Foreground(lipgloss.Color(PrimaryBlue)).
 			Bold(true),
 
 		descriptionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#606060")).
+			Foreground(lipgloss.Color(Gray)).
 			PaddingLeft(4),
 
 		inputStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#7D56F4")).
+			BorderForeground(lipgloss.Color(PrimaryBlue)).
 			Padding(0, 1),
 	}
 }

@@ -52,33 +52,33 @@ func DefaultSettingsStyles() SettingsStyles {
 			Padding(2, 4),
 
 		titleStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")).
+			Foreground(lipgloss.Color(PrimaryBlue)).
 			Bold(true).
 			MarginBottom(1),
 
 		itemStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#E0E0E0")).
+			Foreground(lipgloss.Color(White)).
 			PaddingLeft(2),
 
 		selectedStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00D9FF")).
+			Foreground(lipgloss.Color(SelectionBlue)).
 			Bold(true).
-			Background(lipgloss.Color("#1a1a1a")).
+			Background(lipgloss.Color(DarkBackground)).
 			PaddingLeft(2),
 
 		dimStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#606060")),
+			Foreground(lipgloss.Color(Gray)),
 
 		helpStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#606060")).
+			Foreground(lipgloss.Color(Gray)).
 			MarginTop(1),
 
 		valueStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")),
+			Foreground(lipgloss.Color(PrimaryBlue)),
 
 		editStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#00D9FF")).
+			BorderForeground(lipgloss.Color(SelectionBlue)).
 			Padding(0, 1),
 	}
 }

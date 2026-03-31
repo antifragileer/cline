@@ -168,11 +168,16 @@ func init() {
 	authCmd.Flags().StringVar(&authFlags.config, "config", "", "Path to Cline configuration directory")
 	authCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
 
+
 	// Add subcommands
 	authCmd.AddCommand(authListCmd)
+	authCmd.AddCommand(authStatusCmd)
 	
 	// Add flags to auth list subcommand
 	authListCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
+	
+	// Add flags to auth status subcommand
+	authStatusCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
 }
 
 // authListCmd represents the auth list subcommand
@@ -186,6 +191,19 @@ var authListCmd = &cobra.Command{
   # List as JSON
   cline auth list --json`,
 	RunE: runAuthList,
+}
+
+// authStatusCmd represents the auth status subcommand
+var authStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show authentication status",
+	Long:  `Display the current authentication status and provider information.`,
+	Example: `  # Show authentication status
+  cline auth status
+
+  # Show status as JSON
+  cline auth status --json`,
+	RunE: runAuthStatus,
 }
 
 // runAuth executes the auth command
@@ -741,12 +759,106 @@ func runAuthList(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "  Current Model: %s\n", model)
 	}
 
+
 	if hasKey, ok := authInfo["hasApiKey"].(bool); ok {
 		if hasKey {
 			fmt.Fprintln(cmd.OutOrStdout(), "  API Key: configured")
 		} else {
 			fmt.Fprintln(cmd.OutOrStdout(), "  API Key: not configured")
 		}
+	}
+
+	return nil
+}
+
+// runAuthStatus executes the auth status command
+func runAuthStatus(cmd *cobra.Command, args []string) error {
+	// Initialize storage context
+	ctx, err := storage.NewStorageContext(authFlags.config, "")
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+	defer ctx.Close()
+
+	// Get current provider
+	provider, err := GetCurrentProvider(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current provider: %w", err)
+	}
+
+	// Build status info
+	statusInfo := map[string]interface{}{
+		"authenticated": false,
+		"provider":      "",
+		"model":         "",
+		"hasApiKey":     false,
+	}
+
+	if provider != "" {
+		statusInfo["authenticated"] = true
+		statusInfo["provider"] = provider
+
+		// Get model for current provider
+		modelKey := provider + "Model"
+		if modelVal, ok := ctx.GlobalState.Get(modelKey); ok {
+			if model, ok := modelVal.(string); ok {
+				statusInfo["model"] = model
+			}
+		}
+
+		// Check if API key is configured
+		hasKey := false
+		if _, err := GetAPIKey(ctx, provider); err == nil {
+			secretKeyName := provider + "ApiKey"
+			if _, ok := ctx.Secrets.Get(secretKeyName); ok {
+				hasKey = true
+			}
+		}
+		statusInfo["hasApiKey"] = hasKey
+
+		// Get base URL if configured
+		baseURLKey := provider + "BaseUrl"
+		if baseURLVal, ok := ctx.GlobalState.Get(baseURLKey); ok {
+			if baseURL, ok := baseURLVal.(string); ok && baseURL != "" {
+				statusInfo["baseUrl"] = baseURL
+			}
+		}
+	}
+
+	// Output as JSON if requested
+	if authFlags.json {
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(statusInfo)
+	}
+
+	// Human-readable output
+	if provider == "" {
+		fmt.Fprintln(cmd.OutOrStdout(), "Authentication Status:")
+		fmt.Fprintln(cmd.OutOrStdout())
+		fmt.Fprintln(cmd.OutOrStdout(), "  Status: Not authenticated")
+		fmt.Fprintln(cmd.OutOrStdout())
+		fmt.Fprintln(cmd.OutOrStdout(), "Run 'cline auth' to configure a provider.")
+		return nil
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Authentication Status:")
+	fmt.Fprintln(cmd.OutOrStdout())
+	fmt.Fprintln(cmd.OutOrStdout(), "  Status: Authenticated")
+	fmt.Fprintf(cmd.OutOrStdout(), "  Provider: %s\n", provider)
+
+	if model, ok := statusInfo["model"].(string); ok && model != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "  Model: %s\n", model)
+	}
+
+	if hasKey, ok := statusInfo["hasApiKey"].(bool); ok && hasKey {
+		fmt.Fprintln(cmd.OutOrStdout(), "  API Key: Configured")
+	} else {
+		fmt.Fprintln(cmd.OutOrStdout(), "  API Key: Not configured")
+	}
+
+	if baseURL, ok := statusInfo["baseUrl"].(string); ok && baseURL != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "  Base URL: %s\n", baseURL)
 	}
 
 	return nil

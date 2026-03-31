@@ -121,6 +121,15 @@ Usage:
   # Run in ACP mode
   cline --acp
 
+  # Attach an image to the task
+  cline --image screenshot.png "analyze this error"
+
+  # Pipe input to Cline
+  cat file.ts | cline "explain this code"
+
+  # Output as JSON
+  cline "explain this code" --json
+
   # Use a custom configuration file
   cline --config /path/to/config.yaml "explain this code"`,
 		RunE: runRoot,
@@ -579,19 +588,17 @@ func runContinueMode(opts *RootOptions) error {
 	}
 	defer client.Stop()
 
-	// Resume options
-	resumeOpts := task.ResumeOptions{
-		TaskID:  opts.TaskID,
-		Prompt:  opts.Prompt,
-		Verbose: verbose,
-		Timeout: opts.Timeout,
-		Storage: storageCtx,
-		Client:  client,
-		Output:  os.Stdout,
+	// Resume the most recent task using ResumeManager
+	if client == nil {
+		return fmt.Errorf("gRPC client not available")
 	}
-
-	// Continue the most recent task
-	if err := task.ContinueTask(resumeOpts); err != nil {
+	conn, err := client.GetPool().GetConnection()
+	if err != nil {
+		return fmt.Errorf("failed to get gRPC connection: %w", err)
+	}
+	resumeManager := task.NewResumeManager(conn)
+	_, err = resumeManager.ResumeMostRecentTask(context.Background(), opts.Prompt, opts.Images)
+	if err != nil {
 		// For tests, print the message but don't fail
 		fmt.Printf("Note: %v\n", err)
 	}
@@ -622,19 +629,17 @@ func runResumeTask(opts *RootOptions) error {
 	}
 	defer client.Stop()
 
-	// Resume options
-	resumeOpts := task.ResumeOptions{
-		TaskID:  opts.TaskID,
-		Prompt:  opts.Prompt,
-		Verbose: verbose,
-		Timeout: opts.Timeout,
-		Storage: storageCtx,
-		Client:  client,
-		Output:  os.Stdout,
+	// Resume the task using ResumeManager
+	if client == nil {
+		return fmt.Errorf("gRPC client not available")
 	}
-
-	// Resume the task
-	if err := task.ResumeTask(opts.TaskID, resumeOpts); err != nil {
+	conn, err := client.GetPool().GetConnection()
+	if err != nil {
+		return fmt.Errorf("failed to get gRPC connection: %w", err)
+	}
+	resumeManager := task.NewResumeManager(conn)
+	_, err = resumeManager.ResumeTask(context.Background(), opts.TaskID, opts.Prompt, opts.Images)
+	if err != nil {
 		// For tests, print the message but don't fail
 		fmt.Printf("Note: %v\n", err)
 	}
@@ -771,33 +776,17 @@ func runTaskWithGRPC(opts *RootOptions) error {
 	runner := task.NewRunner(cm.GetConnection())
 
 	// Build task config
-	config := task.Config{
-		Mode:                    getTaskModeAsTaskMode(opts),
-		Yolo:                    opts.Yolo,
-		Timeout:                 opts.Timeout,
-		Model:                   opts.Model,
-		Images:                  opts.Images,
-		Verbose:                 verbose,
-		Cwd:                     opts.Cwd,
-		Thinking:                opts.Thinking != nil,
-		JSON:                    opts.JSON,
-		TaskID:                  opts.TaskID,
-		Prompt:                  opts.Prompt,
-		AutoApproveAll:          opts.AutoApproveAll,
-		ReasoningEffort:         opts.ReasoningEffort,
-		DoubleCheckCompletion:   opts.DoubleCheckCompletion,
-		AutoCondense:            opts.AutoCondense,
-		HooksDir:                opts.HooksDir,
-	}
-
-	// Add thinking budget if specified
-	if opts.Thinking != nil {
-		config.ThinkingBudget = *opts.Thinking
-	}
-
-	// Add max consecutive mistakes if specified
-	if opts.MaxConsecutiveMistakes != nil {
-		config.MaxConsecutiveMistakes = *opts.MaxConsecutiveMistakes
+	config := task.TaskConfig{
+		Mode:     getTaskModeAsTaskMode(opts),
+		Yolo:     opts.Yolo,
+		Timeout:  opts.Timeout,
+		Model:    opts.Model,
+		Images:   opts.Images,
+		Verbose:  verbose,
+		Cwd:      opts.Cwd,
+		Thinking: opts.Thinking != nil,
+		TaskID:   opts.TaskID,
+		Prompt:   opts.Prompt,
 	}
 
 	// Create message handler based on output mode and interactivity
@@ -813,20 +802,20 @@ func runTaskWithGRPC(opts *RootOptions) error {
 		handler = task.NewPlainTextHandler(verbose, opts.JSON, opts.Yolo || opts.AutoApproveAll, os.Stdout)
 	}
 
-	// Run the task with streaming
-	if err := runner.RunWithStreaming(ctx, config, handler); err != nil {
+	// Run the task
+	if err := runner.Run(ctx, config, handler); err != nil {
 		return fmt.Errorf("task execution failed: %w", err)
 	}
 
 	return nil
 }
 
-// getTaskModeAsTaskMode converts RootOptions mode to task.Mode
-func getTaskModeAsTaskMode(opts *RootOptions) task.Mode {
+// getTaskModeAsTaskMode converts RootOptions mode to task.TaskMode
+func getTaskModeAsTaskMode(opts *RootOptions) task.TaskMode {
 	if opts.Plan {
-		return task.ModePlan
+		return task.TaskModePlan
 	}
-	return task.ModeAct
+	return task.TaskModeAct
 }
 
 // getTaskMode returns the task mode based on options (for backward compatibility)
@@ -948,39 +937,23 @@ func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, c
 	handler.SetProgram(nil) // Will be set by TUI
 
 	// Determine initial mode
-	mode := task.ModeAct
+	mode := task.TaskModeAct
 	if opts.Plan {
-		mode = task.ModePlan
+		mode = task.TaskModePlan
 	}
 
 	// Build task config
-	config := task.Config{
-		Mode:                    mode,
-		Yolo:                    opts.Yolo,
-		Timeout:                 opts.Timeout,
-		Model:                   opts.Model,
-		Images:                  opts.Images,
-		Verbose:                 verbose,
-		Cwd:                     opts.Cwd,
-		Thinking:                opts.Thinking != nil,
-		JSON:                    false, // TUI mode doesn't use JSON
-		TaskID:                  opts.TaskID,
-		Prompt:                  taskPrompt,
-		AutoApproveAll:          opts.AutoApproveAll,
-		ReasoningEffort:         opts.ReasoningEffort,
-		DoubleCheckCompletion:   opts.DoubleCheckCompletion,
-		AutoCondense:            opts.AutoCondense,
-		HooksDir:                opts.HooksDir,
-	}
-
-	// Add thinking budget if specified
-	if opts.Thinking != nil {
-		config.ThinkingBudget = *opts.Thinking
-	}
-
-	// Add max consecutive mistakes if specified
-	if opts.MaxConsecutiveMistakes != nil {
-		config.MaxConsecutiveMistakes = *opts.MaxConsecutiveMistakes
+	config := task.TaskConfig{
+		Mode:     mode,
+		Yolo:     opts.Yolo,
+		Timeout:  opts.Timeout,
+		Model:    opts.Model,
+		Images:   opts.Images,
+		Verbose:  verbose,
+		Cwd:      opts.Cwd,
+		Thinking: opts.Thinking != nil,
+		TaskID:   opts.TaskID,
+		Prompt:   taskPrompt,
 	}
 
 	// Create chat model
@@ -996,7 +969,7 @@ func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, c
 
 	// Start task in background
 	go func() {
-		if err := runner.RunWithStreaming(ctx, config, handler); err != nil {
+		if err := runner.Run(ctx, config, handler); err != nil {
 			p.Send(tui.ChatErrorMsg{Error: err})
 		}
 	}()

@@ -159,21 +159,15 @@ func runTask(cmd *cobra.Command, args []string) error {
 
 	// Create message handler based on output mode
 	var handler task.MessageHandler
-	if config.JSON {
-		handler = &task.JSONHandler{
-			Output: cmd.OutOrStdout(),
-		}
-	} else {
-		handler = &task.PlainTextHandler{
-			Verbose:     config.Verbose,
-			JSONOutput:  config.JSON,
-			Output:      cmd.OutOrStdout(),
-			AutoApprove: config.Yolo || config.AutoApproveAll,
-		}
+	handler = &task.PlainTextHandler{
+		Verbose:     config.Verbose,
+		JSONOutput:  taskFlags.json,
+		Output:      cmd.OutOrStdout(),
+		AutoApprove: config.Yolo || taskFlags.autoApproveAll,
 	}
 
-	// Run the task with streaming
-	if err := runner.RunWithStreaming(ctx, config, handler); err != nil {
+	// Run the task
+	if err := runner.Run(ctx, config, handler); err != nil {
 		// For tests, print message but don't fail
 		fmt.Fprintf(cmd.OutOrStdout(), "Note: %v\n", err)
 		return nil
@@ -182,36 +176,29 @@ func runTask(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// buildTaskConfig builds task.Config from parsed flags
-func buildTaskConfig() (task.Config, error) {
-	config := task.Config{
-		Yolo:                   taskFlags.yolo,
-		Model:                  taskFlags.model,
-		Images:                 taskFlags.images,
-		Cwd:                    taskFlags.cwd,
-		Thinking:               taskFlags.thinking,
-		JSON:                   taskFlags.json,
-		TaskID:                 taskFlags.taskId,
-		AutoApproveAll:         taskFlags.autoApproveAll,
-		ReasoningEffort:        normalizeReasoningEffort(taskFlags.reasoningEffort),
-		MaxConsecutiveMistakes: taskFlags.maxConsecutiveMistakes,
-		DoubleCheckCompletion:  taskFlags.doubleCheckCompletion,
-		AutoCondense:           taskFlags.autoCondense,
-		HooksDir:               taskFlags.hooksDir,
+// buildTaskConfig builds task.TaskConfig from parsed flags
+func buildTaskConfig() (task.TaskConfig, error) {
+	config := task.TaskConfig{
+		Yolo:     taskFlags.yolo,
+		Model:    taskFlags.model,
+		Images:   taskFlags.images,
+		Cwd:      taskFlags.cwd,
+		Thinking: taskFlags.thinking,
+		TaskID:   taskFlags.taskId,
 	}
 
 	// Determine mode (mutually exclusive, default to act)
 	if taskFlags.plan {
-		config.Mode = task.ModePlan
+		config.Mode = task.TaskModePlan
 	} else {
-		config.Mode = task.ModeAct
+		config.Mode = task.TaskModeAct
 	}
 
 	// Parse timeout
 	if taskFlags.timeout != "" {
 		duration, err := time.ParseDuration(taskFlags.timeout)
 		if err != nil {
-			return task.Config{}, fmt.Errorf("invalid timeout format: %s", taskFlags.timeout)
+			return task.TaskConfig{}, fmt.Errorf("invalid timeout format: %s", taskFlags.timeout)
 		}
 		config.Timeout = duration
 	}
@@ -275,7 +262,7 @@ func parseThinkingFlag(value string) *int {
 }
 
 // validateTaskConfig validates the task configuration
-func validateTaskConfig(config task.Config) error {
+func validateTaskConfig(config task.TaskConfig) error {
 	var errs []string
 
 	// Check for mutually exclusive act/plan flags
@@ -335,7 +322,7 @@ func NewDefaultTaskRunner(output io.Writer) *DefaultTaskRunner {
 }
 
 // Run executes the task configuration and outputs the result
-func (r *DefaultTaskRunner) Run(config task.Config) error {
+func (r *DefaultTaskRunner) Run(config task.TaskConfig) error {
 	// Validate image files if provided
 	for _, img := range config.Images {
 		if err := ValidateImageFile(img); err != nil {
@@ -343,24 +330,18 @@ func (r *DefaultTaskRunner) Run(config task.Config) error {
 		}
 	}
 
-	if config.JSON {
+	if taskFlags.json {
 		// Output JSON format
 		result := map[string]interface{}{
-			"mode":                   string(config.Mode),
-			"prompt":                 config.Prompt,
-			"yolo":                   config.Yolo,
-			"timeout":                config.Timeout.String(),
-			"model":                  config.Model,
-			"images":                 config.Images,
-			"thinking":               config.Thinking,
-			"taskId":                 config.TaskID,
-			"status":                 "started",
-			"autoApproveAll":         config.AutoApproveAll,
-			"reasoningEffort":        config.ReasoningEffort,
-			"maxConsecutiveMistakes": config.MaxConsecutiveMistakes,
-			"doubleCheckCompletion":  config.DoubleCheckCompletion,
-			"autoCondense":           config.AutoCondense,
-			"hooksDir":               config.HooksDir,
+			"mode":     string(config.Mode),
+			"prompt":   config.Prompt,
+			"yolo":     config.Yolo,
+			"timeout":  config.Timeout.String(),
+			"model":    config.Model,
+			"images":   config.Images,
+			"thinking": config.Thinking,
+			"taskId":   config.TaskID,
+			"status":   "started",
 		}
 		encoder := json.NewEncoder(r.output)
 		return encoder.Encode(result)
@@ -392,24 +373,6 @@ func (r *DefaultTaskRunner) Run(config task.Config) error {
 		}
 		if config.TaskID != "" {
 			fmt.Fprintf(r.output, "Task ID: %s\n", config.TaskID)
-		}
-		if config.AutoApproveAll {
-			fmt.Fprintln(r.output, "Auto-approve all: enabled")
-		}
-		if config.ReasoningEffort != "" {
-			fmt.Fprintf(r.output, "Reasoning effort: %s\n", config.ReasoningEffort)
-		}
-		if config.MaxConsecutiveMistakes > 0 {
-			fmt.Fprintf(r.output, "Max consecutive mistakes: %d\n", config.MaxConsecutiveMistakes)
-		}
-		if config.DoubleCheckCompletion {
-			fmt.Fprintln(r.output, "Double-check completion: enabled")
-		}
-		if config.AutoCondense {
-			fmt.Fprintln(r.output, "Auto-condense: enabled")
-		}
-		if config.HooksDir != "" {
-			fmt.Fprintf(r.output, "Hooks directory: %s\n", config.HooksDir)
 		}
 	}
 

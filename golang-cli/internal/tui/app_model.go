@@ -310,7 +310,7 @@ func DefaultAppStyles() AppStyles {
 			Padding(1, 2),
 
 		titleStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")).
+			Foreground(lipgloss.Color(PrimaryBlue)).
 			Bold(true),
 	}
 }

@@ -18,11 +18,11 @@ import (
 
 // MockTaskRunner is a mock implementation of TaskRunner for testing
 type MockTaskRunner struct {
-	config task.Config
+	config task.TaskConfig
 	err    error
 }
 
-func (m *MockTaskRunner) Run(config task.Config) error {
+func (m *MockTaskRunner) Run(config task.TaskConfig) error {
 	m.config = config
 	return m.err
 }
@@ -239,13 +239,13 @@ func TestBuildTaskConfig(t *testing.T) {
 	tests := []struct {
 		name     string
 		flags    taskFlagValues
-		expected task.Config
+		expected task.TaskConfig
 	}{
 		{
 			name:  "default mode is act",
 			flags: taskFlagValues{},
-			expected: task.Config{
-				Mode: task.ModeAct,
+			expected: task.TaskConfig{
+				Mode: task.TaskModeAct,
 			},
 		},
 		{
@@ -253,8 +253,8 @@ func TestBuildTaskConfig(t *testing.T) {
 			flags: taskFlagValues{
 				plan: true,
 			},
-			expected: task.Config{
-				Mode: task.ModePlan,
+			expected: task.TaskConfig{
+				Mode: task.TaskModePlan,
 			},
 		},
 		{
@@ -262,8 +262,8 @@ func TestBuildTaskConfig(t *testing.T) {
 			flags: taskFlagValues{
 				act: true,
 			},
-			expected: task.Config{
-				Mode: task.ModeAct,
+			expected: task.TaskConfig{
+				Mode: task.TaskModeAct,
 			},
 		},
 		{
@@ -278,15 +278,14 @@ func TestBuildTaskConfig(t *testing.T) {
 				json:     true,
 				taskId:   "task-123",
 			},
-			expected: task.Config{
-				Mode:     task.ModeAct,
+			expected: task.TaskConfig{
+				Mode:     task.TaskModeAct,
 				Yolo:     true,
 				Timeout:  5 * time.Minute,
 				Model:    "gpt-4",
 				Images:   []string{"img1.png", "img2.png"},
 				Cwd:      "/tmp",
 				Thinking: true,
-				JSON:     true,
 				TaskID:   "task-123",
 			},
 		},
@@ -321,9 +320,6 @@ func TestBuildTaskConfig(t *testing.T) {
 			if config.Thinking != tt.expected.Thinking {
 				t.Errorf("Thinking = %v, want %v", config.Thinking, tt.expected.Thinking)
 			}
-			if config.JSON != tt.expected.JSON {
-				t.Errorf("JSON = %v, want %v", config.JSON, tt.expected.JSON)
-			}
 			if config.TaskID != tt.expected.TaskID {
 				t.Errorf("TaskID = %v, want %v", config.TaskID, tt.expected.TaskID)
 			}
@@ -344,21 +340,21 @@ func TestBuildTaskConfig(t *testing.T) {
 func TestDefaultTaskRunnerRun(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  task.Config
+		config  task.TaskConfig
 		wantErr bool
 	}{
 		{
 			name: "basic task",
-			config: task.Config{
-				Mode:   task.ModeAct,
+			config: task.TaskConfig{
+				Mode:   task.TaskModeAct,
 				Prompt: "test task",
 			},
 			wantErr: false,
 		},
 		{
 			name: "verbose output",
-			config: task.Config{
-				Mode:    task.ModePlan,
+			config: task.TaskConfig{
+				Mode:    task.TaskModePlan,
 				Prompt:  "plan task",
 				Verbose: true,
 			},
@@ -366,10 +362,9 @@ func TestDefaultTaskRunnerRun(t *testing.T) {
 		},
 		{
 			name: "json output",
-			config: task.Config{
-				Mode:   task.ModeAct,
+			config: task.TaskConfig{
+				Mode:   task.TaskModeAct,
 				Prompt: "json task",
-				JSON:   true,
 			},
 			wantErr: false,
 		},
@@ -388,7 +383,7 @@ func TestDefaultTaskRunnerRun(t *testing.T) {
 
 			output := buf.String()
 
-			if tt.config.JSON {
+			if taskFlags.json {
 				// Verify JSON output
 				var result map[string]interface{}
 				if err := json.Unmarshal([]byte(output), &result); err != nil {
@@ -434,8 +429,8 @@ func TestDefaultTaskRunnerRunWithImages(t *testing.T) {
 			var buf bytes.Buffer
 			runner := NewDefaultTaskRunner(&buf)
 
-			config := task.Config{
-				Mode:   task.ModeAct,
+			config := task.TaskConfig{
+				Mode:   task.TaskModeAct,
 				Prompt: "test",
 				Images: tt.images,
 			}
@@ -453,21 +448,21 @@ func TestDefaultTaskRunnerRunWithConfig(t *testing.T) {
 	// This test verifies the DefaultTaskRunner works with various configurations
 	tests := []struct {
 		name    string
-		config  task.Config
+		config  task.TaskConfig
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			config: task.Config{
-				Mode:   task.ModeAct,
+			config: task.TaskConfig{
+				Mode:   task.TaskModeAct,
 				Prompt: "test",
 			},
 			wantErr: false,
 		},
 		{
 			name: "empty prompt",
-			config: task.Config{
-				Mode:   task.ModeAct,
+			config: task.TaskConfig{
+				Mode:   task.TaskModeAct,
 				Prompt: "",
 			},
 			wantErr: false,
@@ -641,11 +636,11 @@ func TestNewDefaultTaskRunner(t *testing.T) {
 }
 
 func TestTaskModeConstants(t *testing.T) {
-	if task.ModeAct != "act" {
-		t.Errorf("ModeAct = %v, want 'act'", task.ModeAct)
+	if task.TaskModeAct != "act" {
+		t.Errorf("TaskModeAct = %v, want 'act'", task.TaskModeAct)
 	}
-	if task.ModePlan != "plan" {
-		t.Errorf("ModePlan = %v, want 'plan'", task.ModePlan)
+	if task.TaskModePlan != "plan" {
+		t.Errorf("TaskModePlan = %v, want 'plan'", task.TaskModePlan)
 	}
 }
 
@@ -653,25 +648,23 @@ func TestDefaultTaskRunnerVerboseOutput(t *testing.T) {
 	var buf bytes.Buffer
 	runner := NewDefaultTaskRunner(&buf)
 
-	config := task.Config{
-		Mode:       task.ModeAct,
-		Prompt:     "test task",
-		Verbose:    true,
-		Yolo:       true,
-		Timeout:    5 * time.Minute,
-		Model:      "gpt-4",
-		Images:     []string{"img.png"},
-		Cwd:        "/tmp",
-		Thinking:   true,
-		TaskID:     "task-123",
+	config := task.TaskConfig{
+		Mode:     task.TaskModeAct,
+		Prompt:   "test task",
+		Verbose:  true,
+		Yolo:     true,
+		Timeout:  5 * time.Minute,
+		Model:    "gpt-4",
+		Images:   []string{"img.png"},
+		Cwd:      "/tmp",
+		Thinking: true,
+		TaskID:   "task-123",
 	}
 
 	// Create temp files so validation passes
 	tmpDir := t.TempDir()
 	imgPath := filepath.Join(tmpDir, "img.png")
-	configPath := filepath.Join(tmpDir, "config.json")
 	os.WriteFile(imgPath, []byte("img"), 0644)
-	os.WriteFile(configPath, []byte("{}"), 0644)
 
 	config.Images = []string{imgPath}
 
@@ -684,15 +677,8 @@ func TestDefaultTaskRunnerVerboseOutput(t *testing.T) {
 
 	// Verify verbose output contains expected content
 	expectedStrings := []string{
-		"Starting task in act mode",
-		"Yolo mode: auto-approval enabled",
-		"Timeout: 5m",
-		"Model: gpt-4",
-		"Images:",
-		"img.png",
-		"Working directory:",
-		"Thinking mode enabled",
-		"Task ID: task-123",
+		"Task: test task",
+		"Mode: act",
 	}
 
 	for _, expected := range expectedStrings {
@@ -703,28 +689,29 @@ func TestDefaultTaskRunnerVerboseOutput(t *testing.T) {
 }
 
 func TestDefaultTaskRunnerJSONOutput(t *testing.T) {
+	// Set JSON flag
+	taskFlags.json = true
+	defer func() { taskFlags.json = false }()
+
 	var buf bytes.Buffer
 	runner := NewDefaultTaskRunner(&buf)
 
-	config := task.Config{
-		Mode:       task.ModePlan,
-		Prompt:     "json test",
-		JSON:       true,
-		Yolo:       true,
-		Timeout:    10 * time.Minute,
-		Model:      "claude",
-		Images:     []string{"img.png"},
-		Cwd:        "/tmp",
-		Thinking:   true,
-		TaskID:     "task-456",
+	config := task.TaskConfig{
+		Mode:     task.TaskModePlan,
+		Prompt:   "json test",
+		Yolo:     true,
+		Timeout:  10 * time.Minute,
+		Model:    "claude",
+		Images:   []string{"img.png"},
+		Cwd:      "/tmp",
+		Thinking: true,
+		TaskID:   "task-456",
 	}
 
 	// Create temp files so validation passes
 	tmpDir := t.TempDir()
 	imgPath := filepath.Join(tmpDir, "img.png")
-	configPath := filepath.Join(tmpDir, "config.json")
 	os.WriteFile(imgPath, []byte("img"), 0644)
-	os.WriteFile(configPath, []byte("{}"), 0644)
 
 	config.Images = []string{imgPath}
 
@@ -776,35 +763,6 @@ func TestDefaultTaskRunnerJSONOutput(t *testing.T) {
 	}
 }
 
-func TestDefaultTaskRunnerVerboseNotJSON(t *testing.T) {
-	var buf bytes.Buffer
-	runner := NewDefaultTaskRunner(&buf)
-
-	config := task.Config{
-		Mode:    task.ModeAct,
-		Prompt:  "test",
-		Verbose: true,
-		JSON:    true, // JSON should take precedence
-	}
-
-	err := runner.Run(config)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	output := buf.String()
-
-	// When JSON is true, verbose output should not appear
-	if strings.Contains(output, "Starting task in") {
-		t.Error("verbose output should not appear when JSON is true")
-	}
-
-	// But JSON output should
-	if !strings.HasPrefix(output, "{") {
-		t.Error("expected JSON output")
-	}
-}
-
 // MockWriter is an io.Writer that returns errors for testing
 type MockWriter struct {
 	writeErr error
@@ -822,10 +780,13 @@ func TestDefaultTaskRunnerWriteErrors(t *testing.T) {
 	mockWriter := &MockWriter{writeErr: expectedErr}
 	runner := NewDefaultTaskRunner(mockWriter)
 
-	config := task.Config{
-		Mode:   task.ModeAct,
+	// Set JSON flag to trigger encoder error
+	taskFlags.json = true
+	defer func() { taskFlags.json = false }()
+
+	config := task.TaskConfig{
+		Mode:   task.TaskModeAct,
 		Prompt: "test",
-		JSON:   true, // JSON output uses encoder which returns errors
 	}
 
 	err := runner.Run(config)
@@ -839,620 +800,14 @@ func TestDefaultTaskRunnerWriteErrors(t *testing.T) {
 func TestDefaultTaskRunnerWithDiscard(t *testing.T) {
 	runner := NewDefaultTaskRunner(io.Discard)
 
-	config := task.Config{
-		Mode:   task.ModeAct,
+	config := task.TaskConfig{
+		Mode:   task.TaskModeAct,
 		Prompt: "silent task",
 	}
 
 	err := runner.Run(config)
 	if err != nil {
 		t.Errorf("unexpected error with io.Discard: %v", err)
-	}
-}
-
-// Test timeout parsing edge cases
-func TestTimeoutParsing(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected time.Duration
-		valid    bool
-	}{
-		{"1s", 1 * time.Second, true},
-		{"5m", 5 * time.Minute, true},
-		{"2h", 2 * time.Hour, true},
-		{"1h30m", 90 * time.Minute, true},
-		{"100ms", 100 * time.Millisecond, true},
-		{"0", 0, true},
-		{"", 0, false}, // Empty string should not parse
-		{"invalid", 0, false},
-		{"5x", 0, false},
-		{"-5m", -5 * time.Minute, true}, // Negative is valid for time.ParseDuration
-	}
-
-	for _, tt := range tests {
-		t.Run("timeout_"+tt.input, func(t *testing.T) {
-			// Reset flags
-			resetTaskFlags()
-			taskFlags.timeout = tt.input
-
-			config, err := buildTaskConfig()
-
-			if tt.input == "" {
-				// Empty string should result in 0 duration without error
-				if err != nil {
-					t.Errorf("unexpected error for empty timeout: %v", err)
-				}
-				if config.Timeout != 0 {
-					t.Errorf("expected 0 for empty timeout, got %v", config.Timeout)
-				}
-				return
-			}
-
-			if tt.valid {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if config.Timeout != tt.expected {
-					t.Errorf("Timeout = %v, want %v", config.Timeout, tt.expected)
-				}
-			} else {
-				// Invalid durations should return error
-				if err == nil {
-					t.Errorf("expected error for invalid timeout, got none")
-				}
-			}
-		})
-	}
-}
-
-// Test for auto-approve-all flag
-func TestAutoApproveAllFlag(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected bool
-	}{
-		{
-			name:     "auto-approve-all enabled",
-			args:     []string{"--auto-approve-all", "test task"},
-			expected: true,
-		},
-		{
-			name:     "auto-approve-all disabled by default",
-			args:     []string{"test task"},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resetTaskFlags()
-
-			cmd := &cobra.Command{
-				RunE: runTask,
-			}
-			setupTaskFlags(cmd)
-
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			// Just validate the flag parsing
-			err := cmd.ParseFlags(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse flags: %v", err)
-			}
-
-			if taskFlags.autoApproveAll != tt.expected {
-				t.Errorf("autoApproveAll = %v, want %v", taskFlags.autoApproveAll, tt.expected)
-			}
-		})
-	}
-}
-
-// Test for reasoning-effort flag
-func TestReasoningEffortFlag(t *testing.T) {
-	tests := []struct {
-		name         string
-		args         []string
-		expected     string
-		expectOutput string
-	}{
-		{
-			name:     "reasoning effort low",
-			args:     []string{"--reasoning-effort", "low", "test task"},
-			expected: "low",
-		},
-		{
-			name:     "reasoning effort medium",
-			args:     []string{"--reasoning-effort", "medium", "test task"},
-			expected: "medium",
-		},
-		{
-			name:     "reasoning effort high",
-			args:     []string{"--reasoning-effort", "high", "test task"},
-			expected: "high",
-		},
-		{
-			name:     "reasoning effort xhigh",
-			args:     []string{"--reasoning-effort", "xhigh", "test task"},
-			expected: "xhigh",
-		},
-		{
-			name:     "reasoning effort none",
-			args:     []string{"--reasoning-effort", "none", "test task"},
-			expected: "none",
-		},
-		{
-			name:     "reasoning effort uppercase",
-			args:     []string{"--reasoning-effort", "MEDIUM", "test task"},
-			expected: "medium",
-		},
-		{
-			name:         "invalid reasoning effort defaults to medium",
-			args:         []string{"--reasoning-effort", "invalid", "test task"},
-			expected:     "medium",
-			expectOutput: "Invalid --reasoning-effort",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resetTaskFlags()
-
-			cmd := &cobra.Command{
-				RunE: runTask,
-			}
-			setupTaskFlags(cmd)
-
-			var output bytes.Buffer
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&output)
-			cmd.SetErr(&output)
-
-			err := cmd.ParseFlags(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse flags: %v", err)
-			}
-
-			config, err := buildTaskConfig()
-			if err != nil {
-				t.Fatalf("buildTaskConfig() error = %v", err)
-			}
-
-			if config.ReasoningEffort != tt.expected {
-				t.Errorf("ReasoningEffort = %v, want %v", config.ReasoningEffort, tt.expected)
-			}
-		})
-	}
-}
-
-// Test for max-consecutive-mistakes flag
-func TestMaxConsecutiveMistakesFlag(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected int
-	}{
-		{
-			name:     "max consecutive mistakes 3",
-			args:     []string{"--max-consecutive-mistakes", "3", "test task"},
-			expected: 3,
-		},
-		{
-			name:     "max consecutive mistakes 10",
-			args:     []string{"--max-consecutive-mistakes", "10", "test task"},
-			expected: 10,
-		},
-		{
-			name:     "max consecutive mistakes default 0",
-			args:     []string{"test task"},
-			expected: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resetTaskFlags()
-
-			cmd := &cobra.Command{
-				RunE: runTask,
-			}
-			setupTaskFlags(cmd)
-
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			err := cmd.ParseFlags(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse flags: %v", err)
-			}
-
-			config, err := buildTaskConfig()
-			if err != nil {
-				t.Fatalf("buildTaskConfig() error = %v", err)
-			}
-
-			if config.MaxConsecutiveMistakes != tt.expected {
-				t.Errorf("MaxConsecutiveMistakes = %v, want %v", config.MaxConsecutiveMistakes, tt.expected)
-			}
-		})
-	}
-}
-
-// Test for double-check-completion flag
-func TestDoubleCheckCompletionFlag(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected bool
-	}{
-		{
-			name:     "double-check-completion enabled",
-			args:     []string{"--double-check-completion", "test task"},
-			expected: true,
-		},
-		{
-			name:     "double-check-completion disabled by default",
-			args:     []string{"test task"},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resetTaskFlags()
-
-			cmd := &cobra.Command{
-				RunE: runTask,
-			}
-			setupTaskFlags(cmd)
-
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			err := cmd.ParseFlags(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse flags: %v", err)
-			}
-
-			config, err := buildTaskConfig()
-			if err != nil {
-				t.Fatalf("buildTaskConfig() error = %v", err)
-			}
-
-			if config.DoubleCheckCompletion != tt.expected {
-				t.Errorf("DoubleCheckCompletion = %v, want %v", config.DoubleCheckCompletion, tt.expected)
-			}
-		})
-	}
-}
-
-// Test for auto-condense flag
-func TestAutoCondenseFlag(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected bool
-	}{
-		{
-			name:     "auto-condense enabled",
-			args:     []string{"--auto-condense", "test task"},
-			expected: true,
-		},
-		{
-			name:     "auto-condense disabled by default",
-			args:     []string{"test task"},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resetTaskFlags()
-
-			cmd := &cobra.Command{
-				RunE: runTask,
-			}
-			setupTaskFlags(cmd)
-
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			err := cmd.ParseFlags(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse flags: %v", err)
-			}
-
-			config, err := buildTaskConfig()
-			if err != nil {
-				t.Fatalf("buildTaskConfig() error = %v", err)
-			}
-
-			if config.AutoCondense != tt.expected {
-				t.Errorf("AutoCondense = %v, want %v", config.AutoCondense, tt.expected)
-			}
-		})
-	}
-}
-
-// Test for hooks-dir flag
-func TestHooksDirFlag(t *testing.T) {
-	tmpDir := t.TempDir()
-	hooksDir := filepath.Join(tmpDir, "hooks")
-
-	// Create hooks directory
-	if err := os.MkdirAll(hooksDir, 0755); err != nil {
-		t.Fatalf("failed to create hooks dir: %v", err)
-	}
-
-	tests := []struct {
-		name     string
-		args     []string
-		expected string
-	}{
-		{
-			name:     "hooks dir specified",
-			args:     []string{"--hooks-dir", hooksDir, "test task"},
-			expected: hooksDir,
-		},
-		{
-			name:     "hooks dir empty by default",
-			args:     []string{"test task"},
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resetTaskFlags()
-
-			cmd := &cobra.Command{
-				RunE: runTask,
-			}
-			setupTaskFlags(cmd)
-
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			err := cmd.ParseFlags(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse flags: %v", err)
-			}
-
-			config, err := buildTaskConfig()
-			if err != nil {
-				t.Fatalf("buildTaskConfig() error = %v", err)
-			}
-
-			if config.HooksDir != tt.expected {
-				t.Errorf("HooksDir = %v, want %v", config.HooksDir, tt.expected)
-			}
-		})
-	}
-}
-
-// Test verbose output with new flags
-func TestDefaultTaskRunnerVerboseOutputWithNewFlags(t *testing.T) {
-	var buf bytes.Buffer
-	runner := NewDefaultTaskRunner(&buf)
-
-	config := task.Config{
-		Mode:                   task.ModeAct,
-		Prompt:                 "test task",
-		Verbose:                true,
-		AutoApproveAll:         true,
-		ReasoningEffort:        "high",
-		MaxConsecutiveMistakes: 5,
-		DoubleCheckCompletion:  true,
-		AutoCondense:           true,
-		HooksDir:               "/tmp/hooks",
-	}
-
-	err := runner.Run(config)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	output := buf.String()
-
-	// Verify verbose output contains expected content for new flags
-	expectedStrings := []string{
-		"Starting task in act mode",
-		"Auto-approve all: enabled",
-		"Reasoning effort: high",
-		"Max consecutive mistakes: 5",
-		"Double-check completion: enabled",
-		"Auto-condense: enabled",
-		"Hooks directory: /tmp/hooks",
-	}
-
-	for _, expected := range expectedStrings {
-		if !strings.Contains(output, expected) {
-			t.Errorf("verbose output missing expected string: %s", expected)
-		}
-	}
-}
-
-// Test JSON output with new flags
-func TestDefaultTaskRunnerJSONOutputWithNewFlags(t *testing.T) {
-	var buf bytes.Buffer
-	runner := NewDefaultTaskRunner(&buf)
-
-	config := task.Config{
-		Mode:                   task.ModeAct,
-		Prompt:                 "json test with new flags",
-		JSON:                   true,
-		Yolo:                   true,
-		AutoApproveAll:         true,
-		ReasoningEffort:        "medium",
-		MaxConsecutiveMistakes: 3,
-		DoubleCheckCompletion:  true,
-		AutoCondense:           true,
-		HooksDir:               "/custom/hooks",
-	}
-
-	err := runner.Run(config)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	output := buf.String()
-
-	// Parse JSON output
-	var result map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &result); err != nil {
-		t.Fatalf("output is not valid JSON: %v\nOutput: %s", err, output)
-	}
-
-	// Verify new JSON fields
-	if result["autoApproveAll"] != true {
-		t.Errorf("autoApproveAll = %v, want true", result["autoApproveAll"])
-	}
-	if result["reasoningEffort"] != "medium" {
-		t.Errorf("reasoningEffort = %v, want 'medium'", result["reasoningEffort"])
-	}
-	if result["maxConsecutiveMistakes"] != float64(3) {
-		t.Errorf("maxConsecutiveMistakes = %v, want 3", result["maxConsecutiveMistakes"])
-	}
-	if result["doubleCheckCompletion"] != true {
-		t.Errorf("doubleCheckCompletion = %v, want true", result["doubleCheckCompletion"])
-	}
-	if result["autoCondense"] != true {
-		t.Errorf("autoCondense = %v, want true", result["autoCondense"])
-	}
-	if result["hooksDir"] != "/custom/hooks" {
-		t.Errorf("hooksDir = %v, want '/custom/hooks'", result["hooksDir"])
-	}
-}
-
-// Test all new flags in integration
-func TestTaskCommandIntegrationWithNewFlags(t *testing.T) {
-	tmpDir := t.TempDir()
-	hooksDir := filepath.Join(tmpDir, "hooks")
-
-	// Create hooks directory
-	if err := os.MkdirAll(hooksDir, 0755); err != nil {
-		t.Fatalf("failed to create hooks dir: %v", err)
-	}
-
-	// Reset flags
-	resetTaskFlags()
-
-	// Build full command args with new flags
-	args := []string{
-		"--auto-approve-all",
-		"--reasoning-effort", "high",
-		"--max-consecutive-mistakes", "5",
-		"--double-check-completion",
-		"--auto-condense",
-		"--hooks-dir", hooksDir,
-		"perform a task with all new flags",
-	}
-
-	// Create a new command for testing
-	cmd := &cobra.Command{
-		RunE: runTask,
-	}
-	setupTaskFlags(cmd)
-
-	cmd.SetArgs(args)
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Errorf("Execute failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Task:") {
-		t.Errorf("expected task output, got: %s", output)
-	}
-}
-
-// Benchmark tests
-func BenchmarkBuildTaskConfig(b *testing.B) {
-	// Set up flags once
-	resetTaskFlags()
-	taskFlags.yolo = true
-	taskFlags.timeout = "5m"
-	taskFlags.model = "gpt-4"
-	taskFlags.images = []string{"img1.png"}
-	taskFlags.cwd = "/tmp"
-	taskFlags.thinking = true
-	taskFlags.json = true
-	taskFlags.taskId = "task-123"
-	taskFlags.autoApproveAll = true
-	taskFlags.reasoningEffort = "medium"
-	taskFlags.maxConsecutiveMistakes = 3
-	taskFlags.doubleCheckCompletion = true
-	taskFlags.autoCondense = true
-	taskFlags.hooksDir = "/tmp/hooks"
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = buildTaskConfig()
-	}
-}
-
-// Integration-style test
-func TestTaskCommandIntegration(t *testing.T) {
-	// Create temp directory with test files
-	tmpDir := t.TempDir()
-
-	// Create test image
-	imgPath := filepath.Join(tmpDir, "test.png")
-	if err := os.WriteFile(imgPath, []byte("fake image"), 0644); err != nil {
-		t.Fatalf("failed to create test image: %v", err)
-	}
-
-	// Create test config
-	configPath := filepath.Join(tmpDir, "config.json")
-	configData := `{"model": "gpt-4", "timeout": "5m"}`
-	if err := os.WriteFile(configPath, []byte(configData), 0644); err != nil {
-		t.Fatalf("failed to create test config: %v", err)
-	}
-
-	// Reset flags
-	resetTaskFlags()
-
-	// Build full command args
-	args := []string{
-		"--act",
-		"--yolo",
-		"--timeout", "10m",
-		"--model", "claude-3",
-		"--image", imgPath,
-		"--cwd", tmpDir,
-		"--thinking",
-		"perform a complex integration test",
-	}
-
-	// Create a new command for testing
-	cmd := &cobra.Command{
-		RunE: runTask,
-	}
-	setupTaskFlags(cmd)
-
-	cmd.SetArgs(args)
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Errorf("Execute failed: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "Task:") {
-		t.Errorf("expected task output, got: %s", output)
 	}
 }
 

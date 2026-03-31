@@ -77,8 +77,11 @@ func TestOutputVersionStandard(t *testing.T) {
 	output := buf.String()
 
 	// Check expected content
-	if !strings.Contains(output, "Cline CLI version 1.0.0") {
+	if !strings.Contains(output, "Cline CLI version:") {
 		t.Error("Output should contain version")
+	}
+	if !strings.Contains(output, "1.0.0") {
+		t.Error("Output should contain version number")
 	}
 	if !strings.Contains(output, "abc123d") { // Short commit hash
 		t.Error("Output should contain shortened commit hash")

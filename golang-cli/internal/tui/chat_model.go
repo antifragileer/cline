@@ -89,34 +89,34 @@ func DefaultChatStyles() ChatStyles {
 			Padding(1, 2),
 
 		userMsgStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00D9FF")).
+			Foreground(lipgloss.Color(SelectionBlue)).
 			Bold(true),
 
 		aiMsgStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFFFF")),
+			Foreground(lipgloss.Color(White)),
 
 		systemMsgStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#808080")).
+			Foreground(lipgloss.Color(Gray)).
 			Italic(true),
 
 		errorMsgStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF4444")).
+			Foreground(lipgloss.Color(ErrorRed)).
 			Bold(true),
 
 		toolMsgStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")),
+			Foreground(lipgloss.Color(PrimaryBlue)),
 
 		inputStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#7D56F4")).
+			BorderForeground(lipgloss.Color(PrimaryBlue)).
 			Padding(0, 1),
 
 		statusStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#606060")),
+			Foreground(lipgloss.Color(Gray)),
 
 		approvalBoxStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#FFB000")).
+			BorderForeground(lipgloss.Color(PlanYellow)).
 			Padding(1),
 	}
 }
@@ -485,16 +485,16 @@ func (m ChatModel) renderStatusBar() string {
 
 	// Mode indicator
 	modeStr := "Act"
-	modeColor := "#00D9FF"
+	modeColor := SelectionBlue
 	if m.mode == "plan" {
 		modeStr = "Plan"
-		modeColor = "#FFB000"
+		modeColor = PlanYellow
 	}
 	parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(modeColor)).Render(modeStr))
 
 	// Yolo indicator
 	if m.yolo {
-		parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Render("YOLO"))
+		parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(SuccessGreen)).Render("YOLO"))
 	}
 
 	// Task ID

@@ -45,12 +45,12 @@ func DefaultHelpStyles() HelpStyles {
 			Padding(2, 4),
 
 		titleStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")).
+			Foreground(lipgloss.Color(PrimaryBlue)).
 			Bold(true).
 			MarginBottom(1),
 
 		subtitleStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#808080")).
+			Foreground(lipgloss.Color(Gray)).
 			MarginBottom(2),
 
 		sectionStyle: lipgloss.NewStyle().
@@ -59,21 +59,21 @@ func DefaultHelpStyles() HelpStyles {
 			MarginBottom(1),
 
 		sectionTitleStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00D9FF")).
+			Foreground(lipgloss.Color(SelectionBlue)).
 			Bold(true),
 
 		contentStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#C0C0C0")),
 
 		keyStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")).
+			Foreground(lipgloss.Color(PrimaryBlue)).
 			Bold(true),
 
 		descriptionStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#808080")),
+			Foreground(lipgloss.Color(Gray)),
 
 		helpStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#606060")).
+			Foreground(lipgloss.Color(Gray)).
 			MarginTop(1),
 	}
 }
@@ -93,69 +93,92 @@ func getHelpSections() []HelpSection {
 	return []HelpSection{
 		{
 			Title: "Quick Start",
-			Content: `cline "your task here"     Execute a single task
-cline                       Start interactive mode
-cline -p "task"            Run in plan mode
-cline -y "task"            Run with auto-approve (yolo mode)`,
+			Content: `cline "refactor auth to use JWT"    Execute a single task
+cline                               Start interactive mode
+cline -p "design database schema"   Run in plan mode
+cline -y "fix production bug"       Run with auto-approve`,
+		},
+		{
+			Title: "Commands",
+			Content: `cline [prompt]                      Run a task (interactive if no prompt)
+cline task <prompt>                 Run a new task explicitly
+cline history                       List task history
+cline config                        Show current configuration
+cline auth                          Authenticate and configure provider
+cline mcp add <name>                Add an MCP server
+cline version                       Show version information
+cline update                        Check for updates`,
 		},
 		{
 			Title: "Global Shortcuts",
-			Content: `Ctrl+C                      Quit application
-q                           Go back / quit current view
-?                           Show this help`,
+			Content: `Ctrl+C                              Quit application
+q                                   Go back / quit current view
+?                                   Show this help`,
 		},
 		{
 			Title: "Welcome Screen",
-			Content: `n                           New task
-c                           Continue recent task
-h                           View task history
-s                           Open settings
-?                           Show help`,
+			Content: `n                                   New task
+c                                   Continue recent task
+h                                   View task history
+s                                   Open settings
+?                                   Show help
+q                                   Quit`,
 		},
 		{
 			Title: "Chat Interface",
-			Content: `↑/↓ or k/j                  Scroll through messages
-Enter                       Send message
-Ctrl+L                      Clear conversation
-Esc                         Go back to welcome`,
+			Content: `↑/↓ or k/j                          Scroll through messages
+Enter                               Send message
+Ctrl+L                              Clear conversation
+Esc                                 Go back to welcome`,
 		},
 		{
 			Title: "History View",
-			Content: `↑/↓ or k/j                  Navigate tasks
-Enter                       Select/resume task
-/                           Search tasks
-d                           Delete task
-←/→ or h/l                  Change page`,
+			Content: `↑/↓ or k/j                          Navigate tasks
+Enter                               Select/resume task
+/                                   Search tasks
+d                                   Delete task
+←/→ or h/l                          Change page`,
 		},
 		{
 			Title: "Settings View",
-			Content: `↑/↓ or k/j                  Navigate settings
-Enter/E                     Edit setting
-←/→ or h/l                  Switch tabs (in config)`,
+			Content: `↑/↓ or k/j                          Navigate settings
+Enter/E                             Edit setting
+←/→ or h/l                          Switch tabs`,
 		},
 		{
 			Title: "Command Flags",
-			Content: `-a, --act                   Run in act mode (default)
--p, --plan                  Run in plan mode
--y, --yolo                  Auto-approve all actions
--m, --model MODEL           Use specific model
--t, --timeout SECONDS       Set timeout
---json                      Output as JSON
--T, --taskId ID             Resume task by ID
---continue                  Resume most recent task`,
+			Content: `-a, --act                           Run in act mode (default)
+-p, --plan                          Run in plan mode
+-y, --yolo                          Auto-approve all actions
+--auto-approve-all                  Auto-approve while keeping interactive mode
+-m, --model <model>                 Use specific model
+-t, --timeout <seconds>             Set timeout (e.g., 30, 300, 3600)
+--thinking [tokens]                 Enable extended thinking
+--reasoning-effort <level>          Reasoning: none|low|medium|high|xhigh
+--json                              Output as JSON
+-T, --taskId <id>                   Resume task by ID
+--continue                          Resume most recent task
+--acp                               Run in ACP mode for editor integration`,
+		},
+		{
+			Title: "Examples",
+			Content: `cline "explain this code" --json   Output as JSON
+cline -m claude-sonnet-4-6 "task"   Use specific model
+cline -T task-abc123                Resume existing task
+cat file.ts | cline "review this"   Pipe input to Cline`,
 		},
 		{
 			Title: "Environment Variables",
-			Content: `CLINE_API_KEY              API key for authentication
-CLINE_PROVIDER             Default provider (cline, openai, etc.)
-CLINE_MODEL                Default model
-HOME                       Used to locate config files`,
+			Content: `CLINE_API_KEY                       API key for authentication
+CLINE_PROVIDER                      Default provider
+CLINE_MODEL                         Default model
+HOME                                Used to locate config files`,
 		},
 		{
 			Title: "Configuration Files",
-			Content: `~/.cline/data/globalState.json    Global settings
-~/.cline/data/secrets.json        API keys (encrypted)
-~/.cline/data/taskHistory.json    Task history`,
+			Content: `~/.cline/data/globalState.json      Global settings
+~/.cline/data/secrets.json          API keys (encrypted)
+~/.cline/data/taskHistory.json      Task history`,
 		},
 	}
 }
