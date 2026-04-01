@@ -85,9 +85,8 @@ func TestStatePersistence(t *testing.T) {
 		ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd1 := exec.CommandContext(ctx1, binary, "config", "set", "update.key", "initial")
 		cmd1.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		out1, _ := cmd1.CombinedOutput()
+		_, _ = cmd1.CombinedOutput()
 		cancel1()
-		t.Logf("Initial set: %s", string(out1))
 
 		// Update value
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
@@ -112,7 +111,7 @@ func TestStatePersistence(t *testing.T) {
 		ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd1 := exec.CommandContext(ctx1, binary, "config", "set", "delete.key", "to-delete")
 		cmd1.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		out1, _ := cmd1.CombinedOutput()
+		_, _ = cmd1.CombinedOutput()
 		cancel1()
 
 		// Delete the value
@@ -135,6 +134,7 @@ func TestStatePersistence(t *testing.T) {
 		} else {
 			t.Logf("Delete not implemented or failed: %s", string(out2))
 		}
+		_ = exitCode // Not used in this test
 	})
 }
 
@@ -167,6 +167,7 @@ func TestTaskHistory(t *testing.T) {
 				exitCode = exitErr.ExitCode()
 			}
 		}
+		_ = exitCode // Not used in this test
 		assert.True(t, exitCode >= 0 && exitCode <= 255)
 		t.Logf("Empty history output: %s", string(out))
 	})
@@ -206,6 +207,7 @@ func TestTaskHistory(t *testing.T) {
 				exitCode = exitErr.ExitCode()
 			}
 		}
+		_ = exitCode // Not used in this test
 
 		require.NoError(t, err, "History command failed: %s", string(out))
 
@@ -246,6 +248,7 @@ func TestTaskHistory(t *testing.T) {
 				exitCode = exitErr.ExitCode()
 			}
 		}
+		_ = exitCode // Not used in this test
 
 		require.NoError(t, err, "History with limit failed: %s", string(out))
 
@@ -343,9 +346,8 @@ func TestConfigReadWrite(t *testing.T) {
 		ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd1 := exec.CommandContext(ctx1, binary, "config", "set", "list.test", "list-value")
 		cmd1.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		out1, _ := cmd1.CombinedOutput()
+		_, _ = cmd1.CombinedOutput()
 		cancel1()
-		t.Logf("Set output: %s", string(out1))
 
 		// List in JSON format
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
@@ -360,6 +362,7 @@ func TestConfigReadWrite(t *testing.T) {
 				exitCode = exitErr.ExitCode()
 			}
 		}
+		_ = exitCode // Not used in this test
 
 		require.NoError(t, err2, "Config list failed: %s", string(out2))
 
@@ -605,11 +608,11 @@ func TestStateEdgeCases(t *testing.T) {
 					fmt.Sprintf("concurrent.%d", index), 
 					fmt.Sprintf("value-%d", index))
 				cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-				out, err := cmd.CombinedOutput()
+				_, err := cmd.CombinedOutput()
 				cancel()
 
 				if err != nil {
-					t.Logf("Concurrent %d error: %v, output: %s", index, err, string(out))
+					t.Logf("Concurrent %d error: %v", index, err)
 				}
 				done <- true
 			}(i)
@@ -624,10 +627,10 @@ func TestStateEdgeCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd := exec.CommandContext(ctx, binary, "config", "list")
 		cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		out, _ := cmd.CombinedOutput()
+		finalOut, _ := cmd.CombinedOutput()
 		cancel()
 
-		t.Logf("Final config: %s", string(out))
+		t.Logf("Final config: %s", string(finalOut))
 	})
 
 	t.Run("very_long_config_key", func(t *testing.T) {

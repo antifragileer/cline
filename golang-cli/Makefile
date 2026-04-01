@@ -156,6 +156,36 @@ benchmark-profile:
 	$(GOTEST) ./... -bench=. -benchmem -cpuprofile=cpu.prof -memprofile=mem.prof -run=^#
 	@echo "Profiles generated: cpu.prof, mem.prof"
 
+# Run comprehensive performance profiling
+profile:
+	@echo "Running comprehensive performance profiling..."
+	@./scripts/profile.sh all
+
+# Profile CPU usage
+profile-cpu:
+	@echo "Profiling CPU usage..."
+	@./scripts/profile.sh cpu
+
+# Profile memory usage
+profile-mem:
+	@echo "Profiling memory usage..."
+	@./scripts/profile.sh mem
+
+# Profile startup time
+profile-startup:
+	@echo "Profiling startup time..."
+	@./scripts/profile.sh startup
+
+# Profile binary size
+profile-binary:
+	@echo "Profiling binary size..."
+	@./scripts/profile.sh binary
+
+# Compare with TypeScript CLI
+profile-compare:
+	@echo "Comparing with TypeScript CLI..."
+	@./scripts/profile.sh compare
+
 # Run specific test pattern
 test-pattern:
 	@echo "Running tests matching pattern: $(PATTERN)"
@@ -413,6 +443,14 @@ help:
 	@echo "  make test-all           - Run all tests"
 	@echo "  make benchmark          - Run benchmarks"
 	@echo "  make benchmark-profile  - Run benchmarks with CPU/memory profiling"
+	@echo ""
+	@echo "Profiling:"
+	@echo "  make profile            - Run comprehensive performance profiling"
+	@echo "  make profile-cpu        - Profile CPU usage"
+	@echo "  make profile-mem        - Profile memory usage"
+	@echo "  make profile-startup    - Profile startup time"
+	@echo "  make profile-binary     - Profile binary size"
+	@echo "  make profile-compare    - Compare with TypeScript CLI"
 	@echo ""
 	@echo "Quality:"
 	@echo "  make lint               - Run linting"

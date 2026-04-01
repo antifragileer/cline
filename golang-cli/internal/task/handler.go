@@ -4,614 +4,515 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"strings"
 	"time"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
-// MessageHandler handles messages from the task runner.
-type MessageHandler interface {
-	// OnSay handles a SAY message from the assistant
-	OnSay(sayType string, text string, partial bool)
-	// OnAsk handles an ASK message that requires user response
-	OnAsk(askType string, text string) (string, error)
-	// OnInfo handles informational messages
-	OnInfo(text string)
-	// OnError handles error messages
-	OnError(err error)
-	// OnStatus handles status updates
-	OnStatus(status string)
-	// OnProgress handles progress updates
-	OnProgress(current, total int)
-}
-
-// ClineMessage represents a message in the format matching Node.js CLI
-type ClineMessage struct {
-	Ts                            int64    `json:"ts"`
-	Type                          string   `json:"type"` // "ask" or "say"
-	Ask                           string   `json:"ask,omitempty"`
-	Say                           string   `json:"say,omitempty"`
-	Text                          string   `json:"text,omitempty"`
-	Reasoning                     string   `json:"reasoning,omitempty"`
-	Images                        []string `json:"images,omitempty"`
-	Files                         []string `json:"files,omitempty"`
-	Partial                       bool     `json:"partial,omitempty"`
-	CommandCompleted              bool     `json:"commandCompleted,omitempty"`
-	LastCheckpointHash            string   `json:"lastCheckpointHash,omitempty"`
-	IsCheckpointCheckedOut        bool     `json:"isCheckpointCheckedOut,omitempty"`
-	IsOperationOutsideWorkspace   bool     `json:"isOperationOutsideWorkspace,omitempty"`
-	ConversationHistoryIndex      int      `json:"conversationHistoryIndex,omitempty"`
-	ConversationHistoryDeletedRange []int  `json:"conversationHistoryDeletedRange,omitempty"`
-}
-
-// ClineAsk represents the ask types matching Node.js CLI
-type ClineAsk string
+// MessageType represents the type of message from the core extension
+type MessageType string
 
 const (
-	ClineAskFollowup              ClineAsk = "followup"
-	ClineAskPlanModeRespond       ClineAsk = "plan_mode_respond"
-	ClineAskActModeRespond        ClineAsk = "act_mode_respond"
-	ClineAskCommand               ClineAsk = "command"
-	ClineAskCommandOutput         ClineAsk = "command_output"
-	ClineAskCompletionResult      ClineAsk = "completion_result"
-	ClineAskTool                  ClineAsk = "tool"
-	ClineAskAPIReqFailed          ClineAsk = "api_req_failed"
-	ClineAskResumeTask            ClineAsk = "resume_task"
-	ClineAskResumeCompletedTask   ClineAsk = "resume_completed_task"
-	ClineAskMistakeLimitReached   ClineAsk = "mistake_limit_reached"
-	ClineAskBrowserActionLaunch   ClineAsk = "browser_action_launch"
-	ClineAskUseMcpServer          ClineAsk = "use_mcp_server"
-	ClineAskNewTask               ClineAsk = "new_task"
-	ClineAskCondense              ClineAsk = "condense"
-	ClineAskSummarizeTask         ClineAsk = "summarize_task"
-	ClineAskReportBug             ClineAsk = "report_bug"
-	ClineAskUseSubagents          ClineAsk = "use_subagents"
+	// MessageTypeText represents a text message
+	MessageTypeText MessageType = "text"
+	// MessageTypeTool represents a tool execution
+	MessageTypeTool MessageType = "tool"
+	// MessageTypeAsk represents an ask prompt
+	MessageTypeAsk MessageType = "ask"
+	// MessageTypeSay represents a say message
+	MessageTypeSay MessageType = "say"
+	// MessageTypeCommand represents a command execution
+	MessageTypeCommand MessageType = "command"
+	// MessageTypeError represents an error
+	MessageTypeError MessageType = "error"
+	// MessageTypeSystem represents a system message
+	MessageTypeSystem MessageType = "system"
+	// MessageTypeCheckpoint represents a checkpoint
+	MessageTypeCheckpoint MessageType = "checkpoint"
+	// MessageTypeBrowser represents a browser action
+	MessageTypeBrowser MessageType = "browser"
+	// MessageTypeMCP represents an MCP tool
+	MessageTypeMCP MessageType = "mcp"
+	// MessageTypeCompletion represents task completion
+	MessageTypeCompletion MessageType = "completion"
 )
 
-// ClineSay represents the say types matching Node.js CLI
+// MessageHandler handles messages from the core extension
+type MessageHandler interface {
+	// HandleMessage processes a single message
+	HandleMessage(msg Message) error
+	// OnText handles text messages
+	OnText(content string, isPartial bool) error
+	// OnToolUse handles tool use requests
+	OnToolUse(toolName string, params map[string]interface{}) (bool, error)
+	// OnToolResult handles tool execution results
+	OnToolResult(toolName string, result string, success bool) error
+	// OnAsk handles ask prompts
+	OnAsk(promptType string, question string) (string, error)
+	// OnSay handles say messages
+	OnSay(sayType string, content string, partial bool) error
+	// OnCommand handles command execution requests
+	OnCommand(command string, requiresApproval bool) (string, error)
+	// OnCommandOutput handles command output
+	OnCommandOutput(output string, isComplete bool) error
+	// OnError handles errors
+	OnError(err error) error
+	// OnInfo handles info messages
+	OnInfo(message string) error
+	// OnStatus handles status messages
+	OnStatus(status string) error
+	// OnProgress handles progress updates
+	OnProgress(current, total int) error
+	// OnCheckpoint handles checkpoint events
+	OnCheckpoint(checkpointID string, action string) error
+	// OnBrowserAction handles browser actions
+	OnBrowserAction(action string, url string) (string, error)
+	// OnMCPRequest handles MCP tool requests
+	OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error)
+	// OnCompletion handles task completion
+	OnCompletion(success bool, summary string) error
+}
+
+// ClineMessage represents a message from the Cline core
+type ClineMessage struct {
+	Type    string `json:"type"`
+	Say     string `json:"say,omitempty"`
+	Ask     string `json:"ask,omitempty"`
+	Text    string `json:"text,omitempty"`
+	Ts      int64  `json:"ts"`
+	Partial bool   `json:"partial,omitempty"`
+}
+
+// ClineSay represents SAY message types
 type ClineSay string
 
 const (
-	ClineSayTask                           ClineSay = "task"
-	ClineSayError                          ClineSay = "error"
-	ClineSayErrorRetry                     ClineSay = "error_retry"
-	ClineSayAPIReqStarted                  ClineSay = "api_req_started"
-	ClineSayAPIReqFinished                 ClineSay = "api_req_finished"
-	ClineSayText                           ClineSay = "text"
-	ClineSayReasoning                      ClineSay = "reasoning"
-	ClineSayCompletionResult               ClineSay = "completion_result"
-	ClineSayUserFeedback                   ClineSay = "user_feedback"
-	ClineSayUserFeedbackDiff               ClineSay = "user_feedback_diff"
-	ClineSayAPIReqRetried                  ClineSay = "api_req_retried"
-	ClineSayCommand                        ClineSay = "command"
-	ClineSayCommandOutput                  ClineSay = "command_output"
-	ClineSayTool                           ClineSay = "tool"
-	ClineSayShellIntegrationWarning        ClineSay = "shell_integration_warning"
-	ClineSayShellIntegrationWarningWithSuggestion ClineSay = "shell_integration_warning_with_suggestion"
-	ClineSayBrowserActionLaunch            ClineSay = "browser_action_launch"
-	ClineSayBrowserAction                  ClineSay = "browser_action"
-	ClineSayBrowserActionResult            ClineSay = "browser_action_result"
-	ClineSayMcpServerRequestStarted        ClineSay = "mcp_server_request_started"
-	ClineSayMcpServerResponse              ClineSay = "mcp_server_response"
-	ClineSayMcpNotification                ClineSay = "mcp_notification"
-	ClineSayUseMcpServer                   ClineSay = "use_mcp_server"
-	ClineSayDiffError                      ClineSay = "diff_error"
-	ClineSayDeletedAPIReqs                 ClineSay = "deleted_api_reqs"
-	ClineSayClineignoreError               ClineSay = "clineignore_error"
-	ClineSayCommandPermissionDenied        ClineSay = "command_permission_denied"
-	ClineSayCheckpointCreated              ClineSay = "checkpoint_created"
-	ClineSayLoadMcpDocumentation           ClineSay = "load_mcp_documentation"
-	ClineSayGenerateExplanation            ClineSay = "generate_explanation"
-	ClineSayInfo                           ClineSay = "info"
-	ClineSayTaskProgress                   ClineSay = "task_progress"
-	ClineSayHookStatus                     ClineSay = "hook_status"
-	ClineSayHookOutputStream               ClineSay = "hook_output_stream"
-	ClineSaySubagent                       ClineSay = "subagent"
-	ClineSayUseSubagents                   ClineSay = "use_subagents"
-	ClineSaySubagentUsage                  ClineSay = "subagent_usage"
-	ClineSayConditionalRulesApplied        ClineSay = "conditional_rules_applied"
+	// ClineSayText is a text message
+	ClineSayText ClineSay = "text"
+	// ClineSayReasoning is a reasoning message
+	ClineSayReasoning ClineSay = "reasoning"
+	// ClineSayCommand is a command message
+	ClineSayCommand ClineSay = "command"
+	// ClineSayCommandOutput is command output
+	ClineSayCommandOutput ClineSay = "command_output"
+	// ClineSayTool is a tool message
+	ClineSayTool ClineSay = "tool"
+	// ClineSayCompletionResult is a completion result
+	ClineSayCompletionResult ClineSay = "completion_result"
+	// ClineSayAPIReqStarted is an API request started message
+	ClineSayAPIReqStarted ClineSay = "api_req_started"
+	// ClineSayAPIReqFinished is an API request finished message
+	ClineSayAPIReqFinished ClineSay = "api_req_finished"
+	// ClineSayError is an error message
+	ClineSayError ClineSay = "error"
+	// ClineSayCheckpointCreated is a checkpoint created message
+	ClineSayCheckpointCreated ClineSay = "checkpoint_created"
 )
 
-// PlainTextHandler handles messages in plain text format.
-type PlainTextHandler struct {
-	Verbose     bool
-	JSONOutput  bool
-	Output      io.Writer
-	AutoApprove bool
-	
-	// For tracking messages in non-JSON mode
-	processedMessages map[int64]string
-	completionCutoffTs int64
+// Message represents a message from the core extension
+type Message struct {
+	Type      MessageType            `json:"type"`
+	ID        string                 `json:"id"`
+	Timestamp time.Time              `json:"timestamp"`
+	Content   string                 `json:"content,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	IsPartial bool                   `json:"is_partial,omitempty"`
 }
 
-// NewPlainTextHandler creates a new plain text handler
-func NewPlainTextHandler(verbose, jsonOutput, autoApprove bool, output io.Writer) *PlainTextHandler {
-	if output == nil {
-		output = os.Stdout
-	}
-	return &PlainTextHandler{
-		Verbose:           verbose,
-		JSONOutput:        jsonOutput,
-		Output:            output,
-		AutoApprove:       autoApprove,
-		processedMessages: make(map[int64]string),
-		completionCutoffTs: time.Now().UnixMilli(),
+// DefaultMessageHandler provides a default implementation of MessageHandler
+type DefaultMessageHandler struct {
+	// Callbacks for UI updates
+	textCallback       func(string, bool)
+	toolCallback       func(string, map[string]interface{}) (bool, error)
+	commandCallback    func(string, bool) (string, error)
+	askCallback        func(string, string) (string, error)
+	errorCallback      func(error)
+	completionCallback func(bool, string)
+
+	// State
+	currentTaskID string
+	approvalState map[string]bool // tool -> approved
+}
+
+// NewDefaultMessageHandler creates a new default message handler
+func NewDefaultMessageHandler() *DefaultMessageHandler {
+	return &DefaultMessageHandler{
+		approvalState: make(map[string]bool),
 	}
 }
 
-// OnSay handles a SAY message from the assistant
-func (h *PlainTextHandler) OnSay(sayType string, text string, partial bool) {
-	if h.Output == nil {
-		h.Output = os.Stdout
+// SetTextCallback sets the text message callback
+func (h *DefaultMessageHandler) SetTextCallback(cb func(string, bool)) {
+	h.textCallback = cb
+}
+
+// SetToolCallback sets the tool callback
+func (h *DefaultMessageHandler) SetToolCallback(cb func(string, map[string]interface{}) (bool, error)) {
+	h.toolCallback = cb
+}
+
+// SetCommandCallback sets the command callback
+func (h *DefaultMessageHandler) SetCommandCallback(cb func(string, bool) (string, error)) {
+	h.commandCallback = cb
+}
+
+// SetAskCallback sets the ask callback
+func (h *DefaultMessageHandler) SetAskCallback(cb func(string, string) (string, error)) {
+	h.askCallback = cb
+}
+
+// SetErrorCallback sets the error callback
+func (h *DefaultMessageHandler) SetErrorCallback(cb func(error)) {
+	h.errorCallback = cb
+}
+
+// SetCompletionCallback sets the completion callback
+func (h *DefaultMessageHandler) SetCompletionCallback(cb func(bool, string)) {
+	h.completionCallback = cb
+}
+
+// HandleMessage processes a message based on its type
+func (h *DefaultMessageHandler) HandleMessage(msg Message) error {
+	switch msg.Type {
+	case MessageTypeText:
+		return h.OnText(msg.Content, msg.IsPartial)
+	case MessageTypeTool:
+		return h.handleToolMessage(msg)
+	case MessageTypeAsk:
+		return h.handleAskMessage(msg)
+	case MessageTypeSay:
+		return h.handleSayMessage(msg)
+	case MessageTypeCommand:
+		return h.handleCommandMessage(msg)
+	case MessageTypeError:
+		return h.OnError(fmt.Errorf(msg.Content))
+	case MessageTypeCheckpoint:
+		return h.handleCheckpointMessage(msg)
+	case MessageTypeBrowser:
+		return h.handleBrowserMessage(msg)
+	case MessageTypeMCP:
+		return h.handleMCPMessage(msg)
+	case MessageTypeCompletion:
+		return h.handleCompletionMessage(msg)
+	default:
+		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
+}
 
-	ts := time.Now().UnixMilli()
-
-	// JSON mode: stream all messages as JSON
-	if h.JSONOutput {
-		msg := ClineMessage{
-			Ts:      ts,
-			Type:    "say",
-			Say:     sayType,
-			Text:    text,
-			Partial: partial,
-		}
-		h.outputJSON(msg)
-		return
+// OnText handles text messages
+func (h *DefaultMessageHandler) OnText(content string, isPartial bool) error {
+	if h.textCallback != nil {
+		h.textCallback(content, isPartial)
 	}
+	return nil
+}
 
-	// Non-JSON mode: don't print partial messages
-	if partial {
-		return
+// OnToolUse handles tool use requests
+func (h *DefaultMessageHandler) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
+	if h.toolCallback != nil {
+		return h.toolCallback(toolName, params)
 	}
+	// Default: approve if previously approved
+	return h.approvalState[toolName], nil
+}
 
-	// Track processed messages
-	h.processedMessages[ts] = text
+// OnToolResult handles tool execution results
+func (h *DefaultMessageHandler) OnToolResult(toolName string, result string, success bool) error {
+	// Default implementation just logs
+	return nil
+}
 
-	// Non-JSON mode output
+// OnAsk handles ask prompts
+func (h *DefaultMessageHandler) OnAsk(promptType string, question string) (string, error) {
+	if h.askCallback != nil {
+		return h.askCallback(promptType, question)
+	}
+	// Default: empty response
+	return "", nil
+}
+
+// OnSay handles say messages
+func (h *DefaultMessageHandler) OnSay(sayType string, content string, partial bool) error {
+	// Handle different say types
 	switch sayType {
 	case "text":
-		if h.Verbose {
-			fmt.Fprintln(h.Output, text)
-		}
+		return h.OnText(content, partial)
 	case "error":
-		fmt.Fprintf(os.Stderr, "Error: %s\n", text)
-	case "command":
-		if h.Verbose {
-			fmt.Fprintf(h.Output, "Command: %s\n", text)
-		}
-	case "command_output":
-		if h.Verbose {
-			fmt.Fprintf(h.Output, "%s\n", text)
-		}
-	case "tool":
-		if h.Verbose {
-			fmt.Fprintf(h.Output, "Tool: %s\n", text)
-		}
-	case "thinking":
-		if h.Verbose {
-			fmt.Fprintf(h.Output, "Thinking: %s\n", text)
-		}
-	case "completion_result":
-		if h.Verbose {
-			fmt.Fprintf(h.Output, "\nResult: %s\n", text)
-		}
+		return h.OnError(fmt.Errorf(content))
 	default:
-		if h.Verbose {
-			fmt.Fprintf(h.Output, "[%s] %s\n", sayType, text)
-		}
+		// Log other say types
+		return nil
 	}
 }
 
-// OnAsk handles an ASK message that requires user response
-func (h *PlainTextHandler) OnAsk(askType string, text string) (string, error) {
-	if h.Output == nil {
-		h.Output = os.Stdout
+// OnInfo handles info messages
+func (h *DefaultMessageHandler) OnInfo(message string) error {
+	// Default: just log to stdout
+	fmt.Println("[INFO]", message)
+	return nil
+}
+
+// OnCommand handles command execution requests
+func (h *DefaultMessageHandler) OnCommand(command string, requiresApproval bool) (string, error) {
+	if h.commandCallback != nil {
+		return h.commandCallback(command, requiresApproval)
 	}
+	// Default: refuse
+	return "", fmt.Errorf("command execution not allowed")
+}
 
-	ts := time.Now().UnixMilli()
+// OnCommandOutput handles command output
+func (h *DefaultMessageHandler) OnCommandOutput(output string, isComplete bool) error {
+	// Treat as text output
+	return h.OnText(output, !isComplete)
+}
 
-	// JSON mode: stream ask as JSON
-	if h.JSONOutput {
-		msg := ClineMessage{
-			Ts:   ts,
-			Type: "ask",
-			Ask:  askType,
-			Text: text,
-		}
-		h.outputJSON(msg)
-		
-		// For JSON mode in plain text handler, auto-approve
-		return "yesButtonClicked", nil
+// OnError handles errors
+func (h *DefaultMessageHandler) OnError(err error) error {
+	if h.errorCallback != nil {
+		h.errorCallback(err)
 	}
+	return err
+}
 
-	// Track processed messages
-	h.processedMessages[ts] = text
+// OnCheckpoint handles checkpoint events
+func (h *DefaultMessageHandler) OnCheckpoint(checkpointID string, action string) error {
+	// Default: just acknowledge
+	return nil
+}
 
-	// Auto-approve if enabled
-	if h.AutoApprove {
-		return "yesButtonClicked", nil
+// OnBrowserAction handles browser actions
+func (h *DefaultMessageHandler) OnBrowserAction(action string, url string) (string, error) {
+	// Default: not implemented
+	return "", fmt.Errorf("browser actions not supported")
+}
+
+// OnMCPRequest handles MCP tool requests
+func (h *DefaultMessageHandler) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
+	// Default: not implemented
+	return "", fmt.Errorf("MCP not supported")
+}
+
+// OnStatus handles status messages
+func (h *DefaultMessageHandler) OnStatus(status string) error {
+	// Default: just log to stdout
+	fmt.Println("[STATUS]", status)
+	return nil
+}
+
+// OnProgress handles progress updates
+func (h *DefaultMessageHandler) OnProgress(current, total int) error {
+	// Default: just log progress
+	if total > 0 {
+		percent := float64(current) * 100.0 / float64(total)
+		fmt.Printf("[PROGRESS] %d/%d (%.1f%%)\n", current, total, percent)
 	}
+	return nil
+}
 
-	// Non-JSON mode: print approval prompt to stderr
-	switch askType {
-	case "tool", "command", "browser_action_launch":
-		fmt.Fprintf(os.Stderr, "Waiting for approval (use --yolo for auto-approve): %s\n", askType)
-	default:
-		if h.Verbose {
-			fmt.Fprintf(os.Stderr, "Question: %s\n", text)
-		}
+// OnCompletion handles task completion
+func (h *DefaultMessageHandler) OnCompletion(success bool, summary string) error {
+	if h.completionCallback != nil {
+		h.completionCallback(success, summary)
 	}
+	return nil
+}
 
-	// Print the question
-	fmt.Fprintf(h.Output, "\n%s\n", text)
-	fmt.Fprint(h.Output, "Response (y/n/a): ")
-
-	// Read response from stdin
-	var response string
-	_, err := fmt.Scanln(&response)
+// handleToolMessage handles tool messages
+func (h *DefaultMessageHandler) handleToolMessage(msg Message) error {
+	toolName, _ := msg.Metadata["tool"].(string)
+	params, _ := msg.Metadata["params"].(map[string]interface{})
+	
+	approved, err := h.OnToolUse(toolName, params)
 	if err != nil {
-		// Default to yes if we can't read
-		return "yesButtonClicked", nil
+		return err
 	}
 
-	// Normalize response
-	response = strings.ToLower(strings.TrimSpace(response))
-	switch response {
-	case "y", "yes", "":
-		return "yesButtonClicked", nil
-	case "n", "no":
-		return "noButtonClicked", nil
-	case "a", "always":
-		return "yesButtonClicked", nil
-	default:
-		return "messageResponse", nil
+	if approved {
+		h.approvalState[toolName] = true
 	}
+
+	return nil
 }
 
-// OnInfo handles informational messages
-func (h *PlainTextHandler) OnInfo(text string) {
-	if !h.Verbose {
-		return
+// handleAskMessage handles ask messages
+func (h *DefaultMessageHandler) handleAskMessage(msg Message) error {
+	promptType, _ := msg.Metadata["ask_type"].(string)
+	response, err := h.OnAsk(promptType, msg.Content)
+	if err != nil {
+		return err
 	}
 
-	ts := time.Now().UnixMilli()
-
-	if h.JSONOutput {
-		msg := ClineMessage{
-			Ts:   ts,
-			Type: "say",
-			Say:  "info",
-			Text: text,
-		}
-		h.outputJSON(msg)
-	} else if h.Output != nil {
-		fmt.Fprintf(h.Output, "[INFO] %s\n", text)
-	}
+	// Store response for next message
+	msg.Metadata["response"] = response
+	return nil
 }
 
-// OnError handles error messages
-func (h *PlainTextHandler) OnError(err error) {
-	if h.Output == nil {
-		h.Output = os.Stderr
-	}
-
-	ts := time.Now().UnixMilli()
-
-	if h.JSONOutput {
-		msg := ClineMessage{
-			Ts:   ts,
-			Type: "say",
-			Say:  "error",
-			Text: err.Error(),
-		}
-		h.outputJSON(msg)
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-	}
+// handleSayMessage handles say messages
+func (h *DefaultMessageHandler) handleSayMessage(msg Message) error {
+	sayType, _ := msg.Metadata["say_type"].(string)
+	partial, _ := msg.Metadata["partial"].(bool)
+	return h.OnSay(sayType, msg.Content, partial)
 }
 
-// OnStatus handles status updates
-func (h *PlainTextHandler) OnStatus(status string) {
-	if !h.Verbose {
-		return
-	}
-
-	ts := time.Now().UnixMilli()
-
-	if h.JSONOutput {
-		msg := ClineMessage{
-			Ts:   ts,
-			Type: "say",
-			Say:  "info",
-			Text: status,
-		}
-		h.outputJSON(msg)
-	} else if h.Output != nil {
-		fmt.Fprintf(h.Output, "[STATUS] %s\n", status)
-	}
-}
-
-// OnProgress handles progress updates
-func (h *PlainTextHandler) OnProgress(current, total int) {
-	if !h.Verbose {
-		return
-	}
-
-	ts := time.Now().UnixMilli()
-
-	if h.JSONOutput {
-		msg := ClineMessage{
-			Ts:   ts,
-			Type: "say",
-			Say:  "task_progress",
-			Text: fmt.Sprintf("%d/%d", current, total),
-		}
-		h.outputJSON(msg)
-	} else if h.Output != nil {
-		fmt.Fprintf(h.Output, "[PROGRESS] %d/%d\n", current, total)
-	}
-}
-
-// outputJSON outputs a message as JSON
-func (h *PlainTextHandler) outputJSON(msg ClineMessage) {
-	if h.Output == nil {
-		h.Output = os.Stdout
-	}
-	encoder := json.NewEncoder(h.Output)
-	encoder.Encode(msg)
-}
-
-// WriteFinalOutput writes the final completion result (for non-JSON mode)
-func (h *PlainTextHandler) WriteFinalOutput() {
-	if h.JSONOutput || h.Verbose {
-		return
-	}
-
-	// Find the last message (completion_result)
-	var lastMsg string
-	var maxTs int64
-	for ts, msg := range h.processedMessages {
-		if ts > maxTs {
-			maxTs = ts
-			lastMsg = msg
-		}
-	}
-
-	if lastMsg != "" {
-		fmt.Fprintln(h.Output, lastMsg)
-	}
-}
-
-// JSONHandler handles messages in JSON format matching Node.js CLI exactly.
-type JSONHandler struct {
-	Output            io.Writer
-	processedMessages map[int64]bool
-}
-
-// NewJSONHandler creates a new JSON handler
-func NewJSONHandler(output io.Writer) *JSONHandler {
-	if output == nil {
-		output = os.Stdout
-	}
-	return &JSONHandler{
-		Output:            output,
-		processedMessages: make(map[int64]bool),
-	}
-}
-
-// OnSay handles a SAY message from the assistant
-func (h *JSONHandler) OnSay(sayType string, text string, partial bool) {
-	ts := time.Now().UnixMilli()
+// handleCommandMessage handles command messages
+func (h *DefaultMessageHandler) handleCommandMessage(msg Message) error {
+	command, _ := msg.Metadata["command"].(string)
+	requiresApproval, _ := msg.Metadata["requires_approval"].(bool)
 	
-	// Skip if we've already processed this timestamp
-	if h.processedMessages[ts] {
-		ts++ // Ensure unique timestamp
+	output, err := h.OnCommand(command, requiresApproval)
+	if err != nil {
+		return err
 	}
-	h.processedMessages[ts] = true
 
-	msg := ClineMessage{
-		Ts:      ts,
-		Type:    "say",
-		Say:     sayType,
-		Text:    text,
-		Partial: partial,
-	}
-	h.outputJSON(msg)
+	// Store output
+	msg.Metadata["output"] = output
+	return nil
 }
 
-// OnAsk handles an ASK message that requires user response
-func (h *JSONHandler) OnAsk(askType string, text string) (string, error) {
-	ts := time.Now().UnixMilli()
+// handleCheckpointMessage handles checkpoint messages
+func (h *DefaultMessageHandler) handleCheckpointMessage(msg Message) error {
+	checkpointID, _ := msg.Metadata["checkpoint_id"].(string)
+	action, _ := msg.Metadata["action"].(string)
+	return h.OnCheckpoint(checkpointID, action)
+}
+
+// handleBrowserMessage handles browser messages
+func (h *DefaultMessageHandler) handleBrowserMessage(msg Message) error {
+	action, _ := msg.Metadata["action"].(string)
+	url, _ := msg.Metadata["url"].(string)
 	
-	// Skip if we've already processed this timestamp
-	if h.processedMessages[ts] {
-		ts++ // Ensure unique timestamp
+	result, err := h.OnBrowserAction(action, url)
+	if err != nil {
+		return err
 	}
-	h.processedMessages[ts] = true
 
-	msg := ClineMessage{
-		Ts:   ts,
-		Type: "ask",
-		Ask:  askType,
-		Text: text,
-	}
-	h.outputJSON(msg)
-
-	// For JSON mode, auto-approve
-	return "yesButtonClicked", nil
+	msg.Metadata["result"] = result
+	return nil
 }
 
-// OnInfo handles informational messages
-func (h *JSONHandler) OnInfo(text string) {
-	ts := time.Now().UnixMilli()
-	if h.processedMessages[ts] {
-		ts++
+// handleMCPMessage handles MCP messages
+func (h *DefaultMessageHandler) handleMCPMessage(msg Message) error {
+	server, _ := msg.Metadata["server"].(string)
+	tool, _ := msg.Metadata["tool"].(string)
+	params, _ := msg.Metadata["params"].(map[string]interface{})
+	
+	result, err := h.OnMCPRequest(server, tool, params)
+	if err != nil {
+		return err
 	}
-	h.processedMessages[ts] = true
 
-	msg := ClineMessage{
-		Ts:   ts,
-		Type: "say",
-		Say:  "info",
-		Text: text,
-	}
-	h.outputJSON(msg)
+	msg.Metadata["result"] = result
+	return nil
 }
 
-// OnError handles error messages
-func (h *JSONHandler) OnError(err error) {
-	ts := time.Now().UnixMilli()
-	if h.processedMessages[ts] {
-		ts++
-	}
-	h.processedMessages[ts] = true
-
-	msg := ClineMessage{
-		Ts:   ts,
-		Type: "say",
-		Say:  "error",
-		Text: err.Error(),
-	}
-	h.outputJSON(msg)
+// handleCompletionMessage handles completion messages
+func (h *DefaultMessageHandler) handleCompletionMessage(msg Message) error {
+	success, _ := msg.Metadata["success"].(bool)
+	summary, _ := msg.Metadata["summary"].(string)
+	return h.OnCompletion(success, summary)
 }
 
-// OnStatus handles status updates
-func (h *JSONHandler) OnStatus(status string) {
-	ts := time.Now().UnixMilli()
-	if h.processedMessages[ts] {
-		ts++
+// ParseMessage parses a raw message into a Message struct
+func ParseMessage(data []byte) (*Message, error) {
+	var msg Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return nil, fmt.Errorf("failed to parse message: %w", err)
 	}
-	h.processedMessages[ts] = true
+	return &msg, nil
+}
 
-	msg := ClineMessage{
-		Ts:   ts,
-		Type: "say",
-		Say:  "info",
-		Text: status,
+// SerializeMessage serializes a Message to bytes
+func SerializeMessage(msg *Message) ([]byte, error) {
+	return json.Marshal(msg)
+}
+
+// MessageFilter filters messages based on criteria
+type MessageFilter struct {
+	Types     []MessageType
+	Since     time.Time
+	TaskID    string
+	Contains  string
+}
+
+// Filter applies the filter to a slice of messages
+func (f *MessageFilter) Filter(messages []Message) []Message {
+	var filtered []Message
+	
+	for _, msg := range messages {
+		// Filter by type
+		if len(f.Types) > 0 {
+			found := false
+			for _, t := range f.Types {
+				if msg.Type == t {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+
+		// Filter by time
+		if !f.Since.IsZero() && msg.Timestamp.Before(f.Since) {
+			continue
+		}
+
+		// Filter by content
+		if f.Contains != "" && !strings.Contains(msg.Content, f.Contains) {
+			continue
+		}
+
+		filtered = append(filtered, msg)
 	}
-	h.outputJSON(msg)
+
+	return filtered
 }
 
-// OnProgress handles progress updates
-func (h *JSONHandler) OnProgress(current, total int) {
-	ts := time.Now().UnixMilli()
-	if h.processedMessages[ts] {
-		ts++
-	}
-	h.processedMessages[ts] = true
-
-	msg := ClineMessage{
-		Ts:   ts,
-		Type: "say",
-		Say:  "task_progress",
-		Text: fmt.Sprintf("%d/%d", current, total),
-	}
-	h.outputJSON(msg)
+// MessageBuffer buffers messages for batch processing
+type MessageBuffer struct {
+	messages []Message
+	maxSize  int
+	timeout  time.Duration
+	lastFlush time.Time
 }
 
-// outputJSON outputs a message as JSON
-func (h *JSONHandler) outputJSON(msg ClineMessage) {
-	encoder := json.NewEncoder(h.Output)
-	encoder.Encode(msg)
-}
-
-// TUIHandler handles messages in TUI format using Bubble Tea.
-type TUIHandler struct {
-	program *tea.Program
-}
-
-// NewTUIHandler creates a new TUI handler
-func NewTUIHandler() *TUIHandler {
-	return &TUIHandler{}
-}
-
-// OnSay handles a SAY message from the assistant
-func (h *TUIHandler) OnSay(sayType string, text string, partial bool) {
-	// Send message to TUI
-	if h.program != nil {
-		h.program.Send(tuiMessage{
-			msgType: sayType,
-			text:    text,
-			partial: partial,
-		})
+// NewMessageBuffer creates a new message buffer
+func NewMessageBuffer(maxSize int, timeout time.Duration) *MessageBuffer {
+	return &MessageBuffer{
+		messages:  make([]Message, 0, maxSize),
+		maxSize:   maxSize,
+		timeout:   timeout,
+		lastFlush: time.Now(),
 	}
 }
 
-// OnAsk handles an ASK message that requires user response
-func (h *TUIHandler) OnAsk(askType string, text string) (string, error) {
-	// Send ask to TUI and wait for response
-	if h.program != nil {
-		h.program.Send(tuiAskMessage{
-			askType: askType,
-			text:    text,
-		})
+// Add adds a message to the buffer
+func (b *MessageBuffer) Add(msg Message) []Message {
+	b.messages = append(b.messages, msg)
+	
+	// Check if we need to flush
+	if len(b.messages) >= b.maxSize || time.Since(b.lastFlush) >= b.timeout {
+		return b.Flush()
 	}
-	// For now, return auto-approve
-	return "yesButtonClicked", nil
+	
+	return nil
 }
 
-// OnInfo handles informational messages
-func (h *TUIHandler) OnInfo(text string) {
-	if h.program != nil {
-		h.program.Send(tuiMessage{
-			msgType: "info",
-			text:    text,
-		})
-	}
+// Flush returns all buffered messages and clears the buffer
+func (b *MessageBuffer) Flush() []Message {
+	messages := b.messages
+	b.messages = make([]Message, 0, b.maxSize)
+	b.lastFlush = time.Now()
+	return messages
 }
 
-// OnError handles error messages
-func (h *TUIHandler) OnError(err error) {
-	if h.program != nil {
-		h.program.Send(tuiMessage{
-			msgType: "error",
-			text:    err.Error(),
-		})
-	}
+// IsEmpty returns true if the buffer is empty
+func (b *MessageBuffer) IsEmpty() bool {
+	return len(b.messages) == 0
 }
 
-// OnStatus handles status updates
-func (h *TUIHandler) OnStatus(status string) {
-	if h.program != nil {
-		h.program.Send(tuiMessage{
-			msgType: "status",
-			text:    status,
-		})
-	}
-}
-
-// OnProgress handles progress updates
-func (h *TUIHandler) OnProgress(current, total int) {
-	if h.program != nil {
-		h.program.Send(tuiProgressMessage{
-			current: current,
-			total:   total,
-		})
-	}
-}
-
-// SetProgram sets the Bubble Tea program
-func (h *TUIHandler) SetProgram(program *tea.Program) {
-	h.program = program
-}
-
-// TUI message types
-type tuiMessage struct {
-	msgType string
-	text    string
-	partial bool
-}
-
-type tuiAskMessage struct {
-	askType string
-	text    string
-}
-
-type tuiProgressMessage struct {
-	current int
-	total   int
+// Size returns the number of buffered messages
+func (b *MessageBuffer) Size() int {
+	return len(b.messages)
 }

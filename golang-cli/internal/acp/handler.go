@@ -401,7 +401,7 @@ type acpMessageHandler struct {
 }
 
 // OnSay implements task.MessageHandler
-func (h *acpMessageHandler) OnSay(sayType string, text string, partial bool) {
+func (h *acpMessageHandler) OnSay(sayType string, text string, partial bool) error {
 	h.logger.Debug("Received say message in ACP handler", "type", sayType, "partial", partial)
 
 	// Convert task message to ACP session update
@@ -419,7 +419,7 @@ func (h *acpMessageHandler) OnSay(sayType string, text string, partial bool) {
 	select {
 	case h.session.Updates <- update:
 	case <-h.session.Done:
-		return
+		return nil
 	}
 
 	// Also send via server if available
@@ -428,6 +428,7 @@ func (h *acpMessageHandler) OnSay(sayType string, text string, partial bool) {
 			h.logger.Warn("Failed to send session update", "error", err)
 		}
 	}
+	return nil
 }
 
 // OnAsk implements task.MessageHandler
@@ -464,7 +465,7 @@ func (h *acpMessageHandler) OnAsk(askType string, text string) (string, error) {
 }
 
 // OnInfo implements task.MessageHandler
-func (h *acpMessageHandler) OnInfo(text string) {
+func (h *acpMessageHandler) OnInfo(text string) error {
 	h.logger.Debug("Received info message in ACP handler", "text", text)
 
 	update := &SessionUpdate{
@@ -478,7 +479,7 @@ func (h *acpMessageHandler) OnInfo(text string) {
 	select {
 	case h.session.Updates <- update:
 	case <-h.session.Done:
-		return
+		return nil
 	}
 
 	if h.server != nil {
@@ -486,10 +487,11 @@ func (h *acpMessageHandler) OnInfo(text string) {
 			h.logger.Warn("Failed to send info update", "error", err)
 		}
 	}
+	return nil
 }
 
 // OnError implements task.MessageHandler
-func (h *acpMessageHandler) OnError(err error) {
+func (h *acpMessageHandler) OnError(err error) error {
 	h.logger.Error("Error in ACP handler", "error", err)
 
 	update := &SessionUpdate{
@@ -503,7 +505,7 @@ func (h *acpMessageHandler) OnError(err error) {
 	select {
 	case h.session.Updates <- update:
 	case <-h.session.Done:
-		return
+		return nil
 	}
 
 	if h.server != nil {
@@ -511,10 +513,11 @@ func (h *acpMessageHandler) OnError(err error) {
 			h.logger.Warn("Failed to send error update", "error", err)
 		}
 	}
+	return nil
 }
 
 // OnStatus implements task.MessageHandler
-func (h *acpMessageHandler) OnStatus(status string) {
+func (h *acpMessageHandler) OnStatus(status string) error {
 	h.logger.Debug("Received status message in ACP handler", "status", status)
 
 	update := &SessionUpdate{
@@ -528,7 +531,7 @@ func (h *acpMessageHandler) OnStatus(status string) {
 	select {
 	case h.session.Updates <- update:
 	case <-h.session.Done:
-		return
+		return nil
 	}
 
 	if h.server != nil {
@@ -536,10 +539,11 @@ func (h *acpMessageHandler) OnStatus(status string) {
 			h.logger.Warn("Failed to send status update", "error", err)
 		}
 	}
+	return nil
 }
 
 // OnProgress implements task.MessageHandler
-func (h *acpMessageHandler) OnProgress(current, total int) {
+func (h *acpMessageHandler) OnProgress(current, total int) error {
 	h.logger.Debug("Received progress message in ACP handler", "current", current, "total", total)
 
 	update := &SessionUpdate{
@@ -554,7 +558,7 @@ func (h *acpMessageHandler) OnProgress(current, total int) {
 	select {
 	case h.session.Updates <- update:
 	case <-h.session.Done:
-		return
+		return nil
 	}
 
 	if h.server != nil {
@@ -562,11 +566,105 @@ func (h *acpMessageHandler) OnProgress(current, total int) {
 			h.logger.Warn("Failed to send progress update", "error", err)
 		}
 	}
+	return nil
 }
 
 // SetServer sets the ACP server reference for sending notifications
 func (h *acpMessageHandler) SetServer(server *Server) {
 	h.server = server
+}
+
+// HandleMessage implements task.MessageHandler
+func (h *acpMessageHandler) HandleMessage(msg task.Message) error {
+	// Handle based on message type
+	switch msg.Type {
+	case task.MessageTypeSay:
+		sayType, _ := msg.Metadata["say_type"].(string)
+		partial, _ := msg.Metadata["partial"].(bool)
+		h.OnSay(sayType, msg.Content, partial)
+		return nil
+	case task.MessageTypeAsk:
+		askType, _ := msg.Metadata["ask_type"].(string)
+		_, err := h.OnAsk(askType, msg.Content)
+		return err
+	case task.MessageTypeError:
+		h.OnError(fmt.Errorf(msg.Content))
+		return nil
+	default:
+		// For other types, just show as info
+		h.OnInfo(msg.Content)
+		return nil
+	}
+}
+
+// OnText implements task.MessageHandler
+func (h *acpMessageHandler) OnText(content string, isPartial bool) error {
+	h.OnSay("text", content, isPartial)
+	return nil
+}
+
+// OnToolUse implements task.MessageHandler
+func (h *acpMessageHandler) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
+	h.logger.Debug("Tool use request", "tool", toolName)
+	// Auto-approve in ACP mode
+	return true, nil
+}
+
+// OnToolResult implements task.MessageHandler
+func (h *acpMessageHandler) OnToolResult(toolName string, result string, success bool) error {
+	h.logger.Debug("Tool result", "tool", toolName, "success", success)
+	return nil
+}
+
+// OnCommand implements task.MessageHandler
+func (h *acpMessageHandler) OnCommand(command string, requiresApproval bool) (string, error) {
+	h.logger.Debug("Command request", "command", command, "requiresApproval", requiresApproval)
+	// Auto-approve in ACP mode
+	return "execute", nil
+}
+
+// OnCommandOutput implements task.MessageHandler
+func (h *acpMessageHandler) OnCommandOutput(output string, isComplete bool) error {
+	h.OnSay("command_output", output, !isComplete)
+	return nil
+}
+
+// OnCheckpoint implements task.MessageHandler
+func (h *acpMessageHandler) OnCheckpoint(checkpointID string, action string) error {
+	h.logger.Debug("Checkpoint event", "checkpointID", checkpointID, "action", action)
+	return nil
+}
+
+// OnBrowserAction implements task.MessageHandler
+func (h *acpMessageHandler) OnBrowserAction(action string, url string) (string, error) {
+	h.logger.Debug("Browser action", "action", action, "url", url)
+	// Auto-approve in ACP mode
+	return "", nil
+}
+
+// OnMCPRequest implements task.MessageHandler
+func (h *acpMessageHandler) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
+	h.logger.Debug("MCP request", "server", server, "tool", tool)
+	// Auto-approve in ACP mode
+	return "", nil
+}
+
+// OnCompletion implements task.MessageHandler
+func (h *acpMessageHandler) OnCompletion(success bool, summary string) error {
+	h.logger.Info("Task completion", "success", success)
+	update := &SessionUpdate{
+		SessionID: h.sessionID,
+		Type:      "completion",
+		Data: map[string]interface{}{
+			"success": success,
+			"summary": summary,
+		},
+	}
+	select {
+	case h.session.Updates <- update:
+	case <-h.session.Done:
+	}
+	return nil
 }
 
 // Ensure acpMessageHandler implements task.MessageHandler

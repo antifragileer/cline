@@ -513,9 +513,14 @@ type yoloHandlerWrapper struct {
 	inner       task.MessageHandler
 }
 
+// HandleMessage implements task.MessageHandler
+func (w *yoloHandlerWrapper) HandleMessage(msg task.Message) error {
+	return w.inner.HandleMessage(msg)
+}
+
 // OnSay handles a SAY message.
-func (w *yoloHandlerWrapper) OnSay(sayType string, text string, partial bool) {
-	w.inner.OnSay(sayType, text, partial)
+func (w *yoloHandlerWrapper) OnSay(sayType string, text string, partial bool) error {
+	return w.inner.OnSay(sayType, text, partial)
 }
 
 // OnAsk handles an ASK message.
@@ -535,23 +540,68 @@ func (w *yoloHandlerWrapper) OnAsk(askType string, text string) (string, error) 
 }
 
 // OnInfo handles informational messages.
-func (w *yoloHandlerWrapper) OnInfo(text string) {
-	w.inner.OnInfo(text)
+func (w *yoloHandlerWrapper) OnInfo(text string) error {
+	return w.inner.OnInfo(text)
 }
 
 // OnError handles error messages.
-func (w *yoloHandlerWrapper) OnError(err error) {
-	w.inner.OnError(err)
+func (w *yoloHandlerWrapper) OnError(err error) error {
+	return w.inner.OnError(err)
 }
 
 // OnStatus handles status updates.
-func (w *yoloHandlerWrapper) OnStatus(status string) {
-	w.inner.OnStatus(status)
+func (w *yoloHandlerWrapper) OnStatus(status string) error {
+	return w.inner.OnStatus(status)
 }
 
 // OnProgress handles progress updates.
-func (w *yoloHandlerWrapper) OnProgress(current, total int) {
-	w.inner.OnProgress(current, total)
+func (w *yoloHandlerWrapper) OnProgress(current, total int) error {
+	return w.inner.OnProgress(current, total)
+}
+
+// OnText handles text messages
+func (w *yoloHandlerWrapper) OnText(content string, isPartial bool) error {
+	return w.inner.OnText(content, isPartial)
+}
+
+// OnToolUse handles tool use requests
+func (w *yoloHandlerWrapper) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
+	return w.inner.OnToolUse(toolName, params)
+}
+
+// OnToolResult handles tool execution results
+func (w *yoloHandlerWrapper) OnToolResult(toolName string, result string, success bool) error {
+	return w.inner.OnToolResult(toolName, result, success)
+}
+
+// OnCommand handles command execution requests
+func (w *yoloHandlerWrapper) OnCommand(command string, requiresApproval bool) (string, error) {
+	return w.inner.OnCommand(command, requiresApproval)
+}
+
+// OnCommandOutput handles command output
+func (w *yoloHandlerWrapper) OnCommandOutput(output string, isComplete bool) error {
+	return w.inner.OnCommandOutput(output, isComplete)
+}
+
+// OnCheckpoint handles checkpoint events
+func (w *yoloHandlerWrapper) OnCheckpoint(checkpointID string, action string) error {
+	return w.inner.OnCheckpoint(checkpointID, action)
+}
+
+// OnBrowserAction handles browser actions
+func (w *yoloHandlerWrapper) OnBrowserAction(action string, url string) (string, error) {
+	return w.inner.OnBrowserAction(action, url)
+}
+
+// OnMCPRequest handles MCP tool requests
+func (w *yoloHandlerWrapper) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
+	return w.inner.OnMCPRequest(server, tool, params)
+}
+
+// OnCompletion handles task completion
+func (w *yoloHandlerWrapper) OnCompletion(success bool, summary string) error {
+	return w.inner.OnCompletion(success, summary)
 }
 
 // YoloSafetyLimits defines safety limits for yolo mode.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cline/cline/golang-cli/internal/formatter"
 	"github.com/cline/cline/golang-cli/internal/host"
 	"github.com/cline/cline/golang-cli/internal/task"
 )
@@ -159,11 +160,10 @@ func runTask(cmd *cobra.Command, args []string) error {
 
 	// Create message handler based on output mode
 	var handler task.MessageHandler
-	handler = &task.PlainTextHandler{
-		Verbose:     config.Verbose,
-		JSONOutput:  taskFlags.json,
-		Output:      cmd.OutOrStdout(),
-		AutoApprove: config.Yolo || taskFlags.autoApproveAll,
+	if taskFlags.json {
+		handler = formatter.NewJSONHandler(cmd.OutOrStdout(), config.Verbose)
+	} else {
+		handler = formatter.NewPlainHandler(cmd.OutOrStdout(), config.Verbose, config.Yolo || taskFlags.autoApproveAll)
 	}
 
 	// Run the task

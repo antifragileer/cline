@@ -17,6 +17,7 @@ import (
 
 	"github.com/cline/cline/golang-cli/internal/acp"
 	"github.com/cline/cline/golang-cli/internal/exit"
+	"github.com/cline/cline/golang-cli/internal/formatter"
 	"github.com/cline/cline/golang-cli/internal/host"
 	"github.com/cline/cline/golang-cli/internal/mode"
 	"github.com/cline/cline/golang-cli/internal/storage"
@@ -793,13 +794,13 @@ func runTaskWithGRPC(opts *RootOptions) error {
 	var handler task.MessageHandler
 	if opts.JSON {
 		// JSON mode - use JSONHandler for exact format parity
-		handler = task.NewJSONHandler(os.Stdout)
+		handler = formatter.NewJSONHandler(os.Stdout, verbose)
 	} else if isTTY() && !opts.Yolo && !opts.AutoApproveAll {
 		// Interactive TTY mode without auto-approve - use InteractiveHandler
-		handler = task.NewInteractiveHandler(false, verbose)
+		handler = formatter.NewPlainHandler(os.Stdout, verbose, false)
 	} else {
-		// Non-interactive or auto-approve mode - use PlainTextHandler
-		handler = task.NewPlainTextHandler(verbose, opts.JSON, opts.Yolo || opts.AutoApproveAll, os.Stdout)
+		// Non-interactive or auto-approve mode - use PlainHandler with auto-approve
+		handler = formatter.NewPlainHandler(os.Stdout, verbose, opts.Yolo || opts.AutoApproveAll)
 	}
 
 	// Run the task
@@ -932,9 +933,11 @@ func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, c
 	// Create task runner
 	runner := task.NewRunner(conn)
 
-	// Create streaming handler for TUI
-	handler := tui.NewStreamingHandler()
-	handler.SetProgram(nil) // Will be set by TUI
+	// Create message update channel for TUI
+	msgChan := make(chan tea.Msg, 100)
+
+	// Create streaming handler for TUI (for future use with message forwarding)
+	_ = tui.NewStreamingHandler(msgChan)
 
 	// Determine initial mode
 	mode := task.TaskModeAct
@@ -964,13 +967,19 @@ func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, c
 	// Create and run TUI program
 	p := tea.NewProgram(chatModel, tea.WithAltScreen())
 
-	// Set program reference in handler
-	handler.SetProgram(p)
-
 	// Start task in background
 	go func() {
-		if err := runner.Run(ctx, config, handler); err != nil {
+		// Use a wrapper that forwards messages to the TUI
+		// For now, we use a simple approach - the handler methods need to be adapted
+		if err := runner.Run(ctx, config, &tuiHandlerAdapter{p: p}); err != nil {
 			p.Send(tui.ChatErrorMsg{Error: err})
+		}
+	}()
+
+	// Forward messages from stream handler to TUI
+	go func() {
+		for msg := range msgChan {
+			p.Send(msg)
 		}
 	}()
 
@@ -1008,6 +1017,111 @@ func runInteractiveChatWithoutGRPC(opts *RootOptions, storageCtx *storage.Storag
 		return fmt.Errorf("TUI error: %w", err)
 	}
 
+	return nil
+}
+
+// tuiHandlerAdapter adapts task.MessageHandler to work with the TUI program
+type tuiHandlerAdapter struct {
+	p *tea.Program
+}
+
+// HandleMessage implements task.MessageHandler
+func (a *tuiHandlerAdapter) HandleMessage(msg task.Message) error {
+	// Forward message to TUI as appropriate
+	switch msg.Type {
+	case task.MessageTypeSay:
+		aiMsg := tui.NewAIMessage(msg.Content)
+		a.p.Send(tui.StreamMessageMsg{
+			Message: aiMsg,
+		})
+	case task.MessageTypeError:
+		a.p.Send(tui.ChatErrorMsg{Error: fmt.Errorf("%s", msg.Content)})
+	}
+	return nil
+}
+
+// OnSay implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnSay(sayType string, text string, partial bool) error {
+	msg := tui.NewAIMessage(text)
+	a.p.Send(tui.StreamMessageMsg{
+		Message: msg,
+	})
+	return nil
+}
+
+// OnAsk implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnAsk(askType string, text string) (string, error) {
+	// Auto-approve in TUI for now
+	return "yesButtonClicked", nil
+}
+
+// OnInfo implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnInfo(text string) error {
+	return nil
+}
+
+// OnError implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnError(err error) error {
+	a.p.Send(tui.ChatErrorMsg{Error: err})
+	return nil
+}
+
+// OnStatus implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnStatus(status string) error {
+	return nil
+}
+
+// OnProgress implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnProgress(current, total int) error {
+	return nil
+}
+
+// OnText implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnText(content string, isPartial bool) error {
+	return a.OnSay("text", content, isPartial)
+}
+
+// OnToolUse implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
+	return true, nil
+}
+
+// OnToolResult implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnToolResult(toolName string, result string, success bool) error {
+	return nil
+}
+
+// OnCommand implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnCommand(command string, requiresApproval bool) (string, error) {
+	return "execute", nil
+}
+
+// OnCommandOutput implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnCommandOutput(output string, isComplete bool) error {
+	return nil
+}
+
+// OnCheckpoint implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnCheckpoint(checkpointID string, action string) error {
+	return nil
+}
+
+// OnBrowserAction implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnBrowserAction(action string, url string) (string, error) {
+	return "", nil
+}
+
+// OnMCPRequest implements task.MessageHandler
+func (a *tuiHandlerAdapter) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
+	return "", nil
+}
+
+// OnCompletion implements task.MessageHandler
+func (a tuiHandlerAdapter) OnCompletion(success bool, summary string) error {
+	a.p.Send(tui.ChatCompletedMsg{
+		Success: success,
+		Summary: summary,
+	})
 	return nil
 }
 

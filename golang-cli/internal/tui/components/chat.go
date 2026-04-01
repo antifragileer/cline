@@ -233,7 +233,7 @@ func NewChat() *Chat {
 		height:     40,
 
 		messageList:   NewChatMessageList(),
-		statusBar:     NewStatusBar(),
+		statusBar:     NewStatusBar(120),
 		input:         NewChatInput(),
 		slashMenu:     NewSlashCommandMenu(),
 		fileMenu:      NewFileMentionMenu(),

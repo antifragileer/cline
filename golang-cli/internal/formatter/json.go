@@ -477,11 +477,34 @@ func NewJSONHandler(output io.Writer, verbose bool) *JSONHandler {
 	}
 }
 
+// HandleMessage implements task.MessageHandler
+func (h *JSONHandler) HandleMessage(msg task.Message) error {
+	// Handle based on message type
+	switch msg.Type {
+	case task.MessageTypeSay:
+		sayType, _ := msg.Metadata["say_type"].(string)
+		partial, _ := msg.Metadata["partial"].(bool)
+		return h.OnSay(sayType, msg.Content, partial)
+	case task.MessageTypeAsk:
+		askType, _ := msg.Metadata["ask_type"].(string)
+		_, err := h.OnAsk(askType, msg.Content)
+		return err
+	case task.MessageTypeError:
+		return h.OnError(fmt.Errorf(msg.Content))
+	default:
+		// For other types, just format as info
+		if h.verbose {
+			h.OnInfo(msg.Content)
+		}
+		return nil
+	}
+}
+
 // OnSay handles SAY messages
-func (h *JSONHandler) OnSay(sayType string, text string, partial bool) {
+func (h *JSONHandler) OnSay(sayType string, text string, partial bool) error {
 	// Skip partial messages unless verbose (for cleaner JSON output)
 	if partial && !h.verbose {
-		return
+		return nil
 	}
 	
 	// Map internal types to ClineSay types
@@ -492,14 +515,15 @@ func (h *JSONHandler) OnSay(sayType string, text string, partial bool) {
 	case task.ClineSayText, task.ClineSayReasoning, task.ClineSayCommand,
 		task.ClineSayCommandOutput, task.ClineSayTool, task.ClineSayCompletionResult,
 		task.ClineSayAPIReqStarted, task.ClineSayAPIReqFinished, task.ClineSayError:
-		h.formatter.FormatSayMessage(sayType, text, partial, nil)
+		return h.formatter.FormatSayMessage(sayType, text, partial, nil)
 	case task.ClineSayCheckpointCreated:
-		h.formatter.FormatCheckpoint(text, false)
+		return h.formatter.FormatCheckpoint(text, false)
 	default:
 		if h.verbose || !partial {
-			h.formatter.FormatSayMessage(sayType, text, partial, nil)
+			return h.formatter.FormatSayMessage(sayType, text, partial, nil)
 		}
 	}
+	return nil
 }
 
 // OnAsk handles ASK messages (in JSON mode, auto-approve)
@@ -510,29 +534,83 @@ func (h *JSONHandler) OnAsk(askType string, text string) (string, error) {
 }
 
 // OnInfo handles info messages
-func (h *JSONHandler) OnInfo(text string) {
+func (h *JSONHandler) OnInfo(text string) error {
 	if h.verbose {
-		h.formatter.FormatSayMessage("info", text, false, nil)
+		return h.formatter.FormatSayMessage("info", text, false, nil)
 	}
+	return nil
 }
 
 // OnError handles error messages
-func (h *JSONHandler) OnError(err error) {
-	h.formatter.FormatError(err)
+func (h *JSONHandler) OnError(err error) error {
+	return h.formatter.FormatError(err)
 }
 
 // OnStatus handles status messages
-func (h *JSONHandler) OnStatus(status string) {
+func (h *JSONHandler) OnStatus(status string) error {
 	if h.verbose {
-		h.formatter.FormatSayMessage("info", status, false, nil)
+		return h.formatter.FormatSayMessage("info", status, false, nil)
 	}
+	return nil
 }
 
 // OnProgress handles progress messages
-func (h *JSONHandler) OnProgress(current, total int) {
+func (h *JSONHandler) OnProgress(current, total int) error {
 	if h.verbose {
-		h.formatter.FormatProgress(current, total, fmt.Sprintf("%d/%d", current, total))
+		return h.formatter.FormatProgress(current, total, fmt.Sprintf("%d/%d", current, total))
 	}
+	return nil
+}
+
+// OnText handles text messages
+func (h *JSONHandler) OnText(content string, isPartial bool) error {
+	return h.OnSay("text", content, isPartial)
+}
+
+// OnToolUse handles tool use requests
+func (h *JSONHandler) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
+	// In JSON mode, auto-approve
+	return true, nil
+}
+
+// OnToolResult handles tool execution results
+func (h *JSONHandler) OnToolResult(toolName string, result string, success bool) error {
+	return h.formatter.FormatToolResult(toolName, result, !success)
+}
+
+// OnCommand handles command execution requests
+func (h *JSONHandler) OnCommand(command string, requiresApproval bool) (string, error) {
+	err := h.formatter.FormatCommand(command, false, "")
+	return "execute", err
+}
+
+// OnCommandOutput handles command output
+func (h *JSONHandler) OnCommandOutput(output string, isComplete bool) error {
+	return h.OnSay("command_output", output, !isComplete)
+}
+
+// OnCheckpoint handles checkpoint events
+func (h *JSONHandler) OnCheckpoint(checkpointID string, action string) error {
+	return h.formatter.FormatCheckpoint(checkpointID, false)
+}
+
+// OnBrowserAction handles browser actions
+func (h *JSONHandler) OnBrowserAction(action string, url string) (string, error) {
+	h.formatter.FormatBrowserAction(action, url, "")
+	return "", nil
+}
+
+// OnMCPRequest handles MCP tool requests
+func (h *JSONHandler) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
+	h.formatter.FormatMCPRequest(server, tool)
+	return "", nil
+}
+
+// OnCompletion handles task completion
+func (h *JSONHandler) OnCompletion(success bool, summary string) error {
+	return h.formatter.FormatCompletionResult(summary, map[string]interface{}{
+		"success": success,
+	})
 }
 
 // Flush flushes the formatter output

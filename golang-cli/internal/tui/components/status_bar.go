@@ -8,91 +8,73 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// StatusBar displays persistent status information at the bottom of the screen
+// StatusType represents the type of status
+type StatusType string
+
+const (
+	// StatusTypeIdle indicates the system is idle
+	StatusTypeIdle StatusType = "idle"
+	// StatusTypeConnecting indicates connecting to the server
+	StatusTypeConnecting StatusType = "connecting"
+	// StatusTypeRunning indicates a task is running
+	StatusTypeRunning StatusType = "running"
+	// StatusTypeError indicates an error state
+	StatusTypeError StatusType = "error"
+	// StatusTypeSuccess indicates success
+	StatusTypeSuccess StatusType = "success"
+)
+
+// StatusBar displays the current application status
 type StatusBar struct {
-	// Status information
-	mode           string // "act" or "plan"
-	yolo           bool
-	taskID         string
-	provider       string
-	model          string
-	isStreaming    bool
-	isConnected    bool
-	messageCount   int
+	status       StatusType
+	message      string
+	taskID       string
+	mode         string
+	connection   string
+	provider     string
+	model        string
+	yolo         bool
+	streaming    bool
+	messageCount int
 	pendingChanges int
-
-	// Dimensions
-	width int
-
-	// Styling
-	containerStyle lipgloss.Style
-	modeStyleAct   lipgloss.Style
-	modeStylePlan  lipgloss.Style
-	yoloStyle      lipgloss.Style
-	taskStyle      lipgloss.Style
-	providerStyle  lipgloss.Style
-	connectedStyle lipgloss.Style
-	disconnStyle   lipgloss.Style
-	streamingStyle lipgloss.Style
-	changesStyle   lipgloss.Style
+	pendingApprovals int
+	width        int
 }
 
 // NewStatusBar creates a new status bar
-func NewStatusBar() *StatusBar {
+func NewStatusBar(width int) *StatusBar {
 	return &StatusBar{
-		mode:     "act",
-		width:    80,
-		isConnected: true,
-		
-		containerStyle: lipgloss.NewStyle().
-			Background(lipgloss.Color("#1a1a1a")).
-			Foreground(lipgloss.Color("#cccccc")).
-			Padding(0, 1),
-		
-		modeStyleAct: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#000000")).
-			Background(lipgloss.Color("#00D9FF")),
-		
-		modeStylePlan: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#000000")).
-			Background(lipgloss.Color("#FFB000")),
-		
-		yoloStyle: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#000000")).
-			Background(lipgloss.Color("#00FF00")),
-		
-		taskStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")),
-		
-		providerStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#aaaaaa")),
-		
-		connectedStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00FF00")),
-		
-		disconnStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF4444")),
-		
-		streamingStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00D9FF")).
-			Bold(true),
-		
-		changesStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFB000")),
+		status:     StatusTypeIdle,
+		width:      width,
+		mode:       "act",
+		connection: "disconnected",
 	}
 }
 
-// SetWidth sets the status bar width
-func (sb *StatusBar) SetWidth(width int) {
-	sb.width = width
+// SetStatus updates the status
+func (sb *StatusBar) SetStatus(status StatusType, message string) {
+	sb.status = status
+	sb.message = message
 }
 
-// SetMode sets the mode (act/plan)
+// SetTaskID sets the current task ID
+func (sb *StatusBar) SetTaskID(taskID string) {
+	sb.taskID = taskID
+}
+
+// SetMode sets the current mode
 func (sb *StatusBar) SetMode(mode string) {
 	sb.mode = mode
+}
+
+// SetConnection sets the connection status
+func (sb *StatusBar) SetConnection(status string) {
+	sb.connection = status
+}
+
+// SetPendingApprovals sets the number of pending approvals
+func (sb *StatusBar) SetPendingApprovals(count int) {
+	sb.pendingApprovals = count
 }
 
 // SetYolo sets yolo mode
@@ -100,29 +82,23 @@ func (sb *StatusBar) SetYolo(yolo bool) {
 	sb.yolo = yolo
 }
 
-// SetTaskID sets the task ID
-func (sb *StatusBar) SetTaskID(taskID string) {
-	sb.taskID = taskID
-}
-
-// SetProvider sets the provider name
+// SetProvider sets the provider
 func (sb *StatusBar) SetProvider(provider string) {
 	sb.provider = provider
 }
 
-// SetModel sets the model name
+// SetModel sets the model
 func (sb *StatusBar) SetModel(model string) {
 	sb.model = model
 }
 
-// SetStreaming sets the streaming state
+// SetStreaming sets streaming state
 func (sb *StatusBar) SetStreaming(streaming bool) {
-	sb.isStreaming = streaming
-}
-
-// SetConnected sets the connection state
-func (sb *StatusBar) SetConnected(connected bool) {
-	sb.isConnected = connected
+	sb.streaming = streaming
+	if streaming {
+		sb.status = StatusTypeRunning
+		sb.message = "Streaming..."
+	}
 }
 
 // SetMessageCount sets the message count
@@ -130,89 +106,233 @@ func (sb *StatusBar) SetMessageCount(count int) {
 	sb.messageCount = count
 }
 
-// SetPendingChanges sets the pending changes count
+// SetPendingChanges sets the number of pending changes
 func (sb *StatusBar) SetPendingChanges(count int) {
 	sb.pendingChanges = count
 }
 
-// Render renders the status bar
-func (sb *StatusBar) Render() string {
-	var leftParts []string
-	var rightParts []string
-
-	// Left side: Mode indicator
-	var modeStr string
-	if sb.mode == "plan" {
-		modeStr = sb.modeStylePlan.Render(" PLAN ")
-	} else {
-		modeStr = sb.modeStyleAct.Render(" ACT ")
-	}
-	leftParts = append(leftParts, modeStr)
-
-	// Yolo indicator
-	if sb.yolo {
-		leftParts = append(leftParts, sb.yoloStyle.Render(" YOLO "))
-	}
-
-	// Task ID
-	if sb.taskID != "" {
-		shortID := sb.taskID
-		if len(shortID) > 8 {
-			shortID = shortID[:8]
-		}
-		leftParts = append(leftParts, sb.taskStyle.Render(fmt.Sprintf(" Task:%s ", shortID)))
-	}
-
-	// Right side: Connection status
-	if sb.isConnected {
-		rightParts = append(rightParts, sb.connectedStyle.Render("●"))
-	} else {
-		rightParts = append(rightParts, sb.disconnStyle.Render("○"))
-	}
-
-	// Streaming indicator
-	if sb.isStreaming {
-		rightParts = append(rightParts, sb.streamingStyle.Render("Streaming..."))
-	}
-
-	// Provider/Model info
-	if sb.provider != "" {
-		providerInfo := sb.provider
-		if sb.model != "" {
-			providerInfo += "/" + sb.model
-		}
-		rightParts = append(rightParts, sb.providerStyle.Render(providerInfo))
-	}
-
-	// Message count
-	if sb.messageCount > 0 {
-		rightParts = append(rightParts, sb.providerStyle.Render(fmt.Sprintf("%d msgs", sb.messageCount)))
-	}
-
-	// Pending changes
-	if sb.pendingChanges > 0 {
-		rightParts = append(rightParts, sb.changesStyle.Render(fmt.Sprintf("+%d changes", sb.pendingChanges)))
-	}
-
-	// Join parts
-	leftContent := strings.Join(leftParts, "")
-	rightContent := strings.Join(rightParts, " ")
-
-	// Calculate spacing
-	totalContentLen := lipgloss.Width(leftContent) + lipgloss.Width(rightContent)
-	spaceAvailable := sb.width - totalContentLen
-
-	var content string
-	if spaceAvailable > 0 {
-		content = leftContent + strings.Repeat(" ", spaceAvailable) + rightContent
-	} else {
-		content = leftContent + " " + rightContent
-	}
-
-	return sb.containerStyle.Width(sb.width).Render(content)
+// SetWidth updates the width
+func (sb *StatusBar) SetWidth(width int) {
+	sb.width = width
 }
 
-// GetHeight returns the height of the status bar
-func (sb *StatusBar) GetHeight() int {
-	return 1
+// Render renders the status bar
+func (sb *StatusBar) Render() string {
+	// Calculate available width
+	leftWidth := sb.width / 3
+	centerWidth := sb.width / 3
+	rightWidth := sb.width - leftWidth - centerWidth
+
+	// Left section: Status indicator
+	left := sb.renderLeftSection(leftWidth)
+
+	// Center section: Task info
+	center := sb.renderCenterSection(centerWidth)
+
+	// Right section: Mode and connection
+	right := sb.renderRightSection(rightWidth)
+
+	// Combine sections
+	leftStyle := lipgloss.NewStyle().Width(leftWidth).Align(lipgloss.Left)
+	centerStyle := lipgloss.NewStyle().Width(centerWidth).Align(lipgloss.Center)
+	rightStyle := lipgloss.NewStyle().Width(rightWidth).Align(lipgloss.Right)
+
+	statusLine := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		leftStyle.Render(left),
+		centerStyle.Render(center),
+		rightStyle.Render(right),
+	)
+
+	// Apply background and border
+	barStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(sb.getStatusColor()).
+		BorderTop(true).
+		BorderBottom(false).
+		BorderLeft(false).
+		BorderRight(false).
+		Padding(0, 1)
+
+	return barStyle.Render(statusLine)
+}
+
+// renderLeftSection renders the left section (status)
+func (sb *StatusBar) renderLeftSection(width int) string {
+	var indicator string
+	var color string
+
+	switch sb.status {
+	case StatusTypeIdle:
+		indicator = "○"
+		color = "#888888"
+	case StatusTypeConnecting:
+		indicator = "◐"
+		color = "#F39C12"
+	case StatusTypeRunning:
+		indicator = "◉"
+		color = "#4A90D9"
+	case StatusTypeError:
+		indicator = "✕"
+		color = "#E74C3C"
+	case StatusTypeSuccess:
+		indicator = "✓"
+		color = "#2ECC71"
+	}
+
+	statusStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(color)).
+		Bold(true)
+
+	messageStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#CCCCCC")).
+		MarginLeft(1)
+
+	content := statusStyle.Render(indicator) + messageStyle.Render(truncate(sb.message, width-5))
+	return content
+}
+
+// renderCenterSection renders the center section (task info)
+func (sb *StatusBar) renderCenterSection(width int) string {
+	var parts []string
+
+	if sb.taskID != "" {
+		taskStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888"))
+		parts = append(parts, taskStyle.Render("Task: "+truncate(sb.taskID, 12)))
+	}
+
+	if sb.pendingApprovals > 0 {
+		approvalStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F39C12")).
+			Bold(true)
+		parts = append(parts, approvalStyle.Render(fmt.Sprintf("⚠️ %d pending", sb.pendingApprovals)))
+	}
+
+	return strings.Join(parts, " | ")
+}
+
+// renderRightSection renders the right section (mode and connection)
+func (sb *StatusBar) renderRightSection(width int) string {
+	var parts []string
+
+	// Mode indicator
+	modeColor := "#4A90D9"
+	if sb.mode == "plan" {
+		modeColor = "#9B59B6"
+	}
+	modeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(modeColor)).
+		Bold(true)
+	parts = append(parts, modeStyle.Render(strings.ToUpper(sb.mode)))
+
+	// Connection indicator
+	connColor := "#E74C3C"
+	if sb.connection == "connected" {
+		connColor = "#2ECC71"
+	} else if sb.connection == "connecting" {
+		connColor = "#F39C12"
+	}
+	connStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(connColor))
+	parts = append(parts, connStyle.Render("●"))
+
+	return strings.Join(parts, "  ")
+}
+
+// getStatusColor returns the color for the current status
+func (sb *StatusBar) getStatusColor() lipgloss.Color {
+	switch sb.status {
+	case StatusTypeIdle:
+		return lipgloss.Color("#888888")
+	case StatusTypeConnecting:
+		return lipgloss.Color("#F39C12")
+	case StatusTypeRunning:
+		return lipgloss.Color("#4A90D9")
+	case StatusTypeError:
+		return lipgloss.Color("#E74C3C")
+	case StatusTypeSuccess:
+		return lipgloss.Color("#2ECC71")
+	default:
+		return lipgloss.Color("#888888")
+	}
+}
+
+// truncate truncates a string to the specified length
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// CompactStatusBar is a minimal status bar for smaller screens
+type CompactStatusBar struct {
+	status  StatusType
+	message string
+	width   int
+}
+
+// NewCompactStatusBar creates a new compact status bar
+func NewCompactStatusBar(width int) *CompactStatusBar {
+	return &CompactStatusBar{
+		status: StatusTypeIdle,
+		width:  width,
+	}
+}
+
+// SetStatus updates the status
+func (csb *CompactStatusBar) SetStatus(status StatusType, message string) {
+	csb.status = status
+	csb.message = message
+}
+
+// SetWidth updates the width
+func (csb *CompactStatusBar) SetWidth(width int) {
+	csb.width = width
+}
+
+// Render renders the compact status bar
+func (csb *CompactStatusBar) Render() string {
+	var indicator string
+	var color string
+
+	switch csb.status {
+	case StatusTypeIdle:
+		indicator = "○"
+		color = "#888888"
+	case StatusTypeConnecting:
+		indicator = "◐"
+		color = "#F39C12"
+	case StatusTypeRunning:
+		indicator = "◉"
+		color = "#4A90D9"
+	case StatusTypeError:
+		indicator = "✕"
+		color = "#E74C3C"
+	case StatusTypeSuccess:
+		indicator = "✓"
+		color = "#2ECC71"
+	}
+
+	statusStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(color)).
+		Bold(true)
+
+	messageStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#CCCCCC"))
+
+	content := statusStyle.Render(indicator) + " " + messageStyle.Render(truncate(csb.message, csb.width-5))
+
+	barStyle := lipgloss.NewStyle().
+		Width(csb.width).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(color)).
+		BorderTop(true).
+		Padding(0, 1)
+
+	return barStyle.Render(content)
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cline/cline/golang-cli/internal/exit"
+	"github.com/cline/cline/golang-cli/internal/task"
 )
 
 // PlainFormatter handles plain text output formatting with full message type support
@@ -421,15 +422,38 @@ func (h *PlainHandler) SetExitHandler(handler *exit.Handler) {
 	h.formatter.SetExitHandler(handler)
 }
 
+// HandleMessage implements task.MessageHandler
+func (h *PlainHandler) HandleMessage(msg task.Message) error {
+	// Handle based on message type
+	switch msg.Type {
+	case task.MessageTypeSay:
+		sayType, _ := msg.Metadata["say_type"].(string)
+		partial, _ := msg.Metadata["partial"].(bool)
+		return h.OnSay(sayType, msg.Content, partial)
+	case task.MessageTypeAsk:
+		askType, _ := msg.Metadata["ask_type"].(string)
+		_, err := h.OnAsk(askType, msg.Content)
+		return err
+	case task.MessageTypeError:
+		return h.OnError(fmt.Errorf(msg.Content))
+	default:
+		// For other types, just show as info
+		if h.verbose {
+			h.OnInfo(msg.Content)
+		}
+		return nil
+	}
+}
+
 // OnSay handles SAY messages
-func (h *PlainHandler) OnSay(sayType string, text string, partial bool) {
+func (h *PlainHandler) OnSay(sayType string, text string, partial bool) error {
 	// Skip partial messages unless verbose
 	if partial && !h.verbose {
-		return
+		return nil
 	}
 
 	// Map the say type to the formatter
-	h.formatter.FormatSayMessage(sayType, text, partial)
+	return h.formatter.FormatSayMessage(sayType, text, partial)
 }
 
 // OnAsk handles ASK messages
@@ -447,23 +471,96 @@ func (h *PlainHandler) OnAsk(askType string, text string) (string, error) {
 }
 
 // OnInfo handles info messages
-func (h *PlainHandler) OnInfo(text string) {
-	h.formatter.FormatStatus(text)
+func (h *PlainHandler) OnInfo(text string) error {
+	return h.formatter.FormatStatus(text)
 }
 
 // OnError handles error messages
-func (h *PlainHandler) OnError(err error) {
-	h.formatter.FormatError(err)
+func (h *PlainHandler) OnError(err error) error {
+	return h.formatter.FormatError(err)
 }
 
 // OnStatus handles status messages
-func (h *PlainHandler) OnStatus(status string) {
-	h.formatter.FormatStatus(status)
+func (h *PlainHandler) OnStatus(status string) error {
+	return h.formatter.FormatStatus(status)
 }
 
 // OnProgress handles progress messages
-func (h *PlainHandler) OnProgress(current, total int) {
-	h.formatter.FormatProgress(current, total, "")
+func (h *PlainHandler) OnProgress(current, total int) error {
+	return h.formatter.FormatProgress(current, total, "")
+}
+
+// OnText handles text messages
+func (h *PlainHandler) OnText(content string, isPartial bool) error {
+	return h.OnSay("text", content, isPartial)
+}
+
+// OnToolUse handles tool use requests
+func (h *PlainHandler) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
+	if h.autoApprove {
+		return true, nil
+	}
+	// In plain text mode, prompt the user
+	h.formatter.printPrompt(fmt.Sprintf("Approve tool %s?", toolName))
+	return true, nil
+}
+
+// OnToolResult handles tool execution results
+func (h *PlainHandler) OnToolResult(toolName string, result string, success bool) error {
+	if h.verbose || !success {
+		if success {
+			h.formatter.printInfo(fmt.Sprintf("Tool %s succeeded", toolName))
+		} else {
+			h.formatter.printError(fmt.Sprintf("Tool %s failed: %s", toolName, result))
+		}
+	}
+	return nil
+}
+
+// OnCommand handles command execution requests
+func (h *PlainHandler) OnCommand(command string, requiresApproval bool) (string, error) {
+	if !requiresApproval || h.autoApprove {
+		return "execute", nil
+	}
+	return "", fmt.Errorf("command approval required")
+}
+
+// OnCommandOutput handles command output
+func (h *PlainHandler) OnCommandOutput(output string, isComplete bool) error {
+	if h.verbose {
+		h.formatter.printCommandOutput(output)
+	}
+	return nil
+}
+
+// OnCheckpoint handles checkpoint events
+func (h *PlainHandler) OnCheckpoint(checkpointID string, action string) error {
+	if h.verbose {
+		h.formatter.printInfo(fmt.Sprintf("Checkpoint: %s", checkpointID))
+	}
+	return nil
+}
+
+// OnBrowserAction handles browser actions
+func (h *PlainHandler) OnBrowserAction(action string, url string) (string, error) {
+	if h.verbose {
+		h.formatter.printInfo(fmt.Sprintf("Browser action: %s %s", action, url))
+	}
+	return "", nil
+}
+
+// OnMCPRequest handles MCP tool requests
+func (h *PlainHandler) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
+	if h.verbose {
+		h.formatter.printInfo(fmt.Sprintf("MCP request: %s/%s", server, tool))
+	}
+	return "", nil
+}
+
+// OnCompletion handles task completion
+func (h *PlainHandler) OnCompletion(success bool, summary string) error {
+	h.formatter.printCompletionResult(summary)
+	return nil
 }
 
 // Flush flushes the formatter output

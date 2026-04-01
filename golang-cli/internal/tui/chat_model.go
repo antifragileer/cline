@@ -196,7 +196,9 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case StreamMessageMsg:
 		// Handle messages from gRPC stream
-		m.handleStreamMessage(msg.Message)
+		if msg.Message != nil {
+			m.handleStreamMessage(*msg.Message)
+		}
 
 	case ApprovalRequestMsg:
 		m.state = ChatStateWaitingForApproval

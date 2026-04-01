@@ -140,7 +140,9 @@ func (m *EnhancedChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateButtonConfig()
 
 	case StreamMessageMsg:
-		m.handleStreamMessage(msg.Message)
+		if msg.Message != nil {
+			m.handleStreamMessage(*msg.Message)
+		}
 
 	case ApprovalRequestMsg:
 		m.handleApprovalRequest(msg)
