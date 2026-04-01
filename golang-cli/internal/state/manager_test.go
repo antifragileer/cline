@@ -477,6 +477,161 @@ func TestStateManager_GetAll(t *testing.T) {
 	}
 }
 
+func TestStateManager_DeleteWorkspaceState(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Set workspace state
+	sm.SetWorkspaceState("delete-ws-key", "delete-ws-value")
+
+	// Verify it exists
+	if val, ok := sm.GetWorkspaceStateKey("delete-ws-key"); !ok || val != "delete-ws-value" {
+		t.Fatal("workspace key should exist before deletion")
+	}
+
+	// Delete the workspace state
+	if err := sm.DeleteWorkspaceState("delete-ws-key"); err != nil {
+		t.Fatalf("DeleteWorkspaceState failed: %v", err)
+	}
+
+	// Verify removed from cache
+	if _, ok := sm.GetWorkspaceStateKey("delete-ws-key"); ok {
+		t.Error("expected workspace key to be deleted from cache")
+	}
+
+	// Verify removed from storage after flush
+	sm.ForceFlush()
+	if _, ok := storageCtx.WorkspaceState.Get("delete-ws-key"); ok {
+		t.Error("expected workspace key to be deleted from storage")
+	}
+}
+
+
+func TestStateManager_GetStorage(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Get storage
+	retrievedStorage := sm.GetStorage()
+	if retrievedStorage == nil {
+		t.Fatal("GetStorage returned nil")
+	}
+
+	// Verify it's the same instance
+	if retrievedStorage != storageCtx {
+		t.Error("GetStorage did not return the same storage instance")
+	}
+}
+
+func TestStateManager_GetTypedFromWorkspace(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Set a typed workspace value
+	type TestStruct struct {
+		Name  string `json:"name"`
+		Value int    `json:"value"`
+	}
+
+	sm.SetWorkspaceState("typed-ws", map[string]interface{}{
+		"name":  "workspace-test",
+		"value": 100,
+	})
+
+	// Get typed from workspace
+	var result TestStruct
+	found, err := sm.GetTypedFromWorkspace("typed-ws", &result)
+	if err != nil {
+		t.Fatalf("GetTypedFromWorkspace failed: %v", err)
+	}
+	if !found {
+		t.Error("expected to find the workspace key")
+	}
+	if result.Name != "workspace-test" || result.Value != 100 {
+		t.Errorf("expected {workspace-test, 100}, got %+v", result)
+	}
+
+	// Non-existent key
+	var empty TestStruct
+	found, err = sm.GetTypedFromWorkspace("nonexistent", &empty)
+	if err != nil {
+		t.Fatalf("GetTypedFromWorkspace failed for nonexistent: %v", err)
+	}
+	if found {
+		t.Error("expected not to find nonexistent workspace key")
+	}
+}
+
+func TestStateManager_GetTypedFromWorkspace_SessionOverride(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Set workspace value
+	sm.SetWorkspaceState("override-ws-key", map[string]interface{}{
+		"name":  "original",
+		"value": 1,
+	})
+
+	// Set session override (simulated by setting in sessionOverrides)
+	type TestStruct struct {
+		Name  string `json:"name"`
+		Value int    `json:"value"`
+	}
+
+	// The session override takes precedence over workspace state
+	sm.SetSessionOverride("override-ws-key", map[string]interface{}{
+		"name":  "overridden",
+		"value": 999,
+	})
+
+	var result TestStruct
+	found, err := sm.GetTypedFromWorkspace("override-ws-key", &result)
+	if err != nil {
+		t.Fatalf("GetTypedFromWorkspace failed: %v", err)
+	}
+	if !found {
+		t.Error("expected to find the key")
+	}
+
+	// Note: GetTypedFromWorkspace checks sessionOverrides first
+	// So we should get the overridden value
+	if result.Name != "overridden" || result.Value != 999 {
+		t.Errorf("expected overridden value {overridden, 999}, got %+v", result)
+	}
+}
+
 func BenchmarkStateManager_GetGlobalStateKey(b *testing.B) {
 	storageCtx, cleanup := setupTestStorage(nil)
 	defer cleanup()
@@ -513,3 +668,24 @@ func BenchmarkStateManager_SetGlobalState(b *testing.B) {
 		sm.SetGlobalState("bench-key", i)
 	}
 }
+
+func TestStateManager_SetTyped_NonSerializable(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Try to set a non-JSON-serializable value (channel)
+	nonSerializable := make(chan int)
+	err := sm.SetTyped("invalid", nonSerializable)
+	if err == nil {
+		t.Error("expected error for non-serializable value")
+	}
+}
+

@@ -1325,6 +1325,10 @@ func TestWildcardMatching(t *testing.T) {
 		{"claude-3-*", "claude-3-sonnet", true},
 		{"claude-3-*", "claude-3-opus-20240229", true},
 		{"claude-3-*", "claude-2", false},
+		// Middle pattern tests - these test the actual implementation behavior
+		{"claude*sonnet", "claude-3-sonnet", true},
+		{"claude*sonnet", "claude-sonnet", true},
+		{"claude*sonnet", "claude-3-opus", false},
 	}
 
 	for _, tt := range tests {
