@@ -435,7 +435,7 @@ func (h *PlainHandler) HandleMessage(msg task.Message) error {
 		_, err := h.OnAsk(askType, msg.Content)
 		return err
 	case task.MessageTypeError:
-		return h.OnError(fmt.Errorf(msg.Content))
+		return h.OnError(fmt.Errorf("%s", msg.Content))
 	default:
 		// For other types, just show as info
 		if h.verbose {

@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -401,50 +399,8 @@ func TestFlagParity(t *testing.T) {
 
 // ==================== Helper Functions ====================
 
-func findGoBinary() string {
-	binaryName := "cline-go"
-	if runtime.GOOS == "windows" {
-		binaryName = "cline-go.exe"
-	}
-
-	locations := []string{
-		filepath.Join("..", "..", binaryName),
-		filepath.Join("..", "..", "cmd", "cline", binaryName),
-		filepath.Join("..", binaryName),
-		binaryName,
-	}
-
-	for _, loc := range locations {
-		if path, err := filepath.Abs(loc); err == nil {
-			if _, err := os.Stat(path); err == nil {
-				return path
-			}
-		}
-	}
-
-	return ""
-}
-
-func findTSBinary() string {
-	// Look for TypeScript CLI in parent directory
-	// The TypeScript CLI is built to cli/dist/cli.mjs
-	locations := []string{
-		filepath.Join("..", "..", "..", "cli", "dist", "cli.mjs"), // From golang-cli/tests/parity/
-		filepath.Join("..", "..", "cli", "dist", "cli.mjs"),       // Alternate relative path
-		filepath.Join("..", "cli", "dist", "cli.mjs"),             // Another alternate
-		filepath.Join("cli", "dist", "cli.mjs"),                   // From repo root
-	}
-
-	for _, loc := range locations {
-		if path, err := filepath.Abs(loc); err == nil {
-			if _, err := os.Stat(path); err == nil {
-				return path
-			}
-		}
-	}
-
-	return ""
-}
+// Note: findGoBinary() and findTSBinary() are defined in comprehensive_test.go
+// in the same package, so they are available for use here.
 
 func getCommands(binary string) []string {
 	cmd := exec.Command(binary, "--help")

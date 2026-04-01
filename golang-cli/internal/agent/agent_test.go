@@ -31,12 +31,13 @@ func newMockMessageHandler() *mockMessageHandler {
 	}
 }
 
-func (m *mockMessageHandler) OnSay(sayType string, text string, partial bool) {
+func (m *mockMessageHandler) OnSay(sayType string, text string, partial bool) error {
 	m.sayMessages = append(m.sayMessages, struct {
 		sayType string
 		text    string
 		partial bool
 	}{sayType, text, partial})
+	return nil
 }
 
 func (m *mockMessageHandler) OnAsk(askType string, text string) (string, error) {
@@ -46,13 +47,72 @@ func (m *mockMessageHandler) OnAsk(askType string, text string) (string, error) 
 	return "yesButtonClicked", nil
 }
 
-func (m *mockMessageHandler) OnInfo(text string) {}
+func (m *mockMessageHandler) OnInfo(text string) error {
+	return nil
+}
 
-func (m *mockMessageHandler) OnError(err error) {}
+func (m *mockMessageHandler) OnError(err error) error {
+	return nil
+}
 
-func (m *mockMessageHandler) OnStatus(status string) {}
+func (m *mockMessageHandler) OnStatus(status string) error {
+	return nil
+}
 
-func (m *mockMessageHandler) OnProgress(current, total int) {}
+func (m *mockMessageHandler) OnProgress(current, total int) error {
+	return nil
+}
+
+func (m *mockMessageHandler) HandleMessage(msg task.Message) error {
+	// Handle different message types
+	switch msg.Type {
+	case "text":
+		m.OnSay("text", msg.Content, msg.IsPartial)
+		return nil
+	case "error":
+		m.OnError(fmt.Errorf("%s", msg.Content))
+		return nil
+	default:
+		return nil
+	}
+}
+
+func (m *mockMessageHandler) OnBrowserAction(action string, url string) (string, error) {
+	return "", nil
+}
+
+func (m *mockMessageHandler) OnText(content string, isPartial bool) error {
+	m.OnSay("text", content, isPartial)
+	return nil
+}
+
+func (m *mockMessageHandler) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
+	return true, nil
+}
+
+func (m *mockMessageHandler) OnToolResult(toolName string, result string, success bool) error {
+	return nil
+}
+
+func (m *mockMessageHandler) OnCommand(command string, requiresApproval bool) (string, error) {
+	return "execute", nil
+}
+
+func (m *mockMessageHandler) OnCommandOutput(output string, isComplete bool) error {
+	return nil
+}
+
+func (m *mockMessageHandler) OnCheckpoint(checkpointID string, action string) error {
+	return nil
+}
+
+func (m *mockMessageHandler) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
+	return "", nil
+}
+
+func (m *mockMessageHandler) OnCompletion(success bool, summary string) error {
+	return nil
+}
 
 // mockProvider is a mock API provider for testing
 type mockProvider struct {

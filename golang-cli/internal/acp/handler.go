@@ -588,7 +588,7 @@ func (h *acpMessageHandler) HandleMessage(msg task.Message) error {
 		_, err := h.OnAsk(askType, msg.Content)
 		return err
 	case task.MessageTypeError:
-		h.OnError(fmt.Errorf(msg.Content))
+		h.OnError(fmt.Errorf("%s", msg.Content))
 		return nil
 	default:
 		// For other types, just show as info

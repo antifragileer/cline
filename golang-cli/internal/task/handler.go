@@ -184,7 +184,7 @@ func (h *DefaultMessageHandler) HandleMessage(msg Message) error {
 	case MessageTypeCommand:
 		return h.handleCommandMessage(msg)
 	case MessageTypeError:
-		return h.OnError(fmt.Errorf(msg.Content))
+		return h.OnError(fmt.Errorf("%s", msg.Content))
 	case MessageTypeCheckpoint:
 		return h.handleCheckpointMessage(msg)
 	case MessageTypeBrowser:
@@ -237,7 +237,7 @@ func (h *DefaultMessageHandler) OnSay(sayType string, content string, partial bo
 	case "text":
 		return h.OnText(content, partial)
 	case "error":
-		return h.OnError(fmt.Errorf(content))
+		return h.OnError(fmt.Errorf("%s", content))
 	default:
 		// Log other say types
 		return nil

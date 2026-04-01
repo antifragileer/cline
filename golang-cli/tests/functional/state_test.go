@@ -441,8 +441,11 @@ func TestStateFileCompatibility(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd := exec.CommandContext(ctx, binary, "config", "set", "test.key", "test-value")
 		cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		out, _ := cmd.CombinedOutput()
+		out, err := cmd.CombinedOutput()
 		cancel()
+		if err != nil {
+			t.Logf("Config set error: %v", err)
+		}
 		t.Logf("Config set: %s", string(out))
 
 		// Check if config file exists and is valid JSON
