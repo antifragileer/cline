@@ -405,11 +405,11 @@ func TestConfigReadWrite(t *testing.T) {
 
 		for i, value := range specialValues {
 			key := fmt.Sprintf("special.%d", i)
-			
+
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			cmd := exec.CommandContext(ctx, binary, "config", "set", key, value)
 			cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-			out, err := cmd.CombinedOutput()
+			_, err := cmd.CombinedOutput()
 			cancel()
 
 			exitCode := 0
