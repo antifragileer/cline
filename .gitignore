@@ -18,6 +18,7 @@ pnpm-lock.yaml
 .venv
 .actrc
 CLAUDE.local.md
+golang-cli/cline
 
 webview-ui/src/**/*.js
 webview-ui/src/**/*.js.map
@@ -28,6 +29,10 @@ coverage-unit
 .nyc_output
 # But don't ignore the coverage scripts in .github/scripts/
 !.github/scripts/coverage/
+*.out
+golang-cli/*.html
+golang-cli/parity_execution_report.json
+golang-cli/parity_gap_report.json
 
 *evals.env
 .env
