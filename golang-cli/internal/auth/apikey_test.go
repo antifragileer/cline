@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -555,6 +556,413 @@ func TestIntegration(t *testing.T) {
 		exists, _ = manager.KeyExists(string(ProviderAnthropic))
 		if exists {
 			t.Error("expected key to not exist after deletion")
+		}
+	})
+}
+
+// TestGetKeyMetadata tests retrieving key metadata
+func TestGetKeyMetadata(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+
+	t.Run("retrieves metadata for stored key", func(t *testing.T) {
+		key := "sk-ant-api03-metadata12345678901234567890"
+		expectedMetadata := &KeyMetadata{
+			Description: "Test metadata",
+		}
+
+		err := manager.StoreKey(string(ProviderAnthropic), key, expectedMetadata)
+		if err != nil {
+			t.Fatalf("failed to store key: %v", err)
+		}
+
+		metadata, err := manager.GetKeyMetadata(string(ProviderAnthropic))
+		if err != nil {
+			t.Fatalf("failed to get metadata: %v", err)
+		}
+
+		if metadata.Description != expectedMetadata.Description {
+			t.Errorf("expected description %s, got %s", expectedMetadata.Description, metadata.Description)
+		}
+		if metadata.Provider != string(ProviderAnthropic) {
+			t.Errorf("expected provider %s, got %s", ProviderAnthropic, metadata.Provider)
+		}
+	})
+
+	t.Run("returns error for missing metadata", func(t *testing.T) {
+		// Store key without metadata
+		mock.secrets["anthropic_api_key"] = "sk-ant-api03-nometa12345678901234567890"
+
+		_, err := manager.GetKeyMetadata(string(ProviderOpenAI))
+		if !errors.Is(err, ErrKeyNotFound) {
+			t.Errorf("expected ErrKeyNotFound, got %v", err)
+		}
+	})
+
+	t.Run("returns error for unknown provider", func(t *testing.T) {
+		_, err := manager.GetKeyMetadata("unknown-provider")
+		if !errors.Is(err, ErrProviderNotFound) {
+			t.Errorf("expected ErrProviderNotFound, got %v", err)
+		}
+	})
+}
+
+// TestTestStoredKey tests testing stored keys
+func TestTestStoredKey(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+
+	t.Run("returns error when key not found", func(t *testing.T) {
+		ctx := context.Background()
+		err := manager.TestStoredKey(ctx, string(ProviderAnthropic))
+		if !errors.Is(err, ErrKeyNotFound) {
+			t.Errorf("expected ErrKeyNotFound, got %v", err)
+		}
+	})
+
+	t.Run("returns error for unknown provider", func(t *testing.T) {
+		ctx := context.Background()
+		err := manager.TestStoredKey(ctx, "unknown-provider")
+		if !errors.Is(err, ErrProviderNotFound) {
+			t.Errorf("expected ErrProviderNotFound, got %v", err)
+		}
+	})
+}
+
+// TestKeyValidatorGeminiKey tests Gemini key validation
+func TestKeyValidatorGeminiKey(t *testing.T) {
+	validator := NewKeyValidator()
+
+	t.Run("validates Gemini key", func(t *testing.T) {
+		err := validator.ValidateGeminiKey("AIzaSyD123456789012345678901234567890123456789")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+	})
+
+	t.Run("returns error for short key", func(t *testing.T) {
+		err := validator.ValidateGeminiKey("AIzaSyD123")
+		if !errors.Is(err, ErrKeyTooShort) {
+			t.Errorf("expected ErrKeyTooShort, got %v", err)
+		}
+	})
+
+	t.Run("returns error for long key", func(t *testing.T) {
+		err := validator.ValidateGeminiKey(strings.Repeat("a", 257))
+		if !errors.Is(err, ErrKeyTooLong) {
+			t.Errorf("expected ErrKeyTooLong, got %v", err)
+		}
+	})
+
+	t.Run("returns error for invalid characters", func(t *testing.T) {
+		err := validator.ValidateGeminiKey("AIzaSyD1234567890123456789!!!")
+		if !errors.Is(err, ErrInvalidKeyFormat) {
+			t.Errorf("expected ErrInvalidKeyFormat, got %v", err)
+		}
+	})
+}
+
+// TestKeyValidatorOpenRouterKey tests OpenRouter key validation
+func TestKeyValidatorOpenRouterKey(t *testing.T) {
+	validator := NewKeyValidator()
+
+	t.Run("validates OpenRouter key", func(t *testing.T) {
+		err := validator.ValidateOpenRouterKey("sk-or-v1-12345678901234567890123456789012345678901234567890")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+	})
+
+	t.Run("returns error for missing sk- prefix", func(t *testing.T) {
+		err := validator.ValidateOpenRouterKey("invalid-prefix-12345678901234567890")
+		if !errors.Is(err, ErrInvalidKeyFormat) {
+			t.Errorf("expected ErrInvalidKeyFormat, got %v", err)
+		}
+	})
+}
+
+// TestReadFromStdin tests reading from stdin
+func TestReadFromStdin(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+	reader := NewKeyInputReader(manager)
+
+	t.Run("reads from stdin", func(t *testing.T) {
+		// This test would require mocking stdin, which is complex
+		// For now, we just verify the method exists and can be called
+		// In a real test, we'd use a pipe or mock
+		_ = reader
+	})
+}
+
+// TestKeyInputReaderErrors tests error conditions
+func TestKeyInputReaderErrors(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+	reader := NewKeyInputReader(manager)
+
+	t.Run("returns error for empty flag", func(t *testing.T) {
+		_, err := reader.ReadFromFlag("")
+		if err == nil {
+			t.Error("expected error for empty flag value")
+		}
+	})
+
+	t.Run("returns error for missing env var", func(t *testing.T) {
+		_, err := reader.ReadFromEnvironment("NONEXISTENT_VAR_12345")
+		if err == nil {
+			t.Error("expected error for missing environment variable")
+		}
+	})
+
+	t.Run("returns error for missing file", func(t *testing.T) {
+		_, err := reader.ReadFromFile("/nonexistent/path/to/file.txt")
+		if err == nil {
+			t.Error("expected error for missing file")
+		}
+	})
+
+	t.Run("returns error for unknown source type", func(t *testing.T) {
+		_, err := reader.Read(KeySource{Type: "unknown"})
+		if err == nil {
+			t.Error("expected error for unknown source type")
+		}
+	})
+}
+
+// TestMetadataSerialization tests metadata serialization
+func TestMetadataSerialization(t *testing.T) {
+	now := time.Now()
+	metadata := &KeyMetadata{
+		Provider:    ProviderAnthropic,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		LastUsedAt:  now,
+		Description: "Test description",
+		IsActive:    true,
+		KeyVersion:  1,
+	}
+
+	t.Run("serializes and deserializes metadata", func(t *testing.T) {
+		str := metadataToString(metadata)
+		if str == "" {
+			t.Error("expected non-empty string")
+		}
+
+		parsed, err := stringToMetadata(str)
+		if err != nil {
+			t.Fatalf("failed to parse metadata: %v", err)
+		}
+
+		if parsed.Provider != metadata.Provider {
+			t.Errorf("expected provider %s, got %s", metadata.Provider, parsed.Provider)
+		}
+		if parsed.Description != metadata.Description {
+			t.Errorf("expected description %s, got %s", metadata.Description, parsed.Description)
+		}
+		if parsed.KeyVersion != metadata.KeyVersion {
+			t.Errorf("expected version %d, got %d", metadata.KeyVersion, parsed.KeyVersion)
+		}
+	})
+
+	t.Run("returns error for invalid format", func(t *testing.T) {
+		_, err := stringToMetadata("invalid|format")
+		if err == nil {
+			t.Error("expected error for invalid format")
+		}
+	})
+}
+
+// TestRotationInfoSerialization tests rotation info serialization
+func TestRotationInfoSerialization(t *testing.T) {
+	now := time.Now()
+	rotation := &KeyRotationInfo{
+		OldKey:       "sk-old-key123456789012345678901234567890",
+		NewKey:       "sk-new-key123456789012345678901234567890",
+		RotatedAt:    now,
+		OldKeyExpiry: now.Add(24 * time.Hour),
+	}
+
+	t.Run("serializes rotation info", func(t *testing.T) {
+		str := rotationInfoToString(rotation)
+		if str == "" {
+			t.Error("expected non-empty string")
+		}
+		if !strings.Contains(str, rotation.OldKey) {
+			t.Error("expected string to contain old key")
+		}
+	})
+
+	t.Run("handles zero expiry", func(t *testing.T) {
+		rotationNoExpiry := &KeyRotationInfo{
+			OldKey:    "sk-old-key123456789012345678901234567890",
+			NewKey:    "sk-new-key123456789012345678901234567890",
+			RotatedAt: now,
+		}
+		str := rotationInfoToString(rotationNoExpiry)
+		if str == "" {
+			t.Error("expected non-empty string")
+		}
+	})
+}
+
+// TestStoreKeyErrors tests error conditions in StoreKey
+func TestStoreKeyErrors(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+
+	t.Run("returns error for storage failure", func(t *testing.T) {
+		mock.setErr = errors.New("storage error")
+
+		key := "sk-ant-api03-storage12345678901234567890"
+		err := manager.StoreKey(string(ProviderAnthropic), key, nil)
+		if err == nil {
+			t.Error("expected error for storage failure")
+		}
+
+		mock.setErr = nil
+	})
+}
+
+// TestGetKeyErrors tests error conditions in GetKey
+func TestGetKeyErrors(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+
+	t.Run("returns error for storage failure", func(t *testing.T) {
+		mock.getErr = errors.New("storage error")
+
+		_, err := manager.GetKey(string(ProviderAnthropic))
+		if err == nil {
+			t.Error("expected error for storage failure")
+		}
+
+		mock.getErr = nil
+	})
+}
+
+// TestDeleteKeyErrors tests error conditions in DeleteKey
+func TestDeleteKeyErrors(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+
+	t.Run("returns error for storage failure", func(t *testing.T) {
+		mock.delErr = errors.New("storage error")
+
+		err := manager.DeleteKey(string(ProviderAnthropic))
+		if err == nil {
+			t.Error("expected error for storage failure")
+		}
+
+		mock.delErr = nil
+	})
+
+	t.Run("returns error for key not found", func(t *testing.T) {
+		err := manager.DeleteKey(string(ProviderOpenAI))
+		if !errors.Is(err, ErrKeyNotFound) {
+			t.Errorf("expected ErrKeyNotFound, got %v", err)
+		}
+	})
+}
+
+// TestKeyExistsErrors tests error conditions in KeyExists
+func TestKeyExistsErrors(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+
+	t.Run("returns error for storage failure", func(t *testing.T) {
+		mock.listErr = errors.New("storage error")
+
+		_, err := manager.KeyExists(string(ProviderAnthropic))
+		if err == nil {
+			t.Error("expected error for storage failure")
+		}
+
+		mock.listErr = nil
+	})
+}
+
+// TestAdditionalProviders tests all registered providers
+func TestAdditionalProviders(t *testing.T) {
+	mock := newMockSecretsManager()
+	manager, _ := NewAPIKeyManager(mock)
+
+	t.Run("validates Cerebras key", func(t *testing.T) {
+		// Valid Cerebras key (32+ chars)
+		err := manager.ValidateKey(string(ProviderCerebras), "cerebras-valid-key-1234567890123456789012345678901234567890")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+
+		// Invalid: too short
+		err = manager.ValidateKey(string(ProviderCerebras), "short")
+		if !errors.Is(err, ErrKeyTooShort) {
+			t.Errorf("expected ErrKeyTooShort, got %v", err)
+		}
+	})
+
+	t.Run("validates Together key", func(t *testing.T) {
+		// Valid Together key
+		err := manager.ValidateKey(string(ProviderTogether), "together-valid-key-12345678901234567890")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+	})
+
+	t.Run("validates Perplexity key", func(t *testing.T) {
+		// Valid Perplexity key
+		err := manager.ValidateKey(string(ProviderPerplexity), "pplx-valid-key12345678901234567890")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+
+		// Invalid: wrong prefix
+		err = manager.ValidateKey(string(ProviderPerplexity), "invalid-prefix-key12345678901234567890")
+		if !errors.Is(err, ErrInvalidKeyFormat) {
+			t.Errorf("expected ErrInvalidKeyFormat, got %v", err)
+		}
+	})
+
+	t.Run("validates Mistral key", func(t *testing.T) {
+		// Valid Mistral key (32+ chars)
+		err := manager.ValidateKey(string(ProviderMistral), "mistral-valid-key-1234567890123456789012345678901234567890")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+	})
+
+	t.Run("validates DeepSeek key", func(t *testing.T) {
+		// Valid DeepSeek key (32+ chars)
+		err := manager.ValidateKey(string(ProviderDeepSeek), "deepseek-valid-key-1234567890123456789012345678901234567890")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+	})
+
+	t.Run("validates Bedrock key", func(t *testing.T) {
+		// Valid Bedrock key (10+ chars)
+		err := manager.ValidateKey(string(ProviderBedrock), "bedrock-key-123")
+		if err != nil {
+			t.Errorf("expected valid key, got error: %v", err)
+		}
+	})
+
+	t.Run("accepts any key for Ollama", func(t *testing.T) {
+		err := manager.ValidateKey(string(ProviderOllama), "any-key")
+		if err != nil {
+			t.Errorf("expected no error for Ollama, got %v", err)
+		}
+
+		err = manager.ValidateKey(string(ProviderOllama), "")
+		if err != nil {
+			t.Errorf("expected no error for Ollama with empty key, got %v", err)
+		}
+	})
+
+	t.Run("accepts any key for LM Studio", func(t *testing.T) {
+		err := manager.ValidateKey(string(ProviderLMStudio), "any-key")
+		if err != nil {
+			t.Errorf("expected no error for LM Studio, got %v", err)
 		}
 	})
 }

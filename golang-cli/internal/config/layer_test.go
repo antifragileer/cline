@@ -34,6 +34,38 @@ func TestNewLayeredConfig(t *testing.T) {
 		assert.Equal(t, SourceDefault, config.GetSource("api.timeout"))
 	})
 
+	t.Run("uses home directory when baseDir is empty", func(t *testing.T) {
+		config, err := NewLayeredConfig(ConfigOptions{
+			BaseDir: "",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, config)
+		// Should succeed and use home directory
+		assert.NotNil(t, config.v)
+	})
+
+	t.Run("handles corrupted workspace config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		workspaceHash := "test-workspace"
+
+		// Create workspace directory with corrupted config
+		workspaceDir := filepath.Join(tmpDir, "workspaces", workspaceHash)
+		require.NoError(t, os.MkdirAll(workspaceDir, 0755))
+
+		// Write invalid JSON to workspace config
+		workspacePath := filepath.Join(workspaceDir, "workspaceState.json")
+		err := os.WriteFile(workspacePath, []byte("not valid json"), 0644)
+		require.NoError(t, err)
+
+		// Should not fail, just warn and use defaults
+		config, err := NewLayeredConfig(ConfigOptions{
+			BaseDir:       tmpDir,
+			WorkspaceHash: workspaceHash,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "claude-3-sonnet-20240229", config.GetString("model"))
+	})
+
 	t.Run("handles empty workspace hash", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		config, err := NewLayeredConfig(ConfigOptions{
