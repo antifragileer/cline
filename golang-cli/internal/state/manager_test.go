@@ -442,6 +442,190 @@ func TestStateManager_Close(t *testing.T) {
 	}
 }
 
+func TestStateManager_Close_Idempotent(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Close multiple times should not error
+	if err := sm.Close(); err != nil {
+		t.Fatalf("First Close failed: %v", err)
+	}
+
+	// Second close should succeed (idempotent)
+	if err := sm.Close(); err != nil {
+		t.Fatalf("Second Close failed: %v", err)
+	}
+}
+
+func TestStateManager_NewStateManager_DefaultFlushInterval(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	// Create manager without specifying flush interval
+	opts := ManagerOptions{
+		Storage: storageCtx,
+		// FlushInterval not set, should use default
+	}
+
+	sm := NewStateManager(opts)
+	if sm == nil {
+		t.Fatal("NewStateManager returned nil")
+	}
+
+	// Default should be 100ms
+	if sm.flushInterval != 100*time.Millisecond {
+		t.Errorf("expected default flush interval 100ms, got %v", sm.flushInterval)
+	}
+}
+
+func TestStateManager_GetGlobalStateKey_WithStorageFallback(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	// Pre-populate storage directly
+	storageCtx.GlobalState.Set("storage-key", "storage-value")
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	// Don't call Load() - test direct storage fallback
+
+	// Should get value from storage even without Load
+	if val, ok := sm.GetGlobalStateKey("storage-key"); !ok || val != "storage-value" {
+		t.Errorf("expected storage-key=storage-value from storage fallback, got %v, ok=%v", val, ok)
+	}
+}
+
+func TestStateManager_GetWorkspaceStateKey_WithStorageFallback(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	// Pre-populate storage directly
+	storageCtx.WorkspaceState.Set("ws-storage-key", "ws-storage-value")
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	// Don't call Load() - test direct storage fallback
+
+	// Should get value from storage even without Load
+	if val, ok := sm.GetWorkspaceStateKey("ws-storage-key"); !ok || val != "ws-storage-value" {
+		t.Errorf("expected ws-storage-key=ws-storage-value from storage fallback, got %v, ok=%v", val, ok)
+	}
+}
+
+func TestStateManager_GetSecretKey_NoStorage(t *testing.T) {
+	// Test when storage is nil
+	sm := &StateManager{
+		storage: nil,
+	}
+
+	// Should return false, not panic
+	if _, ok := sm.GetSecretKey("any-key"); ok {
+		t.Error("expected false when storage is nil")
+	}
+}
+
+func TestStateManager_SetSecret_NoStorage(t *testing.T) {
+	// Test when storage is nil
+	sm := &StateManager{
+		storage: &storage.StorageContext{
+			Secrets: nil,
+		},
+	}
+
+	// Should return error, not panic
+	err := sm.SetSecret("key", "value")
+	if err == nil {
+		t.Error("expected error when secrets storage is nil")
+	}
+}
+
+func TestStateManager_DeleteSecret_NoStorage(t *testing.T) {
+	// Test when storage is nil
+	sm := &StateManager{
+		storage: &storage.StorageContext{
+			Secrets: nil,
+		},
+	}
+
+	// Should not panic
+	err := sm.DeleteSecret("key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestStateManager_GetTyped_UnmarshalError(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Set a value that can't be unmarshaled into the target type
+	sm.SetGlobalState("invalid-typed", map[string]interface{}{
+		"complex": make(chan int), // channels can't be marshaled
+	})
+
+	// Try to get as typed struct
+	type TestStruct struct {
+		Name string `json:"name"`
+	}
+	var result TestStruct
+	_, err := sm.GetTyped("invalid-typed", &result)
+	if err == nil {
+		t.Error("expected error when unmarshaling incompatible type")
+	}
+}
+
+func TestStateManager_GetTypedFromWorkspace_UnmarshalError(t *testing.T) {
+	storageCtx, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	opts := ManagerOptions{
+		Storage:       storageCtx,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	sm := NewStateManager(opts)
+	sm.Load()
+
+	// Set a value that can't be unmarshaled into the target type
+	sm.SetWorkspaceState("invalid-typed-ws", map[string]interface{}{
+		"complex": make(chan int), // channels can't be marshaled
+	})
+
+	// Try to get as typed struct
+	type TestStruct struct {
+		Name string `json:"name"`
+	}
+	var result TestStruct
+	_, err := sm.GetTypedFromWorkspace("invalid-typed-ws", &result)
+	if err == nil {
+		t.Error("expected error when unmarshaling incompatible type")
+	}
+}
+
 func TestStateManager_GetAll(t *testing.T) {
 	storageCtx, cleanup := setupTestStorage(t)
 	defer cleanup()
@@ -633,8 +817,16 @@ func TestStateManager_GetTypedFromWorkspace_SessionOverride(t *testing.T) {
 }
 
 func BenchmarkStateManager_GetGlobalStateKey(b *testing.B) {
-	storageCtx, cleanup := setupTestStorage(nil)
-	defer cleanup()
+	tempDir, err := os.MkdirTemp("", "bench-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	storageCtx, err := storage.NewStorageContext(tempDir, "bench-workspace")
+	if err != nil {
+		b.Fatalf("failed to create storage context: %v", err)
+	}
 
 	opts := ManagerOptions{
 		Storage:       storageCtx,
@@ -652,8 +844,16 @@ func BenchmarkStateManager_GetGlobalStateKey(b *testing.B) {
 }
 
 func BenchmarkStateManager_SetGlobalState(b *testing.B) {
-	storageCtx, cleanup := setupTestStorage(nil)
-	defer cleanup()
+	tempDir, err := os.MkdirTemp("", "bench-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	storageCtx, err := storage.NewStorageContext(tempDir, "bench-workspace")
+	if err != nil {
+		b.Fatalf("failed to create storage context: %v", err)
+	}
 
 	opts := ManagerOptions{
 		Storage:       storageCtx,

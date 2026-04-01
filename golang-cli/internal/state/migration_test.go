@@ -520,6 +520,109 @@ func TestMigrator_Migrate(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, entries, 1)
 	})
+
+	t.Run("invalid vscode state json", func(t *testing.T) {
+		// Create invalid VSCode state file
+		invalidDir := filepath.Join(tempDir, "invalid-vscode")
+		err := os.MkdirAll(invalidDir, 0755)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(invalidDir, "state.json"), []byte("not valid json"), 0644)
+		require.NoError(t, err)
+
+		invalidMigrator := NewMigrator(&MigrationConfig{
+			VSCodeDataDir: invalidDir,
+			TargetDir:     filepath.Join(tempDir, "invalid-target"),
+			BackupDir:     filepath.Join(tempDir, "invalid-backups"),
+		})
+
+		err = invalidMigrator.Migrate()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read VSCode state")
+	})
+}
+
+func TestMigrator_Migrate_DryRun_NoBackupError(t *testing.T) {
+	tempDir := t.TempDir()
+	vscodeDir := filepath.Join(tempDir, "vscode-dryrun")
+	targetDir := filepath.Join(tempDir, "target-dryrun")
+
+	// Create VSCode state
+	err := os.MkdirAll(vscodeDir, 0755)
+	require.NoError(t, err)
+
+	vscodeState := VSCodeState{
+		Version: 1,
+		Secrets: map[string]string{"apiKey": "secret"},
+		State:   map[string]interface{}{"apiProvider": "anthropic"},
+	}
+
+	data, err := json.Marshal(vscodeState)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(vscodeDir, "state.json"), data, 0644)
+	require.NoError(t, err)
+
+	// Use DryRun mode - should skip backup creation
+	dryMigrator := NewMigrator(&MigrationConfig{
+		VSCodeDataDir: vscodeDir,
+		TargetDir:     targetDir,
+		BackupDir:     filepath.Join(tempDir, "backups-dryrun"),
+		DryRun:        true,
+	})
+
+	// This tests the dry run path where backup is skipped
+	err = dryMigrator.Migrate()
+	require.NoError(t, err)
+
+	// Backup should not be created
+	_, err = os.Stat(filepath.Join(tempDir, "backups-dryrun"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestMigrator_createBackup_WithUnserializableData(t *testing.T) {
+	tempDir := t.TempDir()
+	migrator := NewMigrator(&MigrationConfig{
+		VSCodeDataDir: tempDir,
+		TargetDir:     tempDir,
+		BackupDir:     filepath.Join(tempDir, "backups"),
+	})
+
+	t.Run("backup with valid data", func(t *testing.T) {
+		state := &VSCodeState{
+			Version: 1,
+			Secrets: map[string]string{"key": "value"},
+			State:   map[string]interface{}{"setting": "value"},
+		}
+
+		err := migrator.createBackup(state)
+		require.NoError(t, err)
+
+		// Verify backup was created
+		entries, err := os.ReadDir(migrator.config.BackupDir)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(entries), 1)
+	})
+
+	t.Run("backup directory creation fails", func(t *testing.T) {
+		// Create a file where backup dir should be
+		fileAsDir := filepath.Join(tempDir, "file-as-dir")
+		err := os.WriteFile(fileAsDir, []byte("not a dir"), 0644)
+		require.NoError(t, err)
+
+		badMigrator := NewMigrator(&MigrationConfig{
+			VSCodeDataDir: tempDir,
+			TargetDir:     tempDir,
+			BackupDir:     fileAsDir, // This is a file, not a dir
+		})
+
+		state := &VSCodeState{
+			Version: 1,
+			Secrets: map[string]string{"key": "value"},
+			State:   map[string]interface{}{"setting": "value"},
+		}
+
+		err = badMigrator.createBackup(state)
+		assert.Error(t, err)
+	})
 }
 
 func TestMigrationStatus(t *testing.T) {

@@ -90,7 +90,7 @@ func (sm *StateManager) GetGlobalStateKey(key string) (interface{}, bool) {
 	}
 
 	// Fall back to storage
-	if sm.storage.GlobalState != nil {
+	if sm.storage != nil && sm.storage.GlobalState != nil {
 		return sm.storage.GlobalState.Get(key)
 	}
 
@@ -114,7 +114,7 @@ func (sm *StateManager) GetWorkspaceStateKey(key string) (interface{}, bool) {
 	}
 
 	// Fall back to storage
-	if sm.storage.WorkspaceState != nil {
+	if sm.storage != nil && sm.storage.WorkspaceState != nil {
 		return sm.storage.WorkspaceState.Get(key)
 	}
 
@@ -127,7 +127,7 @@ func (sm *StateManager) GetSecretKey(key string) (interface{}, bool) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
-	if sm.storage.Secrets != nil {
+	if sm.storage != nil && sm.storage.Secrets != nil {
 		return sm.storage.Secrets.Get(key)
 	}
 

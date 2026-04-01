@@ -43,6 +43,14 @@ func TestAtomicFileWriter_WriteFile(t *testing.T) {
 		assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
 	})
 
+	t.Run("fails when directory cannot be created", func(t *testing.T) {
+		// Try to write to a path where we can't create the directory
+		invalidPath := "/nonexistent_dir_that_cannot_be_created/test.txt"
+		err := writer.WriteFile(invalidPath, []byte("data"), 0644)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
+	})
+
 	t.Run("creates nested directories", func(t *testing.T) {
 		tempDir := t.TempDir()
 		nestedFile := filepath.Join(tempDir, "a", "b", "c", "test.txt")
@@ -188,6 +196,18 @@ func TestAtomicFileWriter_CopyFile(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "new content", string(content))
 	})
+
+	t.Run("fails when destination directory cannot be created", func(t *testing.T) {
+		tempDir := t.TempDir()
+		srcFile := filepath.Join(tempDir, "source.txt")
+		_ = os.WriteFile(srcFile, []byte("data"), 0644)
+		
+		// Try to copy to an invalid path
+		invalidDst := "/nonexistent_dir_that_cannot_be_created/dest.txt"
+		err := writer.CopyFile(srcFile, invalidDst, 0644)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create destination directory")
+	})
 }
 
 func TestAtomicFileWriter_SafeAppend(t *testing.T) {
@@ -281,6 +301,14 @@ func TestAtomicFileWriter_SafeAppend(t *testing.T) {
 		lines := len(content) / 10 // Each "goroutine\n" is 10 bytes
 		assert.Equal(t, numGoroutines*appendsPerGoroutine, lines)
 	})
+
+	t.Run("fails when directory cannot be created", func(t *testing.T) {
+		// Try to append to a path where we can't create the directory
+		invalidPath := "/nonexistent_dir_that_cannot_be_created/append.txt"
+		err := writer.SafeAppend(invalidPath, []byte("data"), 0644)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
+	})
 }
 
 func TestNewFileLock(t *testing.T) {
@@ -361,6 +389,26 @@ func TestFileLock_Lock(t *testing.T) {
 		err := lock.Unlock()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not locked")
+	})
+
+	t.Run("lock fails when directory cannot be created", func(t *testing.T) {
+		// Try to lock a file in an invalid path
+		invalidPath := "/nonexistent_dir_that_cannot_be_created/test.lock"
+		lock := NewFileLock(invalidPath)
+		
+		err := lock.Lock()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
+	})
+
+	t.Run("try lock fails when directory cannot be created", func(t *testing.T) {
+		// Try to lock a file in an invalid path
+		invalidPath := "/nonexistent_dir_that_cannot_be_created/test.lock"
+		lock := NewFileLock(invalidPath)
+		
+		err := lock.TryLock()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
 	})
 }
 
@@ -540,4 +588,29 @@ func TestAtomicFileWriter_ThreadSafety(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = os.Stat(filepath.Join(tempDir, "append.txt"))
 	assert.NoError(t, err)
+}
+
+func TestFileLock_Unlock_FileRemoved(t *testing.T) {
+	t.Run("unlock after lock file removed", func(t *testing.T) {
+		tempDir := t.TempDir()
+		lockPath := filepath.Join(tempDir, "test.lock")
+
+		lock := NewFileLock(lockPath)
+		require.NotNil(t, lock)
+
+		// Lock
+		err := lock.Lock()
+		require.NoError(t, err)
+
+		// Remove the lock file while still locked
+		err = os.Remove(lockPath)
+		require.NoError(t, err)
+
+		// Unlock should handle this gracefully
+		// The releaseLock may fail since file is gone
+		err = lock.Unlock()
+		// This may or may not error depending on platform
+		// but should not panic
+		_ = err
+	})
 }
