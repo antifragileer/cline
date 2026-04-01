@@ -239,6 +239,9 @@ static-analysis:
 # Coverage Targets
 # =============================================================================
 
+# Alias for test-coverage (prompt compatibility)
+coverage: test-coverage
+
 # Generate coverage report in multiple formats
 coverage-report:
 	@echo "Generating coverage report..."
@@ -251,16 +254,16 @@ coverage-report:
 	@echo ""
 	@echo "Detailed report: coverage.html"
 
-# Verify coverage threshold (80%)
+# Verify coverage threshold (90%)
 verify-coverage:
 	@echo "Verifying coverage threshold..."
 	$(GOTEST) ./... -count=1 -coverprofile=coverage.out -covermode=atomic
 	@COVERAGE=$$($(GOCMD) tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
-	if [ $$(echo "$$COVERAGE < 80" | bc -l) -eq 1 ]; then \
-		echo "Coverage $$COVERAGE% is below threshold of 80%"; \
+	if [ $$(echo "$$COVERAGE < 90" | bc -l) -eq 1 ]; then \
+		echo "Coverage $$COVERAGE% is below threshold of 90%"; \
 		exit 1; \
 	else \
-		echo "Coverage $$COVERAGE% meets threshold of 80%"; \
+		echo "Coverage $$COVERAGE% meets threshold of 90%"; \
 	fi
 
 # =============================================================================
@@ -459,7 +462,7 @@ help:
 	@echo "  make vet                - Run go vet"
 	@echo "  make static-analysis    - Run staticcheck"
 	@echo "  make coverage-report    - Generate coverage report"
-	@echo "  make verify-coverage    - Verify 80% coverage threshold"
+	@echo "  make verify-coverage    - Verify 90% coverage threshold"
 	@echo "  make ci-test            - Run CI tests"
 	@echo "  make ci                 - Full CI pipeline"
 	@echo ""

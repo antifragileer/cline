@@ -181,15 +181,15 @@ Located in `tests/regression/`:
 
 ## Coverage Targets
 
-### Critical Components (>80% Coverage)
+### Critical Components (>90% Coverage)
 
 | Package | Coverage | Status |
 |---------|----------|--------|
-| internal/config | 87.1% | ✅ |
+| internal/config | 87.1% | 🔄 |
 | internal/storage | 73.3% | 🔄 |
-| internal/state | 80.8% | ✅ |
-| internal/security | 85.1% | ✅ |
-| internal/exit | 85.8% | ✅ |
+| internal/state | 80.8% | 🔄 |
+| internal/security | 85.1% | 🔄 |
+| internal/exit | 85.8% | 🔄 |
 
 ### Other Components
 
@@ -387,4 +387,4 @@ make test       # Run tests
 4. **Mock external dependencies** for unit tests
 5. **Set appropriate timeouts** for integration tests
 6. **Run race detector** before submitting PRs
-7. **Maintain >80% coverage** for critical packages
+7. **Maintain >90% coverage** for critical packages
