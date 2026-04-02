@@ -685,3 +685,89 @@ func joinStringsForTest(strs []string) string {
 	}
 	return strings.Join(result, ",")
 }
+
+// ==================== validateRules Tests ====================
+
+func TestParser_validateRules(t *testing.T) {
+	t.Run("valid rules pass", func(t *testing.T) {
+		parser := NewParser()
+		rules := &PermissionRules{
+			Allow: []string{"ls *", "cat *"},
+			Deny:  []string{"rm -rf *"},
+		}
+		err := parser.validateRules(rules)
+		assert.NoError(t, err)
+	})
+
+	t.Run("empty allow pattern fails", func(t *testing.T) {
+		parser := NewParser()
+		rules := &PermissionRules{
+			Allow: []string{"", "cat *"},
+		}
+		err := parser.validateRules(rules)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "pattern cannot be empty")
+	})
+
+	t.Run("empty deny pattern fails", func(t *testing.T) {
+		parser := NewParser()
+		rules := &PermissionRules{
+			Allow: []string{"ls *"},
+			Deny:  []string{"", "rm *"},
+		}
+		err := parser.validateRules(rules)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "pattern cannot be empty")
+	})
+
+	t.Run("invalid glob in allow pattern fails", func(t *testing.T) {
+		parser := NewParser()
+		rules := &PermissionRules{
+			Allow: []string{"ls !$invalid"},
+		}
+		err := parser.validateRules(rules)
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid glob in deny pattern fails", func(t *testing.T) {
+		parser := NewParser()
+		rules := &PermissionRules{
+			Allow: []string{"ls *"},
+			Deny:  []string{"rm !$invalid"},
+		}
+		err := parser.validateRules(rules)
+		assert.Error(t, err)
+	})
+
+	t.Run("empty allow and deny passes", func(t *testing.T) {
+		parser := NewParser()
+		rules := &PermissionRules{
+			Allow: []string{},
+			Deny:  []string{},
+		}
+		err := parser.validateRules(rules)
+		assert.NoError(t, err)
+	})
+}
+
+// ==================== Parse edge cases for coverage ====================
+
+func TestParser_Parse_EdgeCases(t *testing.T) {
+	t.Run("parses JSON with nested braces in patterns", func(t *testing.T) {
+		parser := NewParser()
+		jsonData := []byte(`{"allow":["cmd {a,b,c}"],"deny":[]}`)
+
+		rules, err := parser.Parse(jsonData)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"cmd {a,b,c}"}, rules.Allow)
+	})
+
+	t.Run("parses JSON with special characters", func(t *testing.T) {
+		parser := NewParser()
+		jsonData := []byte(`{"allow":["cmd [a-z]*","cmd test?"],"deny":[]}`)
+
+		rules, err := parser.Parse(jsonData)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"cmd [a-z]*", "cmd test?"}, rules.Allow)
+	})
+}

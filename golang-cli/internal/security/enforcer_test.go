@@ -4,6 +4,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/cline/cline/golang-cli/internal/audit"
@@ -292,4 +293,156 @@ func TestExecutionResult(t *testing.T) {
 
 	assert.True(t, result.Blocked)
 	assert.Equal(t, "command not allowed", result.BlockReason)
+}
+
+func TestDefaultExecutor(t *testing.T) {
+	result, exitCode, err := defaultExecutor(context.Background(), "test", []string{"arg"})
+	assert.Empty(t, result)
+	assert.Equal(t, 0, exitCode)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no executor configured")
+}
+
+func TestPermissionEnforcer_WithAuditor(t *testing.T) {
+	// Create a temporary directory for audit logs
+	config := &PermissionRules{
+		Allow: []string{"echo*"},
+	}
+	controller := NewCommandPermissionControllerWithConfig(config)
+
+	// Create auditor
+	auditConfig := audit.DefaultConfig()
+	auditConfig.Enabled = true
+	auditConfig.SyncWrite = true
+	auditor, err := audit.NewLogger(auditConfig)
+	require.NoError(t, err)
+	defer auditor.Close()
+
+	// Create executor
+	executor := mockExecutor("hello", 0, nil)
+
+	// Create enforcer with controller and auditor
+	pe := NewPermissionEnforcerWithController(controller,
+		WithCommandExecutor(executor),
+		WithAuditor(auditor),
+	)
+
+	// Execute a command - this should trigger audit logging
+	result := pe.Execute(context.Background(), "echo", []string{"hello"})
+	assert.False(t, result.Blocked)
+	assert.Equal(t, "hello", result.Output)
+}
+
+func TestPermissionEnforcer_BlockedWithAuditor(t *testing.T) {
+	// Create a temporary directory for audit logs
+	config := &PermissionRules{
+		Allow: []string{"echo*"},
+		Deny:  []string{"rm*"},
+	}
+	controller := NewCommandPermissionControllerWithConfig(config)
+
+	// Create auditor
+	auditConfig := audit.DefaultConfig()
+	auditConfig.Enabled = true
+	auditConfig.SyncWrite = true
+	auditor, err := audit.NewLogger(auditConfig)
+	require.NoError(t, err)
+	defer auditor.Close()
+
+	// Create executor (should not be called)
+	executor := mockExecutor("", 0, nil)
+
+	// Create enforcer with controller and auditor
+	pe := NewPermissionEnforcerWithController(controller,
+		WithCommandExecutor(executor),
+		WithAuditor(auditor),
+	)
+
+	// Execute a blocked command - this should trigger audit logging
+	result := pe.Execute(context.Background(), "rm", []string{"-rf", "/"})
+	assert.True(t, result.Blocked)
+	assert.NotEmpty(t, result.BlockReason)
+}
+
+func TestPermissionEnforcer_ExecuteWithNilAuditor(t *testing.T) {
+	config := &PermissionRules{
+		Allow: []string{"echo*"},
+	}
+	controller := NewCommandPermissionControllerWithConfig(config)
+
+	executor := mockExecutor("hello", 0, nil)
+
+	// Create enforcer without auditor using the controller
+	pe := NewPermissionEnforcerWithController(controller,
+		WithCommandExecutor(executor),
+	)
+
+	// Execute a command - no auditor, no logging
+	result := pe.Execute(context.Background(), "echo", []string{"hello"})
+	assert.False(t, result.Blocked)
+	assert.Equal(t, "hello", result.Output)
+}
+
+func TestValidateFilePath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Run("valid file path within working directory", func(t *testing.T) {
+		filePath := filepath.Join(tmpDir, "test.txt")
+		err := ValidateFilePath(filePath, tmpDir)
+		assert.NoError(t, err)
+	})
+
+	t.Run("invalid file path outside working directory", func(t *testing.T) {
+		err := ValidateFilePath("/etc/passwd", tmpDir)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "outside of working directory")
+	})
+
+	t.Run("parent directory traversal blocked", func(t *testing.T) {
+		err := ValidateFilePath("../outside.txt", tmpDir)
+		assert.Error(t, err)
+	})
+
+	t.Run("nested parent directory traversal blocked", func(t *testing.T) {
+		err := ValidateFilePath("../../etc/passwd", tmpDir)
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid file path with null byte", func(t *testing.T) {
+		// Create a file path that will cause filepath.Abs to fail
+		err := ValidateFilePath(string([]byte{0}), tmpDir)
+		assert.Error(t, err)
+	})
+
+	t.Run("file path equals working directory", func(t *testing.T) {
+		err := ValidateFilePath(tmpDir, tmpDir)
+		assert.NoError(t, err)
+	})
+
+	t.Run("nested file path within working directory", func(t *testing.T) {
+		nestedPath := filepath.Join(tmpDir, "subdir", "deep", "file.txt")
+		err := ValidateFilePath(nestedPath, tmpDir)
+		assert.NoError(t, err)
+	})
+}
+
+func TestPermissionEnforcer_ExecuteWithError(t *testing.T) {
+	config := &PermissionRules{
+		Allow: []string{"*"},
+	}
+	controller := NewCommandPermissionControllerWithConfig(config)
+
+	// Create an executor that returns an error
+	executor := func(ctx context.Context, command string, args []string) (string, int, error) {
+		return "", 1, fmt.Errorf("command failed")
+	}
+
+	pe := NewPermissionEnforcerWithController(controller,
+		WithCommandExecutor(executor),
+	)
+
+	result := pe.Execute(context.Background(), "failing", []string{"command"})
+	assert.False(t, result.Blocked)
+	assert.Equal(t, 1, result.ExitCode)
+	assert.Error(t, result.Error)
 }

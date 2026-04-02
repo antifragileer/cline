@@ -203,7 +203,7 @@ func TestCommandPermissionController_ValidateCommand(t *testing.T) {
 	})
 }
 
-func TestCommandPermissionController_matchesPattern(t *testing.T) {
+func TestCommandPermissionController_matchesPattern_Original(t *testing.T) {
 	controller := NewCommandPermissionControllerWithConfig(&PermissionRules{
 		Allow: []string{"*"},
 	})
@@ -400,4 +400,189 @@ func BenchmarkValidateCommand(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		controller.ValidateCommand("git status && git log")
 	}
+}
+
+// ==================== Additional Coverage Tests ====================
+
+func TestCommandPermissionController_hasRedirect(t *testing.T) {
+	controller := NewCommandPermissionController()
+
+	tests := []struct {
+		name     string
+		command  string
+		expected bool
+	}{
+		{
+			name:     "no redirect",
+			command:  "echo hello",
+			expected: false,
+		},
+		{
+			name:     "output redirect",
+			command:  "echo hello > file.txt",
+			expected: true,
+		},
+		{
+			name:     "append redirect",
+			command:  "echo hello >> file.txt",
+			expected: true,
+		},
+		{
+			name:     "input redirect",
+			command:  "cat < file.txt",
+			expected: true,
+		},
+		{
+			name:     "file descriptor redirect",
+			command:  "cmd 2>&1",
+			expected: true,
+		},
+		{
+			name:     "redirect in quotes is safe",
+			command:  `echo "hello > world"`,
+			expected: false,
+		},
+		{
+			name:     "mixed quotes and redirect",
+			command:  `echo "hello" > file`,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := controller.hasRedirect(tt.command)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCommandPermissionController_mapSegmentReason(t *testing.T) {
+	controller := NewCommandPermissionController()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "denied maps to segment_denied",
+			input:    "denied",
+			expected: "segment_denied",
+		},
+		{
+			name:     "no_match_deny_default maps to segment_no_match",
+			input:    "no_match_deny_default",
+			expected: "segment_no_match",
+		},
+		{
+			name:     "allowed stays allowed",
+			input:    "allowed",
+			expected: "allowed",
+		},
+		{
+			name:     "other reason stays same",
+			input:    "custom_reason",
+			expected: "custom_reason",
+		},
+		{
+			name:     "empty string stays empty",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := controller.mapSegmentReason(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCommandPermissionController_matchesPattern(t *testing.T) {
+	controller := NewCommandPermissionController()
+
+	tests := []struct {
+		name        string
+		command     string
+		pattern     string
+		shouldMatch bool
+	}{
+		{
+			name:        "exact match",
+			command:     "ls",
+			pattern:     "ls",
+			shouldMatch: true,
+		},
+		{
+			name:        "wildcard match",
+			command:     "git status",
+			pattern:     "git*",
+			shouldMatch: true,
+		},
+		{
+			name:        "no match different command",
+			command:     "cat file",
+			pattern:     "ls*",
+			shouldMatch: false,
+		},
+		{
+			name:        "question mark wildcard",
+			command:     "a.txt",
+			pattern:     "a?t",
+			shouldMatch: false, // a.txt != a?t
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := controller.matchesPattern(tt.command, tt.pattern)
+			assert.Equal(t, tt.shouldMatch, result)
+		})
+	}
+}
+
+func TestCommandPermissionController_validateSingleCommand(t *testing.T) {
+	t.Run("validates command with dangerous chars outside quotes", func(t *testing.T) {
+		config := &PermissionRules{
+			Allow:        []string{"echo*"},
+			Deny:         []string{},
+			AllowPipes:   false,
+			AllowRedirects: false,
+		}
+		controller := NewCommandPermissionControllerWithConfig(config)
+
+		// When pipes are not allowed, the command is split into segments
+		// "echo hello" matches allow pattern, "| cat" doesn't match
+		result := controller.ValidateCommand("echo hello | cat")
+		assert.False(t, result.Allowed)
+		// The second segment "| cat" or "cat" fails to match any allow pattern
+		assert.Contains(t, []string{"segment_no_match", "no_match_deny_default"}, result.Reason)
+	})
+
+	t.Run("validates command with redirect when not allowed", func(t *testing.T) {
+		config := &PermissionRules{
+			Allow:          []string{"echo*"},
+			Deny:           []string{},
+			AllowRedirects: false,
+		}
+		controller := NewCommandPermissionControllerWithConfig(config)
+
+		result := controller.ValidateCommand("echo hello > file.txt")
+		assert.False(t, result.Allowed)
+		assert.Equal(t, "redirect_detected", result.Reason)
+	})
+
+	t.Run("allows command with redirect when allowed", func(t *testing.T) {
+		config := &PermissionRules{
+			Allow:          []string{"echo*"},
+			Deny:           []string{},
+			AllowRedirects: true,
+		}
+		controller := NewCommandPermissionControllerWithConfig(config)
+
+		result := controller.ValidateCommand("echo hello > file.txt")
+		assert.True(t, result.Allowed)
+	})
 }
