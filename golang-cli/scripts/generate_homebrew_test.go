@@ -82,7 +82,7 @@ func TestSanitizeHomebrewVersion(t *testing.T) {
 // TestGetHomebrewBinaryName tests binary name generation.
 func TestGetHomebrewBinaryName(t *testing.T) {
 	result := GetHomebrewBinaryName("1.0.0", "linux", "amd64")
-	expected := "cline_1.0.0_linux_amd64.tar.gz"
+	expected := "cline-1.0.0-linux-amd64.tar.gz"
 	if result != expected {
 		t.Errorf("GetHomebrewBinaryName(1.0.0, linux, amd64) = %q, expected %q", result, expected)
 	}

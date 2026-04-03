@@ -467,7 +467,7 @@ func TestGenerateHomebrewReleaseURL(t *testing.T) {
 	os := "darwin"
 	arch := "amd64"
 
-	expected := "https://github.com/cline/cline/releases/download/v1.0.0/cline_1.0.0_darwin_amd64.tar.gz"
+	expected := "https://github.com/cline/cline/releases/download/v1.0.0/cline-1.0.0-darwin-amd64.tar.gz"
 	result := GenerateHomebrewReleaseURL(baseURL, version, binaryName, os, arch)
 
 	if result != expected {
@@ -481,7 +481,7 @@ func TestGenerateHomebrewPlatformURL(t *testing.T) {
 	os := "linux"
 	arch := "arm64"
 
-	expected := "https://github.com/cline/cline/releases/download/v1.0.0/cline_1.0.0_linux_arm64.tar.gz"
+	expected := "https://github.com/cline/cline/releases/download/v1.0.0/cline-1.0.0-linux-arm64.tar.gz"
 	result := GenerateHomebrewPlatformURL(baseURL, version, os, arch)
 
 	if result != expected {
@@ -589,9 +589,9 @@ func TestGetHomebrewBinaryPath(t *testing.T) {
 	os := "linux"
 	arch := "amd64"
 
-	expected := "/tmp/binaries/cline_1.0.0_linux_amd64.tar.gz"
 	result := GetHomebrewBinaryPath(binaryDir, version, os, arch)
 
+	expected := "/tmp/binaries/cline-1.0.0-linux-amd64.tar.gz"
 	if result != expected {
 		t.Errorf("GetHomebrewBinaryPath() = %q, expected %q", result, expected)
 	}
