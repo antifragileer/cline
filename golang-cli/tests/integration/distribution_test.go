@@ -303,7 +303,10 @@ func TestNPMWrapperPackageJSON(t *testing.T) {
 func TestNPMWrapperScripts(t *testing.T) {
 	t.Parallel()
 
-	wrapperDir := filepath.Join("..", "..", "npm-wrapper")
+	// Get the directory of the current test file
+	_, testFile, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(testFile)
+	wrapperDir := filepath.Join(testDir, "..", "..", "npm-wrapper")
 
 	// Check if directory exists
 	if _, err := os.Stat(wrapperDir); os.IsNotExist(err) {
@@ -358,7 +361,10 @@ func TestNPMWrapperPlatformDetection(t *testing.T) {
 		t.Skip("Node.js not available")
 	}
 
-	wrapperDir := filepath.Join("..", "..", "npm-wrapper")
+	// Get the directory of the current test file
+	_, testFile, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(testFile)
+	wrapperDir := filepath.Join(testDir, "..", "..", "npm-wrapper")
 	platformPath := filepath.Join(wrapperDir, "platform.js")
 
 	if _, err := os.Stat(platformPath); os.IsNotExist(err) {

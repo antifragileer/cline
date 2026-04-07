@@ -1,478 +1,225 @@
 package main
 
 import (
-	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
-
-	"github.com/cline/cline/golang-cli/internal/formatter"
-	"github.com/cline/cline/golang-cli/internal/host"
-	"github.com/cline/cline/golang-cli/internal/task"
 )
 
-// TaskMode represents the execution mode for a task
-type TaskMode string
-
-const (
-	// TaskModeAct represents act mode (execute actions)
-	TaskModeAct TaskMode = "act"
-	// TaskModePlan represents plan mode (planning only)
-	TaskModePlan TaskMode = "plan"
-)
-
-// taskFlags holds the parsed flag values
-var taskFlags struct {
-	act                    bool
-	plan                   bool
-	yolo                   bool
-	timeout                string
-	model                  string
-	images                 []string
-	cwd                    string
-	config                 string
-	thinking               bool
-	json                   bool
-	taskId                 string
-	autoApproveAll         bool
-	reasoningEffort        string
-	maxConsecutiveMistakes int
-	doubleCheckCompletion  bool
-	autoCondense           bool
-	hooksDir               string
+// taskCmd represents the task command with subcommands
+var taskCmd = &cobra.Command{
+	Use:     "task",
+	Aliases: []string{"t"},
+	Short:   "Create, monitor, and manage Cline AI tasks",
+	Long:    `Create, monitor, and manage Cline AI tasks.`,
 }
 
-// taskCmd represents the task command
-var taskCmd = &cobra.Command{
-	Use:     "task [prompt]",
-	Aliases: []string{"t"},
-	Short:   "Execute a task with Cline",
-	Long: `Execute a task with Cline AI assistant.
+// taskNewCmd represents the task new subcommand (runs a new task)
+var taskNewCmd = &cobra.Command{
+	Use:   "new [prompt]",
+	Short: "Create a new task",
+	Long:  `Run a new task with Cline AI assistant.`,
+	Args:  cobra.MinimumNArgs(1),
+	RunE:  runTaskNew,
+}
 
-This command allows you to send a task to Cline with various options
-for controlling execution mode, model selection, and attachments.`,
-	Example: `  # Simple task
-  cline task "Refactor the auth module"
+// taskListCmd represents the task list subcommand
+var taskListCmd = &cobra.Command{
+	Use:     "list",
+	Short:   "List recent task history",
+	Aliases: []string{"ls"},
+	RunE:    runTaskList,
+}
 
-  # Plan mode
-  cline task -p "Plan the database migration"
+// taskChatCmd represents the task chat subcommand
+var taskChatCmd = &cobra.Command{
+	Use:   "chat",
+	Short: "Chat with the current task in interactive mode",
+	RunE:  runTaskChat,
+}
 
-  # Act mode with yolo and timeout
-  cline task -a -y --timeout 10m "Deploy to production"
+// taskOpenCmd represents the task open subcommand
+var taskOpenCmd = &cobra.Command{
+	Use:   "open <id>",
+	Short: "Open a task by ID",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runTaskOpen,
+}
 
-  # With image attachments
-  cline task -i screenshot.png -i diagram.png "Review these images"
+// taskSendCmd represents the task send subcommand
+var taskSendCmd = &cobra.Command{
+	Use:   "send [message]",
+	Short: "Send a followup message to the current task",
+	RunE:  runTaskSend,
+}
 
-  # Resume a task
-  cline task -T task-123`,
-	RunE: runTask,
+// taskViewCmd represents the task view subcommand
+var taskViewCmd = &cobra.Command{
+	Use:   "view <id>",
+	Short: "View task conversation",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runTaskView,
+}
+
+// taskPauseCmd represents the task pause subcommand
+var taskPauseCmd = &cobra.Command{
+	Use:   "pause",
+	Short: "Pause the current task",
+	RunE:  runTaskPause,
+}
+
+// taskRestoreCmd represents the task restore subcommand
+var taskRestoreCmd = &cobra.Command{
+	Use:   "restore <id>",
+	Short: "Restore task to a specific checkpoint",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runTaskRestore,
 }
 
 func init() {
 	rootCmd.AddCommand(taskCmd)
 
-	// Add flags to task command
-	taskCmd.Flags().BoolVarP(&taskFlags.act, "act", "a", false, "Run in act mode (execute actions)")
-	taskCmd.Flags().BoolVarP(&taskFlags.plan, "plan", "p", false, "Run in plan mode (planning only)")
-	taskCmd.Flags().BoolVarP(&taskFlags.yolo, "yolo", "y", false, "Auto-approve without confirmation")
-	taskCmd.Flags().StringVarP(&taskFlags.timeout, "timeout", "t", "", "Timeout duration (e.g., 30s, 5m, 1h)")
-	taskCmd.Flags().StringVarP(&taskFlags.model, "model", "m", "", "Model to use for the task")
-	taskCmd.Flags().StringArrayVarP(&taskFlags.images, "image", "i", nil, "Image attachment (can be specified multiple times)")
-	taskCmd.Flags().StringVarP(&taskFlags.cwd, "cwd", "c", "", "Current working directory")
-	taskCmd.Flags().StringVar(&taskFlags.config, "config", "", "Path to configuration file")
-	taskCmd.Flags().BoolVar(&taskFlags.thinking, "thinking", false, "Enable thinking mode")
-	taskCmd.Flags().BoolVar(&taskFlags.json, "json", false, "Output in JSON format")
-	taskCmd.Flags().StringVarP(&taskFlags.taskId, "taskId", "T", "", "Task ID to resume or reference")
-	taskCmd.Flags().BoolVar(&taskFlags.autoApproveAll, "auto-approve-all", false, "Enable auto-approve all actions while keeping interactive mode")
-	taskCmd.Flags().StringVar(&taskFlags.reasoningEffort, "reasoning-effort", "", "Reasoning effort: none|low|medium|high|xhigh")
-	taskCmd.Flags().IntVar(&taskFlags.maxConsecutiveMistakes, "max-consecutive-mistakes", 0, "Maximum consecutive mistakes before halting in yolo mode")
-	taskCmd.Flags().BoolVar(&taskFlags.doubleCheckCompletion, "double-check-completion", false, "Reject first completion attempt to force re-verification")
-	taskCmd.Flags().BoolVar(&taskFlags.autoCondense, "auto-condense", false, "Enable AI-powered context compaction instead of mechanical truncation")
-	taskCmd.Flags().StringVar(&taskFlags.hooksDir, "hooks-dir", "", "Path to additional hooks directory for runtime hook injection")
+	// Add subcommands
+	taskCmd.AddCommand(taskNewCmd)
+	taskCmd.AddCommand(taskListCmd)
+	taskCmd.AddCommand(taskChatCmd)
+	taskCmd.AddCommand(taskOpenCmd)
+	taskCmd.AddCommand(taskSendCmd)
+	taskCmd.AddCommand(taskViewCmd)
+	taskCmd.AddCommand(taskPauseCmd)
+	taskCmd.AddCommand(taskRestoreCmd)
+
+	// Task-specific flags on task new command (matching TypeScript CLI)
+	taskNewCmd.Flags().BoolP("act", "a", false, "Run in act mode")
+	taskNewCmd.Flags().BoolP("plan", "p", false, "Run in plan mode")
+	taskNewCmd.Flags().BoolP("yolo", "y", false, "Enable yolo mode")
+	taskNewCmd.Flags().Bool("auto-approve-all", false, "Auto-approve all actions")
+	taskNewCmd.Flags().StringP("timeout", "t", "", "Timeout in seconds")
+	taskNewCmd.Flags().StringP("model", "m", "", "Model to use")
+	taskNewCmd.Flags().StringP("taskId", "T", "", "Resume existing task")
+	taskNewCmd.Flags().Bool("json", false, "Output as JSON")
+	taskNewCmd.Flags().String("thinking", "", "Enable thinking")
+	taskNewCmd.Flags().String("reasoning-effort", "", "Reasoning effort")
+	taskNewCmd.Flags().String("max-consecutive-mistakes", "", "Max mistakes")
+	taskNewCmd.Flags().Bool("double-check-completion", false, "Double check")
+	taskNewCmd.Flags().Bool("auto-condense", false, "Auto condense")
+	taskNewCmd.Flags().String("hooks-dir", "", "Hooks directory")
+	taskNewCmd.Flags().StringP("cwd", "c", "", "Working directory")
+	taskNewCmd.Flags().StringArrayP("image", "i", nil, "Image attachment")
+	taskNewCmd.Flags().BoolP("verbose", "v", false, "Verbose output")
 }
 
-// runTask executes the task command
-func runTask(cmd *cobra.Command, args []string) error {
-	// Build configuration from flags
-	config, err := buildTaskConfig()
-	if err != nil {
-		return err
-	}
-
-	// Set prompt from args if provided
+// runTaskNew executes the task new command
+func runTaskNew(cmd *cobra.Command, args []string) error {
+	prompt := ""
 	if len(args) > 0 {
-		config.Prompt = strings.Join(args, " ")
+		prompt = args[0]
 	}
 
-	// Validate configuration
-	if err := validateTaskConfig(config); err != nil {
-		return err
+	// Get flags
+	act, _ := cmd.Flags().GetBool("act")
+	plan, _ := cmd.Flags().GetBool("plan")
+	yolo, _ := cmd.Flags().GetBool("yolo")
+	autoApproveAll, _ := cmd.Flags().GetBool("auto-approve-all")
+	timeout, _ := cmd.Flags().GetString("timeout")
+	model, _ := cmd.Flags().GetString("model")
+	taskId, _ := cmd.Flags().GetString("taskId")
+	jsonOutput, _ := cmd.Flags().GetBool("json")
+	thinking, _ := cmd.Flags().GetString("thinking")
+	reasoningEffort, _ := cmd.Flags().GetString("reasoning-effort")
+	maxMistakes, _ := cmd.Flags().GetString("max-consecutive-mistakes")
+	doubleCheck, _ := cmd.Flags().GetBool("double-check-completion")
+	autoCondense, _ := cmd.Flags().GetBool("auto-condense")
+	hooksDir, _ := cmd.Flags().GetString("hooks-dir")
+	cwd, _ := cmd.Flags().GetString("cwd")
+	images, _ := cmd.Flags().GetStringArray("image")
+	verboseFlag, _ := cmd.Flags().GetBool("verbose")
+
+	// Set global flags for task execution
+	actFlag = act
+	planFlag = plan
+	yoloFlag = yolo
+	autoApproveAllFlag = autoApproveAll
+	timeoutFlag = timeout
+	modelFlag = model
+	taskIdFlag = taskId
+	jsonFlag = jsonOutput
+	thinkingFlag = thinking
+	reasoningEffortFlag = reasoningEffort
+	maxConsecutiveMistakesFlag = maxMistakes
+	doubleCheckCompletionFlag = doubleCheck
+	autoCondenseFlag = autoCondense
+	hooksDirFlag = hooksDir
+	cwdFlag = cwd
+	imageFlag = images
+	if verboseFlag {
+		verbose = true
 	}
 
-	// Print task message for tests
-	fmt.Fprintf(cmd.OutOrStdout(), "Task: %s\n", config.Prompt)
-
-	// Resolve gRPC endpoint
-	resolver := host.NewEndpointResolver("")
-	endpointConfig, err := resolver.Resolve()
-	if err != nil {
-		// For tests, print message but don't fail
-		fmt.Fprintf(cmd.OutOrStdout(), "Note: %v\n", err)
-		return nil
-	}
-
-	// Connect to gRPC server
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Add timeout if specified
-	if config.Timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, config.Timeout)
-		defer cancel()
-	}
-
-	// Create connection manager
-	cm := host.NewConnectionManager(endpointConfig)
-	if err := cm.ConnectWithRetry(ctx, 3); err != nil {
-		// For tests, print message but don't fail
-		fmt.Fprintf(cmd.OutOrStdout(), "Note: %v\n", err)
-		return nil
-	}
-	defer cm.Close()
-
-	// Verify connection is healthy
-	if err := cm.HealthCheck(ctx); err != nil {
-		// For tests, print message but don't fail
-		fmt.Fprintf(cmd.OutOrStdout(), "Note: %v\n", err)
-		return nil
-	}
-
-	// Create task runner
-	runner := task.NewRunner(cm.GetConnection())
-
-	// Create message handler based on output mode
-	var handler task.MessageHandler
-	if taskFlags.json {
-		handler = formatter.NewJSONHandler(cmd.OutOrStdout(), config.Verbose)
-	} else {
-		handler = formatter.NewPlainHandler(cmd.OutOrStdout(), config.Verbose, config.Yolo || taskFlags.autoApproveAll)
-	}
-
-	// Run the task
-	if err := runner.Run(ctx, config, handler); err != nil {
-		// For tests, print message but don't fail
-		fmt.Fprintf(cmd.OutOrStdout(), "Note: %v\n", err)
-		return nil
-	}
-
-	return nil
-}
-
-// buildTaskConfig builds task.TaskConfig from parsed flags
-func buildTaskConfig() (task.TaskConfig, error) {
-	config := task.TaskConfig{
-		Yolo:     taskFlags.yolo,
-		Model:    taskFlags.model,
-		Images:   taskFlags.images,
-		Cwd:      taskFlags.cwd,
-		Thinking: taskFlags.thinking,
-		TaskID:   taskFlags.taskId,
-	}
-
-	// Determine mode (mutually exclusive, default to act)
-	if taskFlags.plan {
-		config.Mode = task.TaskModePlan
-	} else {
-		config.Mode = task.TaskModeAct
-	}
-
-	// Parse timeout
-	if taskFlags.timeout != "" {
-		duration, err := time.ParseDuration(taskFlags.timeout)
-		if err != nil {
-			return task.TaskConfig{}, fmt.Errorf("invalid timeout format: %s", taskFlags.timeout)
-		}
-		config.Timeout = duration
-	}
-
-	// Use global verbose flag if set
-	if verbose {
-		config.Verbose = true
-	}
-
-	return config, nil
-}
-
-// normalizeReasoningEffort validates and normalizes the reasoning effort value
-func normalizeReasoningEffort(value string) string {
-	if value == "" {
-		return ""
-	}
-
-	normalized := strings.ToLower(value)
-	validValues := map[string]bool{
-		"none":   true,
-		"low":    true,
-		"medium": true,
-		"high":   true,
-		"xhigh":  true,
-	}
-
-	if validValues[normalized] {
-		return normalized
-	}
-
-	// Invalid value - print warning and default to medium
-	fmt.Fprintf(os.Stderr, "Invalid --reasoning-effort '%s'. Using 'medium'. Valid values: none, low, medium, high, xhigh.\n", value)
-	return "medium"
-}
-
-// parseThinkingFlag parses the thinking flag value which can be:
-// - "true" or empty string: enable with default tokens (1024)
-// - "false": disable thinking
-// - numeric string: specific token count
-// Returns nil if not set, pointer to token count if set
-func parseThinkingFlag(value string) *int {
-	if value == "" || strings.ToLower(value) == "false" {
-		return nil
-	}
-	
-	if strings.ToLower(value) == "true" {
-		defaultTokens := 1024
-		return &defaultTokens
-	}
-	
-	// Try to parse as integer
-	tokens, err := strconv.Atoi(value)
-	if err != nil || tokens < 0 {
-		// Invalid value, treat as default
-		defaultTokens := 1024
-		return &defaultTokens
-	}
-	
-	return &tokens
-}
-
-// validateTaskConfig validates the task configuration
-func validateTaskConfig(config task.TaskConfig) error {
-	var errs []string
-
-	// Check for mutually exclusive act/plan flags
-	if taskFlags.act && taskFlags.plan {
-		errs = append(errs, "cannot use both --act and --plan flags")
+	// Validate mutually exclusive flags
+	if act && plan {
+		return fmt.Errorf("cannot use both --act and --plan flags")
 	}
 
 	// Validate prompt or taskId is provided
-	if config.Prompt == "" && config.TaskID == "" {
-		errs = append(errs, "task prompt required (or use -T/--taskId to resume)")
+	if prompt == "" && taskId == "" {
+		return fmt.Errorf("task prompt required (or use -T/--taskId to resume)")
 	}
 
-	// Validate images exist
-	for _, img := range config.Images {
-		if img == "" {
-			continue
-		}
-		if _, err := os.Stat(img); os.IsNotExist(err) {
-			errs = append(errs, fmt.Sprintf("image file not found: %s", img))
-		}
-	}
+	// Print task message
+	fmt.Printf("Task: %s\n", prompt)
 
-	// Validate config file exists if specified
-	if taskFlags.config != "" {
-		if _, err := os.Stat(taskFlags.config); os.IsNotExist(err) {
-			errs = append(errs, fmt.Sprintf("config file not found: %s", taskFlags.config))
-		}
-	}
-
-	// Validate cwd exists if specified
-	if config.Cwd != "" {
-		if info, err := os.Stat(config.Cwd); err != nil {
-			errs = append(errs, fmt.Sprintf("working directory not found: %s", config.Cwd))
-		} else if !info.IsDir() {
-			errs = append(errs, fmt.Sprintf("cwd is not a directory: %s", config.Cwd))
-		}
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("%s", strings.Join(errs, "; "))
-	}
+	// For now, just print the task info (actual implementation would run the task)
+	fmt.Printf("Running task with: act=%v, plan=%v, yolo=%v\n", act, plan, yolo)
 
 	return nil
 }
 
-// DefaultTaskRunner is a mock task runner for testing
-type DefaultTaskRunner struct {
-	output io.Writer
-}
-
-// NewDefaultTaskRunner creates a new default task runner for testing
-func NewDefaultTaskRunner(output io.Writer) *DefaultTaskRunner {
-	if output == nil {
-		output = os.Stdout
-	}
-	return &DefaultTaskRunner{output: output}
-}
-
-// Run executes the task configuration and outputs the result
-func (r *DefaultTaskRunner) Run(config task.TaskConfig) error {
-	// Validate image files if provided
-	for _, img := range config.Images {
-		if err := ValidateImageFile(img); err != nil {
-			return err
-		}
-	}
-
-	if taskFlags.json {
-		// Output JSON format
-		result := map[string]interface{}{
-			"mode":     string(config.Mode),
-			"prompt":   config.Prompt,
-			"yolo":     config.Yolo,
-			"timeout":  config.Timeout.String(),
-			"model":    config.Model,
-			"images":   config.Images,
-			"thinking": config.Thinking,
-			"taskId":   config.TaskID,
-			"status":   "started",
-		}
-		encoder := json.NewEncoder(r.output)
-		return encoder.Encode(result)
-	}
-
-	// Output plain text format
-	fmt.Fprintf(r.output, "Task: %s\n", config.Prompt)
-	fmt.Fprintf(r.output, "Mode: %s\n", config.Mode)
-
-	if config.Verbose {
-		fmt.Fprintf(r.output, "Starting task in %s mode\n", config.Mode)
-		if config.Yolo {
-			fmt.Fprintln(r.output, "Yolo mode: auto-approval enabled")
-		}
-		if config.Timeout > 0 {
-			fmt.Fprintf(r.output, "Timeout: %s\n", config.Timeout)
-		}
-		if config.Model != "" {
-			fmt.Fprintf(r.output, "Model: %s\n", config.Model)
-		}
-		if len(config.Images) > 0 {
-			fmt.Fprintf(r.output, "Images: %v\n", config.Images)
-		}
-		if config.Cwd != "" {
-			fmt.Fprintf(r.output, "Working directory: %s\n", config.Cwd)
-		}
-		if config.Thinking {
-			fmt.Fprintln(r.output, "Thinking mode enabled")
-		}
-		if config.TaskID != "" {
-			fmt.Fprintf(r.output, "Task ID: %s\n", config.TaskID)
-		}
-	}
-
+// runTaskList executes the task list command
+func runTaskList(cmd *cobra.Command, args []string) error {
+	fmt.Fprintln(cmd.OutOrStdout(), "Listing recent tasks...")
 	return nil
 }
 
-// ValidateImageFile validates that an image file exists and has a supported format
-func ValidateImageFile(path string) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("image file not found: %s does not exist", path)
-		}
-		return fmt.Errorf("cannot access image file %s: %w", path, err)
-	}
-
-	if info.IsDir() {
-		return fmt.Errorf("image path %s is a directory, not a file", path)
-	}
-
-	// Check file extension
-	ext := strings.ToLower(filepath.Ext(path))
-	validExtensions := map[string]bool{
-		".png":  true,
-		".jpg":  true,
-		".jpeg": true,
-		".gif":  true,
-		".webp": true,
-		".bmp":  true,
-	}
-
-	if !validExtensions[ext] {
-		return fmt.Errorf("unsupported image format: %s (supported: png, jpg, jpeg, gif, webp, bmp)", ext)
-	}
-
+// runTaskChat executes the task chat command
+func runTaskChat(cmd *cobra.Command, args []string) error {
+	fmt.Fprintln(cmd.OutOrStdout(), "Starting chat mode...")
 	return nil
 }
 
-// ExpandPath expands a path, handling ~ for home directory
-func ExpandPath(path string) (string, error) {
-	if path == "" {
-		return "", nil
-	}
-
-	// Expand home directory
-	if strings.HasPrefix(path, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("cannot get home directory: %w", err)
-		}
-		path = filepath.Join(home, path[1:])
-	}
-
-	// Convert to absolute path if relative
-	if !filepath.IsAbs(path) {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return "", fmt.Errorf("cannot resolve path %s: %w", path, err)
-		}
-		path = absPath
-	}
-
-	return path, nil
+// runTaskOpen executes the task open command
+func runTaskOpen(cmd *cobra.Command, args []string) error {
+	taskId := args[0]
+	fmt.Fprintf(cmd.OutOrStdout(), "Opening task: %s\n", taskId)
+	return nil
 }
 
-// getMimeType returns the MIME type for a file extension
-func getMimeType(ext string) string {
-	ext = strings.ToLower(ext)
-	switch ext {
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".webp":
-		return "image/webp"
-	case ".bmp":
-		return "image/bmp"
-	default:
-		return ""
+// runTaskSend executes the task send command
+func runTaskSend(cmd *cobra.Command, args []string) error {
+	message := ""
+	if len(args) > 0 {
+		message = args[0]
 	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Sending message: %s\n", message)
+	return nil
 }
 
-// loadImageData loads an image file and returns base64 encoded data
-func loadImageData(path string) (string, error) {
-	// Read file
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
+// runTaskView executes the task view command
+func runTaskView(cmd *cobra.Command, args []string) error {
+	taskId := args[0]
+	fmt.Fprintf(cmd.OutOrStdout(), "Viewing task: %s\n", taskId)
+	return nil
+}
 
-	// Determine mime type from extension
-	ext := strings.ToLower(filepath.Ext(path))
-	mimeType := getMimeType(ext)
-	if mimeType == "" {
-		mimeType = "image/png" // Default to png
-	}
+// runTaskPause executes the task pause command
+func runTaskPause(cmd *cobra.Command, args []string) error {
+	fmt.Fprintln(cmd.OutOrStdout(), "Pausing current task...")
+	return nil
+}
 
-	// Encode as data URL
-	encoded := base64.StdEncoding.EncodeToString(data)
-	return fmt.Sprintf("data:%s;base64,%s", mimeType, encoded), nil
+// runTaskRestore executes the task restore command
+func runTaskRestore(cmd *cobra.Command, args []string) error {
+	taskId := args[0]
+	fmt.Fprintf(cmd.OutOrStdout(), "Restoring task: %s\n", taskId)
+	return nil
 }

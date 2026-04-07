@@ -153,24 +153,28 @@ func outputVersionJSON(output io.Writer, info *VersionInfo) error {
 	return encoder.Encode(info)
 }
 
+// CoreVersion is the Cline Core version - set by ldflags during build
+var CoreVersion = "unknown"
+
 // outputVersionStandard outputs version info in standard format
+// Matches TypeScript CLI format exactly:
+// Cline CLI
+// Cline CLI Version:  1.0.9
+// Cline Core Version: 3.47.0
+// Commit:             2ebbe95
+// Built:              2026-01-08T22:15:09Z
+// Built by:           runner
+// Go version:         go1.24.11
+// OS/Arch:            darwin/arm64
 func outputVersionStandard(output io.Writer, info *VersionInfo) error {
-	// Use cyan color for the version (matches TypeScript chalk.cyan)
-	cyan := "\033[36m"
-	reset := "\033[0m"
-	
-	fmt.Fprintf(output, "Cline CLI version: %s%s%s\n", cyan, info.Version, reset)
-
-	if info.GitCommit != "unknown" {
-		fmt.Fprintf(output, "  Git commit: %s\n", formatCommit(info.GitCommit))
-	}
-
-	if info.BuildDate != "unknown" {
-		fmt.Fprintf(output, "  Built: %s\n", formatBuildDate(info.BuildDate))
-	}
-
-	fmt.Fprintf(output, "  Go version: %s\n", info.GoVersion)
-	fmt.Fprintf(output, "  OS/Arch: %s/%s\n", info.OS, info.Arch)
+	fmt.Fprintln(output, "Cline CLI")
+	fmt.Fprintf(output, "Cline CLI Version:  %s\n", info.Version)
+	fmt.Fprintf(output, "Cline Core Version: %s\n", CoreVersion)
+	fmt.Fprintf(output, "Commit:             %s\n", formatCommit(info.GitCommit))
+	fmt.Fprintf(output, "Built:              %s\n", info.BuildDate)
+	fmt.Fprintf(output, "Built by:           %s\n", info.BuildHost)
+	fmt.Fprintf(output, "Go version:         %s\n", info.GoVersion)
+	fmt.Fprintf(output, "OS/Arch:            %s/%s\n", info.OS, info.Arch)
 
 	return nil
 }

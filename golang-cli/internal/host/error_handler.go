@@ -4,6 +4,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -136,6 +137,16 @@ func (h *ErrorHandler) HandleError(err error, operation string, retryCount int, 
 // IsRetryableError determines if an error is retryable
 func (h *ErrorHandler) IsRetryableError(err error) bool {
 	if err == nil {
+		return false
+	}
+
+	// Check for known retryable errors
+	if errors.Is(err, ErrStreamNotReady) || errors.Is(err, ErrBackpressureExceeded) {
+		return true
+	}
+
+	// Check for non-retryable errors
+	if errors.Is(err, ErrStreamClosed) {
 		return false
 	}
 

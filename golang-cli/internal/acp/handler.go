@@ -12,20 +12,27 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/cline/cline/golang-cli/internal/errorservice"
 	"github.com/cline/cline/golang-cli/internal/storage"
 	"github.com/cline/cline/golang-cli/internal/task"
+	"github.com/cline/cline/golang-cli/internal/telemetry"
 	"github.com/google/uuid"
 )
 
 // ClineHandler implements the ACP Handler interface for Cline
 type ClineHandler struct {
-	storage   *storage.StorageContext
-	conn      *grpc.ClientConn
-	version   string
-	sessions  map[string]*ClineSession
-	sessionMu sync.RWMutex
-	logger    *slog.Logger
+	storage      *storage.StorageContext
+	conn         *grpc.ClientConn
+	version      string
+	sessions     map[string]*ClineSession
+	sessionMu    sync.RWMutex
+	logger       *slog.Logger
+	telemetry    telemetry.Service
+	errorService errorservice.Service
 }
+
+// Ensure ClineHandler implements Handler
+var _ Handler = (*ClineHandler)(nil)
 
 // ClineSession represents an ACP session with Cline
 type ClineSession struct {
@@ -178,10 +185,20 @@ func (h *ClineHandler) CreateSession(ctx context.Context, req *CreateSessionRequ
 		TaskID:   sessionID,
 	}
 
+	// Create task config
+	taskConfig := &task.Config{
+		Mode: mode,
+	}
+
 	// Create task runner
 	var runner *task.Runner
 	if h.conn != nil {
-		runner = task.NewRunner(h.conn)
+		runner = task.NewRunner(
+			taskConfig,
+			h.telemetry,
+			h.errorService,
+			h.logger,
+		)
 	}
 
 	// Create session

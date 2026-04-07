@@ -30,8 +30,9 @@ var skillsFlags struct {
 
 // skillsCmd represents the skills command
 var skillsCmd = &cobra.Command{
-	Use:   "skills",
-	Short: "Manage Cline skills",
+	Use:    "skills",
+	Short:  "Manage Cline skills",
+	Hidden: true, // Hidden - not in TypeScript CLI
 	Long: `Manage Cline skills for extended functionality.
 
 Skills are modular capabilities that can be added to Cline to extend

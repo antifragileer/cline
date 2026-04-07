@@ -20,7 +20,21 @@ GOVET := go vet
 LDFLAGS := -s -w \
     -X github.com/cline/cline/golang-cli/cmd/cline.Version=$(VERSION) \
     -X github.com/cline/cline/golang-cli/cmd/cline.GitCommit=$(GIT_COMMIT) \
-    -X github.com/cline/cline/golang-cli/cmd/cline.BuildTime=$(BUILD_TIME)
+    -X github.com/cline/cline/golang-cli/cmd/cline.BuildDate=$(BUILD_TIME) \
+    -X github.com/cline/cline/golang-cli/cmd/cline.BuildHost=$(BUILD_HOST) \
+    -X github.com/cline/cline/golang-cli/cmd/cline.CoreVersion=$(CORE_VERSION)
+
+# Version information
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 'dev')
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Version information
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo '0.1.0')
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_HOST ?= $(shell whoami)@$(shell hostname)
+CORE_VERSION ?= unknown
 
 # Test flags for performance
 # -count=1: Disable test caching for CI, enable for local dev

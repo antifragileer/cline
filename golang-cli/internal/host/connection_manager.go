@@ -36,12 +36,19 @@ func NewConnectionManager(config *EndpointConfig) *ConnectionManager {
 // Connect establishes a connection to the gRPC server with retry logic
 func (cm *ConnectionManager) Connect(ctx context.Context) error {
 	if cm.conn != nil {
-		return nil
+		// Check if the connection is still valid
+		if cm.IsConnected() {
+			return nil
+		}
+		// Close the stale connection
+		cm.conn.Close()
+		cm.conn = nil
 	}
 
 	// Set up dial options
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), // Wait for connection to be ready
 		grpc.WithDefaultServiceConfig(`{
 			"loadBalancingPolicy": "round_robin",
 			"healthCheckConfig": {

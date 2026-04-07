@@ -36,8 +36,9 @@ var hooksFlags struct {
 
 // hooksCmd represents the hooks command
 var hooksCmd = &cobra.Command{
-	Use:   "hooks",
-	Short: "Manage Cline hooks",
+	Use:    "hooks",
+	Short:  "Manage Cline hooks",
+	Hidden: true, // Hidden - not in TypeScript CLI
 	Long: `Manage Cline hooks for custom automation and extensions.
 
 Hooks allow you to run custom scripts at various points during Cline's

@@ -97,25 +97,19 @@ func TestPhase1_GRPCIntegration(t *testing.T) {
 		// Give server time to start
 		time.Sleep(100 * time.Millisecond)
 
-		// Test connection establishment
+		// Test connection establishment with blocking dial
 		addr := lis.Addr().String()
-		conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		defer conn.Close()
-
-		// Verify connection state
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Wait for ready
-		state := conn.GetState()
-		for state != connectivity.Ready {
-			if !conn.WaitForStateChange(ctx, state) {
-				t.Fatal("timeout waiting for connection")
-			}
-			state = conn.GetState()
-		}
+		conn, err := grpc.DialContext(ctx, addr, 
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock())
+		require.NoError(t, err)
+		defer conn.Close()
 
+		// Connection should be ready
+		state := conn.GetState()
 		assert.Equal(t, connectivity.Ready, state)
 	})
 
@@ -354,8 +348,8 @@ func TestPhase1_TaskManagement(t *testing.T) {
 		defer cancel()
 
 		_, err = client.CancelTask(ctx, &cline.EmptyRequest{})
-		// Mock doesn't implement this, but the call should not panic
-		assert.Error(t, err) // Expected since mock doesn't implement
+		// Mock implements this and returns success
+		assert.NoError(t, err) // Mock returns empty response
 	})
 
 	t.Run("retrieves task history", func(t *testing.T) {
@@ -388,8 +382,8 @@ func TestPhase1_TaskManagement(t *testing.T) {
 		}
 
 		_, err = client.GetTaskHistory(ctx, req)
-		// Mock doesn't implement this, but the call should not panic
-		assert.Error(t, err) // Expected since mock doesn't implement
+		// Mock implements this and returns success
+		assert.NoError(t, err) // Mock returns empty task history
 	})
 }
 

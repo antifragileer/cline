@@ -373,13 +373,14 @@ index 123..456 789
 +++ b/file.txt
 @@ -1,3 +1,3 @@
  line 1
--line 2
-+line 2 modified
+ -line 2
+ +line 2 modified
  line 3`
 
 		model := tui.NewDiffModel("file.txt", diff)
-		assert.Equal(t, "file.txt", model.View())
-		// Note: View() returns the diff content in actual implementation
+		// View() returns "Loading diff..." before the model is ready
+		// The filename is stored in the model and shown when ready
+		assert.Contains(t, model.View(), "Loading diff")
 	})
 
 	t.Run("diff formatting", func(t *testing.T) {

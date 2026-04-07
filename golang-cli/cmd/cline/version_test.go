@@ -77,8 +77,11 @@ func TestOutputVersionStandard(t *testing.T) {
 	output := buf.String()
 
 	// Check expected content
-	if !strings.Contains(output, "Cline CLI version:") {
-		t.Error("Output should contain version")
+	if !strings.Contains(output, "Cline CLI") {
+		t.Error("Output should contain 'Cline CLI'")
+	}
+	if !strings.Contains(output, "Cline CLI Version:") {
+		t.Error("Output should contain 'Cline CLI Version:'")
 	}
 	if !strings.Contains(output, "1.0.0") {
 		t.Error("Output should contain version number")

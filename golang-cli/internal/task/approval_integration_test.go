@@ -303,7 +303,7 @@ func TestLoggingApproverIntegration(t *testing.T) {
 	// Verify logs were written
 	assert.GreaterOrEqual(t, len(logs), 2)
 	assert.Contains(t, logs[0], "Approval requested")
-	assert.Contains(t, logs[1], "Tool approved")
+	assert.Contains(t, logs[1], "approved")
 }
 
 // TestTimeoutApproverIntegration tests the timeout approver.

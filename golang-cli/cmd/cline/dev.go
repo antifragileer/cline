@@ -150,6 +150,8 @@ func runDevLog(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Always print the log file path so users know where it is
+	fmt.Fprintf(cmd.OutOrStdout(), "Log file: %s\n", logPath)
 	return nil
 }
 

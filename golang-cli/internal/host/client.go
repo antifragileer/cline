@@ -227,7 +227,7 @@ func (p *ConnPool) GetConnection() (*grpc.ClientConn, error) {
 
 // createConnection creates a new gRPC connection
 func (p *ConnPool) createConnection() (*grpc.ClientConn, error) {
-	opts := make([]grpc.DialOption, 0, len(p.dialOptions)+2)
+	opts := make([]grpc.DialOption, 0, len(p.dialOptions)+3)
 
 	// Add transport credentials
 	if p.tlsConfig != nil {
@@ -240,6 +240,9 @@ func (p *ConnPool) createConnection() (*grpc.ClientConn, error) {
 	// Add dial timeout
 	ctx, cancel := context.WithTimeout(p.ctx, p.connTimeout())
 	defer cancel()
+
+	// Add block option to wait for connection to be ready
+	opts = append(opts, grpc.WithBlock())
 
 	// Append user-provided options
 	opts = append(opts, p.dialOptions...)

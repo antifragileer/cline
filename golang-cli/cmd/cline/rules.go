@@ -31,8 +31,9 @@ var rulesFlags struct {
 
 // rulesCmd represents the rules command
 var rulesCmd = &cobra.Command{
-	Use:   "rules",
-	Short: "Manage Cline rules",
+	Use:    "rules",
+	Short:  "Manage Cline rules",
+	Hidden: true, // Hidden - not in TypeScript CLI
 	Long: `Manage Cline rules for custom behavior and constraints.
 
 Rules allow you to define custom constraints and behaviors that Cline

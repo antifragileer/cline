@@ -38,8 +38,9 @@ var tasksFlags struct {
 
 // tasksCmd represents the tasks command
 var tasksCmd = &cobra.Command{
-	Use:   "tasks",
-	Short: "Manage Cline tasks",
+	Use:    "tasks",
+	Short:  "Manage Cline tasks",
+	Hidden: true, // Hidden - redundant with 'task' command in TypeScript CLI
 	Long: `Manage Cline tasks - list, show, delete, and export task history.
 
 This command provides comprehensive task management capabilities

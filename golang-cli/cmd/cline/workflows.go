@@ -29,8 +29,9 @@ var workflowsFlags struct {
 
 // workflowsCmd represents the workflows command
 var workflowsCmd = &cobra.Command{
-	Use:   "workflows",
-	Short: "Manage Cline workflows",
+	Use:    "workflows",
+	Short:  "Manage Cline workflows",
+	Hidden: true, // Hidden - not in TypeScript CLI
 	Long: `Manage Cline workflows for automated task execution.
 
 Workflows are predefined sequences of actions that can be triggered

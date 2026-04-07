@@ -16,12 +16,15 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cline/cline/golang-cli/internal/acp"
+	"github.com/cline/cline/golang-cli/internal/errorservice"
 	"github.com/cline/cline/golang-cli/internal/exit"
 	"github.com/cline/cline/golang-cli/internal/formatter"
 	"github.com/cline/cline/golang-cli/internal/host"
 	"github.com/cline/cline/golang-cli/internal/mode"
+	"github.com/cline/cline/golang-cli/internal/session"
 	"github.com/cline/cline/golang-cli/internal/storage"
 	"github.com/cline/cline/golang-cli/internal/task"
+	"github.com/cline/cline/golang-cli/internal/telemetry"
 	"github.com/cline/cline/golang-cli/internal/tui"
 )
 
@@ -48,7 +51,7 @@ var (
 	cfgFile string
 	verbose bool
 
-	// Mode flags
+	// Mode flags (for root command interactive mode)
 	actFlag  bool
 	planFlag bool
 
@@ -56,7 +59,7 @@ var (
 	yoloFlag           bool
 	autoApproveAllFlag bool
 
-	// Execution flags
+	// Execution flags (for root command)
 	timeoutFlag             string
 	modelFlag               string
 	thinkingFlag            string // Can be boolean or token count
@@ -82,6 +85,19 @@ var (
 	// Task management flags
 	taskIdFlag    string
 	continueFlag  bool
+
+	// New global flags for parity with TypeScript CLI
+	addressFlag       string
+	fileFlag          []string
+	modeFlag          string
+	noInteractiveFlag bool
+	oneshotFlag       bool
+	outputFormatFlag  string
+	settingFlag       []string
+	workspaceFlag     []string
+
+	// Image attachment flag (for -i, --image)
+	imageAttachFlag []string
 
 	// Logger instance
 	logger *slog.Logger
@@ -154,14 +170,24 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig, initLogger, initCommands)
 
-	// Global persistent flags
+	// Global persistent flags (matching TypeScript CLI)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is $HOME/.%s/%s.%s)", ConfigDirName, DefaultConfigName, DefaultConfigType))
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
+	
+	// New global persistent flags for parity with TypeScript CLI
+	rootCmd.PersistentFlags().StringVar(&addressFlag, "address", "localhost:50052", "Cline Core gRPC address")
+	rootCmd.PersistentFlags().StringArrayVar(&fileFlag, "file", nil, "attach files")
+	rootCmd.PersistentFlags().StringVar(&modeFlag, "mode", "plan", "mode (act|plan)")
+	rootCmd.PersistentFlags().BoolVar(&noInteractiveFlag, "no-interactive", false, "enable yolo mode (non-interactive)")
+	rootCmd.PersistentFlags().BoolVarP(&oneshotFlag, "oneshot", "o", false, "full autonomous mode")
+	rootCmd.PersistentFlags().StringVarP(&outputFormatFlag, "output-format", "F", "rich", "output format (rich|json|plain)")
+	rootCmd.PersistentFlags().StringArrayVar(&settingFlag, "setting", nil, "task settings (key=value format)")
+	rootCmd.PersistentFlags().StringArrayVarP(&workspaceFlag, "workspace", "w", nil, "additional workspace paths")
 
 	// Disable flag parsing for the root command to allow arbitrary prompt arguments
 	rootCmd.DisableFlagParsing = false
 
-	// Mode flags (mutually exclusive)
+	// Mode flags (mutually exclusive) - kept for backward compatibility
 	rootCmd.Flags().BoolVarP(&actFlag, "act", "a", false, "Run in act mode (execute actions)")
 	rootCmd.Flags().BoolVarP(&planFlag, "plan", "p", false, "Run in plan mode (planning only)")
 
@@ -436,8 +462,92 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("%w: %v", &exitError{code: exit.InvalidArguments}, err)
 	}
 
+	// Initialize storage for services
+	storageCtx, err := initStorage()
+	if err != nil {
+		logger.Warn("Failed to initialize storage", "error", err)
+		storageCtx = nil
+	} else {
+		defer storageCtx.Close()
+	}
+
+	// Initialize session manager
+	session.Reset()
+	sess := session.Get()
+
+	// Initialize telemetry service
+	var telemetryService telemetry.Service
+	if storageCtx != nil {
+		telemetryService, err = telemetry.NewService(storageCtx, Version, logger)
+		if err != nil {
+			logger.Warn("Failed to initialize telemetry", "error", err)
+		} else {
+			// Capture extension activated
+			_ = telemetryService.CaptureExtensionActivated()
+		}
+	}
+
+	// Initialize error service
+	errorService := errorservice.NewService(storageCtx, logger)
+	if err := errorService.Initialize(); err != nil {
+		logger.Warn("Failed to initialize error service", "error", err)
+	}
+
+	// Set up signal handling
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cleanup := SetupSignalHandling(telemetryService, errorService, logger, cancel)
+	defer cleanup()
+
+	// Capture mode flag telemetry
+	if telemetryService != nil {
+		if opts.Act {
+			_ = telemetryService.CaptureModeFlag("act")
+		} else if opts.Plan {
+			_ = telemetryService.CaptureModeFlag("plan")
+		}
+	}
+
+	// Capture model flag telemetry
+	if telemetryService != nil && opts.Model != "" {
+		_ = telemetryService.CaptureModelFlag(opts.Model)
+	}
+
+	// Capture thinking flag telemetry
+	if telemetryService != nil && opts.Thinking != nil {
+		_ = telemetryService.CaptureThinkingFlag()
+	}
+
+	// Capture reasoning effort flag telemetry
+	if telemetryService != nil && opts.ReasoningEffort != "" {
+		_ = telemetryService.CaptureReasoningEffortFlag(opts.ReasoningEffort)
+	}
+
+	// Capture max consecutive mistakes flag telemetry
+	if telemetryService != nil && opts.MaxConsecutiveMistakes != nil {
+		_ = telemetryService.CaptureMaxConsecutiveMistakesFlag(*opts.MaxConsecutiveMistakes)
+	}
+
+	// Capture yolo flag telemetry
+	if telemetryService != nil && opts.Yolo {
+		_ = telemetryService.CaptureYoloFlag()
+	}
+
+	// Capture auto-approve-all flag telemetry
+	if telemetryService != nil && opts.AutoApproveAll {
+		_ = telemetryService.CaptureAutoApproveAllFlag()
+	}
+
+	// Capture double-check-completion flag telemetry
+	if telemetryService != nil && opts.DoubleCheckCompletion {
+		_ = telemetryService.CaptureDoubleCheckCompletionFlag()
+	}
+
 	// Handle kanban mode
 	if opts.Kanban {
+		if telemetryService != nil {
+			_ = telemetryService.CaptureCommand("kanban", "mode")
+		}
 		if err := runKanbanMode(); err != nil {
 			return err
 		}
@@ -454,6 +564,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 
 	// Handle continue mode
 	if opts.Continue {
+		if telemetryService != nil {
+			_ = telemetryService.CaptureResumeTask(false)
+		}
 		if err := runContinueMode(opts); err != nil {
 			return err
 		}
@@ -462,6 +575,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 
 	// Handle task resumption
 	if opts.TaskID != "" {
+		if telemetryService != nil {
+			_ = telemetryService.CaptureResumeTask(true)
+		}
 		if err := runResumeTask(opts); err != nil {
 			return err
 		}
@@ -470,13 +586,19 @@ func runRoot(cmd *cobra.Command, args []string) error {
 
 	// Handle task with prompt
 	if opts.Prompt != "" {
-		if err := runTaskWithPrompt(opts); err != nil {
+		if telemetryService != nil {
+			_ = telemetryService.CaptureCommand("task", "with_prompt")
+		}
+		if err := runTaskWithPrompt(opts, telemetryService, errorService, sess); err != nil {
 			return err
 		}
 		return nil
 	}
 
 	// No prompt provided, start interactive mode
+	if telemetryService != nil {
+		_ = telemetryService.CaptureCommand("interactive", "mode")
+	}
 	if err := runInteractiveMode(opts); err != nil {
 		return err
 	}
@@ -598,7 +720,8 @@ func runContinueMode(opts *RootOptions) error {
 		return fmt.Errorf("failed to get gRPC connection: %w", err)
 	}
 	resumeManager := task.NewResumeManager(conn)
-	_, err = resumeManager.ResumeMostRecentTask(context.Background(), opts.Prompt, opts.Images)
+	ctx := context.Background()
+	_, err = resumeManager.ResumeMostRecentTask(ctx, opts.Prompt, opts.Images)
 	if err != nil {
 		// For tests, print the message but don't fail
 		fmt.Printf("Note: %v\n", err)
@@ -701,7 +824,7 @@ func createGRPCClient(opts *RootOptions) (*host.Client, error) {
 
 
 // runTaskWithPrompt runs a task with the given prompt
-func runTaskWithPrompt(opts *RootOptions) error {
+func runTaskWithPrompt(opts *RootOptions, telemetryService telemetry.Service, errorService errorservice.Service, sess session.Manager) error {
 	logger.Info("running task",
 		"prompt", opts.Prompt,
 		"act", opts.Act,
@@ -718,6 +841,11 @@ func runTaskWithPrompt(opts *RootOptions) error {
 	if err != nil && err != mode.ErrNotPiped {
 		// Log the error but don't fail - proceed without piped input
 		logger.Warn("failed to read piped input", "error", err)
+	}
+
+	// Capture piped telemetry
+	if telemetryService != nil && pipedInput != "" {
+		_ = telemetryService.CapturePiped()
 	}
 
 	// Combine piped input with prompt if present
@@ -774,7 +902,11 @@ func runTaskWithGRPC(opts *RootOptions) error {
 	}
 
 	// Create task runner
-	runner := task.NewRunner(cm.GetConnection())
+	taskConfig := &task.Config{
+		Mode: getTaskModeAsTaskMode(opts),
+		Yolo: opts.Yolo,
+	}
+	runner := task.NewRunner(taskConfig, telemetry.NewNoOpService(), errorservice.NewService(nil, logger), logger)
 
 	// Build task config
 	config := task.TaskConfig{
@@ -820,11 +952,11 @@ func getTaskModeAsTaskMode(opts *RootOptions) task.TaskMode {
 }
 
 // getTaskMode returns the task mode based on options (for backward compatibility)
-func getTaskMode(opts *RootOptions) TaskMode {
+func getTaskMode(opts *RootOptions) task.TaskMode {
 	if opts.Plan {
-		return TaskModePlan
+		return task.TaskModePlan
 	}
-	return TaskModeAct
+	return task.TaskModeAct
 }
 
 // isTTY checks if stdout is a terminal
@@ -925,25 +1057,22 @@ func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, c
 	}
 
 	// Get gRPC connection from client
-	conn, err := client.GetPool().GetConnection()
+	_, err := client.GetPool().GetConnection()
 	if err != nil {
 		return fmt.Errorf("failed to get gRPC connection: %w", err)
 	}
 
 	// Create task runner
-	runner := task.NewRunner(conn)
-
-	// Create message update channel for TUI
-	msgChan := make(chan tea.Msg, 100)
-
-	// Create streaming handler for TUI (for future use with message forwarding)
-	_ = tui.NewStreamingHandler(msgChan)
-
-	// Determine initial mode
-	mode := task.TaskModeAct
-	if opts.Plan {
-		mode = task.TaskModePlan
+	mode := getTaskMode(opts)
+	taskConfig := &task.Config{
+		Mode: mode,
+		Yolo: opts.Yolo,
 	}
+	// Create local service instances for this function
+	localTelemetryService := telemetry.NewNoOpService()
+	localErrorService := errorservice.NewService(storageCtx, logger)
+	_ = localErrorService.Initialize()
+	runner := task.NewRunner(taskConfig, localTelemetryService, localErrorService, logger)
 
 	// Build task config
 	config := task.TaskConfig{
@@ -976,12 +1105,8 @@ func runInteractiveChat(opts *RootOptions, storageCtx *storage.StorageContext, c
 		}
 	}()
 
-	// Forward messages from stream handler to TUI
-	go func() {
-		for msg := range msgChan {
-			p.Send(msg)
-		}
-	}()
+	// Note: Message forwarding would be implemented here
+	// For now, messages are handled directly by the runner
 
 	// Run TUI
 	if _, err := p.Run(); err != nil {
