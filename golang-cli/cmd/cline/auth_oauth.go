@@ -15,28 +15,28 @@ import (
 
 // OAuthProviderInfo holds information about OAuth-enabled providers
 var OAuthProviderInfo = map[string]struct {
-	Name         string
-	Description  string
+	Name          string
+	Description   string
 	RequiresOAuth bool
-	AuthType     string // "oauth" or "apikey"
+	AuthType      string // "oauth" or "apikey"
 }{
 	"openai-codex": {
-		Name:         "openai-codex",
-		Description:  "OpenAI Codex (OAuth)",
+		Name:          "openai-codex",
+		Description:   "OpenAI Codex (OAuth)",
 		RequiresOAuth: true,
-		AuthType:     "oauth",
+		AuthType:      "oauth",
 	},
 	"github": {
-		Name:         "github",
-		Description:  "GitHub (OAuth)",
+		Name:          "github",
+		Description:   "GitHub (OAuth)",
 		RequiresOAuth: true,
-		AuthType:     "oauth",
+		AuthType:      "oauth",
 	},
 	"google": {
-		Name:         "google",
-		Description:  "Google (OAuth)",
+		Name:          "google",
+		Description:   "Google (OAuth)",
 		RequiresOAuth: true,
-		AuthType:     "oauth",
+		AuthType:      "oauth",
 	},
 }
 
@@ -44,10 +44,10 @@ var OAuthProviderInfo = map[string]struct {
 func runOAuthFlow(cmd *cobra.Command, ctx *storage.StorageContext, provider string) error {
 	// Get OAuth configuration for the provider
 	registry := auth.NewProviderRegistry()
-	
+
 	// Check if provider is supported
 	if !registry.IsRegistered(provider) {
-		return fmt.Errorf("OAuth provider '%s' is not supported. Supported providers: %s", 
+		return fmt.Errorf("OAuth provider '%s' is not supported. Supported providers: %s",
 			provider, strings.Join(registry.GetAvailableProviders(), ", "))
 	}
 
@@ -74,7 +74,7 @@ func runOAuthFlow(cmd *cobra.Command, ctx *storage.StorageContext, provider stri
 	if err := os.MkdirAll(tokenDir, 0700); err != nil {
 		return fmt.Errorf("failed to create token directory: %w", err)
 	}
-	
+
 	tokenPath := filepath.Join(tokenDir, provider+"_token.json")
 	tokenStorage := auth.NewJSONTokenStorage(tokenPath)
 
@@ -105,7 +105,7 @@ func runOAuthFlow(cmd *cobra.Command, ctx *storage.StorageContext, provider stri
 	fmt.Fprintln(cmd.OutOrStdout(), "\n✓ OAuth authentication successful!")
 	fmt.Fprintf(cmd.OutOrStdout(), "  Provider: %s\n", provider)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Token expires: %s\n", formatExpiry(token.Expiry))
-	
+
 	return nil
 }
 
@@ -135,7 +135,7 @@ func saveOAuthConfig(ctx *storage.StorageContext, provider string, token *auth.T
 		"token_type":    token.TokenType,
 		"expiry":        token.Expiry.Format("2006-01-02T15:04:05Z"),
 	}
-	
+
 	if err := ctx.Secrets.Set(provider+"OAuthToken", tokenData); err != nil {
 		return fmt.Errorf("failed to save OAuth token: %w", err)
 	}
@@ -146,13 +146,13 @@ func saveOAuthConfig(ctx *storage.StorageContext, provider string, token *auth.T
 // confirmContinue prompts the user to confirm an action
 func confirmContinue(input io.Reader, output io.Writer, prompt string) bool {
 	fmt.Fprintf(output, "%s [Y/n]: ", prompt)
-	
+
 	reader := bufio.NewReader(input)
 	response, err := reader.ReadString('\n')
 	if err != nil {
 		return false
 	}
-	
+
 	response = strings.TrimSpace(strings.ToLower(response))
 	return response == "" || response == "y" || response == "yes"
 }
@@ -162,7 +162,7 @@ func formatExpiry(expiry interface{}) string {
 	if expiry == nil {
 		return "never"
 	}
-	
+
 	// Handle different expiry formats
 	switch v := expiry.(type) {
 	case string:
@@ -178,7 +178,7 @@ func getClineDataDir() string {
 	if err != nil {
 		homeDir = "."
 	}
-	
+
 	// Use .cline directory in home
 	return filepath.Join(homeDir, ".cline", "data")
 }

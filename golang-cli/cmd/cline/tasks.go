@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // Task represents a task entry
@@ -27,13 +27,13 @@ type Task struct {
 
 // tasksFlags holds flags for tasks commands
 var tasksFlags struct {
-	json     bool
-	limit    int
-	page     int
-	format   string
-	output   string
-	taskID   string
-	confirm  bool
+	json    bool
+	limit   int
+	page    int
+	format  string
+	output  string
+	taskID  string
+	confirm bool
 }
 
 // tasksCmd represents the tasks command
@@ -268,8 +268,8 @@ func runTasksShow(cmd *cobra.Command, args []string) error {
 	// Output as JSON if requested
 	if tasksFlags.json {
 		response := struct {
-			Task         *Task                  `json:"task"`
-			Conversation []ConversationMessage  `json:"conversation,omitempty"`
+			Task         *Task                 `json:"task"`
+			Conversation []ConversationMessage `json:"conversation,omitempty"`
 		}{
 			Task:         task,
 			Conversation: conversation,
@@ -283,14 +283,14 @@ func runTasksShow(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "Task ID: %s\n", task.ID)
 	fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", task.Task)
 	fmt.Fprintf(cmd.OutOrStdout(), "Created: %s\n", formatTaskTimestamp(task.Timestamp))
-	
+
 	if task.Metadata.Mode != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Mode: %s\n", task.Metadata.Mode)
 	}
 	if task.Metadata.Model != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Model: %s\n", task.Metadata.Model)
 	}
-	
+
 	completed := "no"
 	if task.Metadata.Completed {
 		completed = "yes"

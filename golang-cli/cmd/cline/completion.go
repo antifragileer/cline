@@ -106,7 +106,7 @@ func registerCompletionFunctions() {
 			"deepseek\tDeepSeek AI",
 			"ollama\tLocal models via Ollama",
 		}
-		
+
 		var completions []string
 		for _, p := range providers {
 			if strings.HasPrefix(strings.ToLower(p), strings.ToLower(toComplete)) {
@@ -122,7 +122,7 @@ func registerCompletionFunctions() {
 			"act\tExecute mode (default)",
 			"plan\tPlanning mode",
 		}
-		
+
 		var completions []string
 		for _, m := range modes {
 			if strings.HasPrefix(strings.ToLower(m), strings.ToLower(toComplete)) {

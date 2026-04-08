@@ -220,7 +220,7 @@ func TestNewUpdateChecker(t *testing.T) {
 
 func TestGetPlatformInfo(t *testing.T) {
 	info := GetPlatformInfo()
-	
+
 	if info["version"] != Version {
 		t.Errorf("Expected version %s, got %s", Version, info["version"])
 	}

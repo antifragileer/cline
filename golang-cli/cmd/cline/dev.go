@@ -12,17 +12,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // devFlags holds the parsed flag values for dev command
 var devFlags struct {
-	follow   bool
-	lines    int
-	json     bool
-	all      bool
-	fix      bool
+	follow bool
+	lines  int
+	json   bool
+	all    bool
+	fix    bool
 }
 
 // LogEntry represents a single log entry
@@ -43,15 +43,15 @@ type DiagnosticResult struct {
 
 // DoctorReport represents the complete diagnostic report
 type DoctorReport struct {
-	Timestamp   time.Time          `json:"timestamp"`
-	OS          string             `json:"os"`
-	Arch        string             `json:"arch"`
-	GoVersion   string             `json:"goVersion"`
-	Version     string             `json:"version"`
-	Results     []DiagnosticResult `json:"results"`
-	PassedCount int                `json:"passedCount"`
-	FailedCount int                `json:"failedCount"`
-	WarningCount int               `json:"warningCount"`
+	Timestamp    time.Time          `json:"timestamp"`
+	OS           string             `json:"os"`
+	Arch         string             `json:"arch"`
+	GoVersion    string             `json:"goVersion"`
+	Version      string             `json:"version"`
+	Results      []DiagnosticResult `json:"results"`
+	PassedCount  int                `json:"passedCount"`
+	FailedCount  int                `json:"failedCount"`
+	WarningCount int                `json:"warningCount"`
 }
 
 // devCmd represents the dev command
@@ -139,7 +139,9 @@ func runDevLog(cmd *cobra.Command, args []string) error {
 		}
 
 		if !found {
-			return fmt.Errorf("log file not found at %s", logPath)
+			// Print to stdout before returning error so test can capture output
+			fmt.Fprintf(cmd.OutOrStdout(), "Log file not found at %s\n", logPath)
+			return fmt.Errorf("log file not found")
 		}
 	}
 

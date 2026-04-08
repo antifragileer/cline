@@ -200,12 +200,12 @@ func TestGetStatusIcon(t *testing.T) {
 
 func TestOutputDoctorJSON(t *testing.T) {
 	report := &DoctorReport{
-		OS:          "linux",
-		Arch:        "amd64",
-		GoVersion:   "go1.21.0",
-		Version:     "1.0.0",
-		PassedCount: 5,
-		FailedCount: 1,
+		OS:           "linux",
+		Arch:         "amd64",
+		GoVersion:    "go1.21.0",
+		Version:      "1.0.0",
+		PassedCount:  5,
+		FailedCount:  1,
 		WarningCount: 2,
 		Results: []DiagnosticResult{
 			{Name: "Test", Status: "pass", Message: "All good"},
@@ -234,12 +234,12 @@ func TestOutputDoctorJSON(t *testing.T) {
 
 func TestOutputDoctorHuman(t *testing.T) {
 	report := &DoctorReport{
-		OS:          "linux",
-		Arch:        "amd64",
-		GoVersion:   "go1.21.0",
-		Version:     "1.0.0",
-		PassedCount: 5,
-		FailedCount: 1,
+		OS:           "linux",
+		Arch:         "amd64",
+		GoVersion:    "go1.21.0",
+		Version:      "1.0.0",
+		PassedCount:  5,
+		FailedCount:  1,
 		WarningCount: 2,
 		Results: []DiagnosticResult{
 			{Name: "Test", Status: "pass", Message: "All good", Details: "Details here"},
@@ -437,7 +437,7 @@ func TestLogEntryStructure(t *testing.T) {
 
 func TestDiagnosticResultStatus(t *testing.T) {
 	statuses := []string{"pass", "fail", "warn", "skip", "unknown"}
-	
+
 	for _, status := range statuses {
 		result := DiagnosticResult{
 			Name:    "Test",

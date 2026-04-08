@@ -60,13 +60,13 @@ var (
 	autoApproveAllFlag bool
 
 	// Execution flags (for root command)
-	timeoutFlag             string
-	modelFlag               string
-	thinkingFlag            string // Can be boolean or token count
-	reasoningEffortFlag     string
+	timeoutFlag                string
+	modelFlag                  string
+	thinkingFlag               string // Can be boolean or token count
+	reasoningEffortFlag        string
 	maxConsecutiveMistakesFlag string
 	doubleCheckCompletionFlag  bool
-	autoCondenseFlag          bool
+	autoCondenseFlag           bool
 
 	// Output flags
 	jsonFlag bool
@@ -83,8 +83,8 @@ var (
 	kanbanFlag bool
 
 	// Task management flags
-	taskIdFlag    string
-	continueFlag  bool
+	taskIdFlag   string
+	continueFlag bool
 
 	// New global flags for parity with TypeScript CLI
 	addressFlag       string
@@ -149,8 +149,8 @@ Usage:
 
   # Use a custom configuration file
   cline --config /path/to/config.yaml "explain this code"`,
-		RunE: runRoot,
-		Args: cobra.ArbitraryArgs,
+		RunE:          runRoot,
+		Args:          cobra.ArbitraryArgs,
 		SilenceErrors: true, // We handle errors in main.go
 		SilenceUsage:  true, // We handle usage display in main.go
 	}
@@ -173,7 +173,7 @@ func init() {
 	// Global persistent flags (matching TypeScript CLI)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is $HOME/.%s/%s.%s)", ConfigDirName, DefaultConfigName, DefaultConfigType))
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
-	
+
 	// New global persistent flags for parity with TypeScript CLI
 	rootCmd.PersistentFlags().StringVar(&addressFlag, "address", "localhost:50052", "Cline Core gRPC address")
 	rootCmd.PersistentFlags().StringArrayVar(&fileFlag, "file", nil, "attach files")
@@ -281,7 +281,7 @@ func initLogger() {
 func initCommands() {
 	// Import/Export commands (already initialized via init())
 	initImportExportCommands()
-	
+
 	// Register completion functions
 	registerCompletionFunctions()
 }
@@ -297,13 +297,13 @@ type RootOptions struct {
 	AutoApproveAll bool
 
 	// Execution
-	Timeout             time.Duration
-	Model               string
-	Thinking            *int // nil = not set, 0 = enabled with default, >0 = specific token count
-	ReasoningEffort     string
+	Timeout                time.Duration
+	Model                  string
+	Thinking               *int // nil = not set, 0 = enabled with default, >0 = specific token count
+	ReasoningEffort        string
 	MaxConsecutiveMistakes *int
-	DoubleCheckCompletion bool
-	AutoCondense          bool
+	DoubleCheckCompletion  bool
+	AutoCondense           bool
 
 	// Output
 	JSON bool
@@ -822,7 +822,6 @@ func createGRPCClient(opts *RootOptions) (*host.Client, error) {
 	return client, nil
 }
 
-
 // runTaskWithPrompt runs a task with the given prompt
 func runTaskWithPrompt(opts *RootOptions, telemetryService telemetry.Service, errorService errorservice.Service, sess session.Manager) error {
 	logger.Info("running task",
@@ -1257,16 +1256,16 @@ func parsePromptAndImages(prompt string, existingImages []string) (string, []str
 	// Support both absolute and relative paths
 	images := make([]string, 0, len(existingImages))
 	images = append(images, existingImages...)
-	
+
 	// Regular expression to match @ followed by a path
 	// This handles: @/path/to/file.png, @./path/to/file.png, @~/path/to/file.png, @file.png
 	imagePattern := regexp.MustCompile(`@((?:[~/\.])?[\w\-/\\.]+\.(?:png|jpg|jpeg|gif|webp|bmp))`)
-	
+
 	// Find all matches and replace them in the prompt
 	cleanedPrompt := imagePattern.ReplaceAllStringFunc(prompt, func(match string) string {
 		// Extract the path (remove @ prefix)
 		path := match[1:]
-		
+
 		// Expand ~ to home directory if needed
 		if strings.HasPrefix(path, "~") {
 			home, err := os.UserHomeDir()
@@ -1274,7 +1273,7 @@ func parsePromptAndImages(prompt string, existingImages []string) (string, []str
 				path = filepath.Join(home, path[1:])
 			}
 		}
-		
+
 		// Convert relative paths to absolute
 		if !filepath.IsAbs(path) && !strings.HasPrefix(path, "~") {
 			absPath, err := filepath.Abs(path)
@@ -1282,15 +1281,13 @@ func parsePromptAndImages(prompt string, existingImages []string) (string, []str
 				path = absPath
 			}
 		}
-		
+
 		images = append(images, path)
 		return "" // Remove the @mention from the prompt
 	})
-	
+
 	// Clean up extra whitespace from removing @mentions
 	cleanedPrompt = strings.Join(strings.Fields(cleanedPrompt), " ")
-	
+
 	return cleanedPrompt, images
 }
-
-

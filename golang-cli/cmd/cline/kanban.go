@@ -40,12 +40,12 @@ func runKanban(cmd *cobra.Command, args []string) error {
 
 	// Execute: npx kanban@latest --agent cline
 	npxCmd := exec.Command("npx", "kanban@latest", "--agent", "cline")
-	
+
 	// Pass through stdin/stdout/stderr for interactive use
 	npxCmd.Stdin = os.Stdin
 	npxCmd.Stdout = os.Stdout
 	npxCmd.Stderr = os.Stderr
-	
+
 	// Run the command
 	if err := npxCmd.Run(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {

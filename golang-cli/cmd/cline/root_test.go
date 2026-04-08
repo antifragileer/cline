@@ -581,11 +581,11 @@ func TestValidateRootOptions_Timeout(t *testing.T) {
 
 func TestValidateRootOptions_Thinking(t *testing.T) {
 	tests := []struct {
-		name         string
-		value        string
-		changed      bool
-		wantErr      bool
-		expectedVal  *int
+		name          string
+		value         string
+		changed       bool
+		wantErr       bool
+		expectedVal   *int
 		expectDefault bool
 	}{
 		{"flag not set", "", false, false, nil, false},

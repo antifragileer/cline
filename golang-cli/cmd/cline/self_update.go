@@ -25,16 +25,16 @@ var execCommandContext = exec.CommandContext
 
 // SelfUpdateFlags holds flags for the self-update command
 var SelfUpdateFlags struct {
-	Force     bool
-	DryRun    bool
-	Token     string
-	BaseURL   string
+	Force   bool
+	DryRun  bool
+	Token   string
+	BaseURL string
 }
 
 func init() {
 	// Add self-update subcommand to update command
 	updateCmd.AddCommand(selfUpdateCmd)
-	
+
 	selfUpdateCmd.Flags().BoolVarP(&SelfUpdateFlags.Force, "force", "f", false, "Force update even if versions match")
 	selfUpdateCmd.Flags().BoolVarP(&SelfUpdateFlags.DryRun, "dry-run", "d", false, "Show what would be updated without making changes")
 	selfUpdateCmd.Flags().StringVarP(&SelfUpdateFlags.Token, "token", "t", "", "GitHub token for authentication (optional)")
@@ -228,11 +228,11 @@ func getLatestReleaseInfo() (version, releaseURL, checksumURL string, err error)
 	}
 
 	version = strings.TrimPrefix(release.TagName, "v")
-	
+
 	// Find download URLs
 	platform := runtime.GOOS
 	arch := runtime.GOARCH
-	
+
 	// Map Go arch to release arch
 	if arch == "amd64" {
 		arch = "amd64"
@@ -261,18 +261,18 @@ func getLatestReleaseInfo() (version, releaseURL, checksumURL string, err error)
 func buildDownloadURL(version string) string {
 	platform := runtime.GOOS
 	arch := runtime.GOARCH
-	
+
 	// Normalize version
 	version = strings.TrimPrefix(version, "v")
-	
-	return fmt.Sprintf("%s/v%s/cline_%s_%s_%s.tar.gz", 
+
+	return fmt.Sprintf("%s/v%s/cline_%s_%s_%s.tar.gz",
 		SelfUpdateFlags.BaseURL, version, version, platform, arch)
 }
 
 // downloadBinary downloads the binary to a temporary file
 func downloadBinary(url string) (string, error) {
 	client := &http.Client{Timeout: 5 * time.Minute}
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
@@ -323,7 +323,7 @@ func extractBinary(r io.Reader, destPath string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if _, err := io.Copy(archiveFile, r); err != nil {
 		archiveFile.Close()
 		return err
@@ -346,7 +346,7 @@ func extractBinary(r io.Reader, destPath string) error {
 
 	// Extract tar
 	tr := tar.NewReader(gzr)
-	
+
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -387,7 +387,7 @@ func extractBinary(r io.Reader, destPath string) error {
 func verifyChecksum(filePath, checksumURL string) error {
 	// Download checksum
 	client := &http.Client{Timeout: 30 * time.Second}
-	
+
 	req, err := http.NewRequest("GET", checksumURL, nil)
 	if err != nil {
 		return err

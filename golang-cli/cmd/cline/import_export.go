@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // importExportFlags holds flags for import/export commands
 var importExportFlags struct {
-	file string
+	file  string
 	force bool
 }
 
@@ -104,7 +104,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		globalKeys := len(export.Global)
 		fmt.Printf("This will import %d global settings.\n", globalKeys)
 		fmt.Print("Continue? [y/N]: ")
-		
+
 		var response string
 		fmt.Scanln(&response)
 		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
@@ -200,6 +200,6 @@ func runExport(cmd *cobra.Command, args []string) error {
 	if withSecrets {
 		fmt.Fprintln(cmd.OutOrStdout(), "  (Secrets included in export)")
 	}
-	
+
 	return nil
 }

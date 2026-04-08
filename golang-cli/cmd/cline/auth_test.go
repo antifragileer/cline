@@ -11,7 +11,7 @@ import (
 
 func TestIsValidModel(t *testing.T) {
 	provider := SupportedProviders["anthropic"]
-	
+
 	tests := []struct {
 		model    string
 		expected bool
@@ -211,7 +211,7 @@ func TestSelectProviderInteractiveOutput(t *testing.T) {
 	}
 
 	outputStr := output.String()
-	
+
 	// Check that output contains expected elements
 	if !strings.Contains(outputStr, "Select an AI provider") {
 		t.Error("Output should contain 'Select an AI provider'")
@@ -294,7 +294,7 @@ func (e *errorReader) Read(p []byte) (n int, err error) {
 
 func TestGetSupportedProviderList(t *testing.T) {
 	list := getSupportedProviderList()
-	
+
 	// Check that all providers are in the list
 	for name := range SupportedProviders {
 		if !strings.Contains(list, name) {
@@ -306,7 +306,7 @@ func TestGetSupportedProviderList(t *testing.T) {
 func TestAuthFlags(t *testing.T) {
 	// Test that all required flags are registered
 	cmd := authCmd
-	
+
 	// Check --provider / -p flag
 	providerFlag := cmd.Flags().Lookup("provider")
 	if providerFlag == nil {
@@ -315,7 +315,7 @@ func TestAuthFlags(t *testing.T) {
 	if providerFlag.Shorthand != "p" {
 		t.Errorf("provider flag should have shorthand 'p', got '%s'", providerFlag.Shorthand)
 	}
-	
+
 	// Check --apikey / -k flag
 	apikeyFlag := cmd.Flags().Lookup("apikey")
 	if apikeyFlag == nil {
@@ -324,7 +324,7 @@ func TestAuthFlags(t *testing.T) {
 	if apikeyFlag.Shorthand != "k" {
 		t.Errorf("apikey flag should have shorthand 'k', got '%s'", apikeyFlag.Shorthand)
 	}
-	
+
 	// Check --modelid / -m flag
 	modelidFlag := cmd.Flags().Lookup("modelid")
 	if modelidFlag == nil {
@@ -333,7 +333,7 @@ func TestAuthFlags(t *testing.T) {
 	if modelidFlag.Shorthand != "m" {
 		t.Errorf("modelid flag should have shorthand 'm', got '%s'", modelidFlag.Shorthand)
 	}
-	
+
 	// Check --baseurl / -b flag
 	baseurlFlag := cmd.Flags().Lookup("baseurl")
 	if baseurlFlag == nil {
@@ -342,7 +342,7 @@ func TestAuthFlags(t *testing.T) {
 	if baseurlFlag.Shorthand != "b" {
 		t.Errorf("baseurl flag should have shorthand 'b', got '%s'", baseurlFlag.Shorthand)
 	}
-	
+
 	// Check --cwd / -c flag
 	cwdFlag := cmd.Flags().Lookup("cwd")
 	if cwdFlag == nil {
@@ -351,7 +351,7 @@ func TestAuthFlags(t *testing.T) {
 	if cwdFlag.Shorthand != "c" {
 		t.Errorf("cwd flag should have shorthand 'c', got '%s'", cwdFlag.Shorthand)
 	}
-	
+
 	// Check --verbose / -v flag
 	verboseFlag := cmd.Flags().Lookup("verbose")
 	if verboseFlag == nil {
@@ -360,7 +360,7 @@ func TestAuthFlags(t *testing.T) {
 	if verboseFlag.Shorthand != "v" {
 		t.Errorf("verbose flag should have shorthand 'v', got '%s'", verboseFlag.Shorthand)
 	}
-	
+
 	// Check --config flag
 	configFlag := cmd.Flags().Lookup("config")
 	if configFlag == nil {
@@ -724,44 +724,44 @@ func TestBaseURLValidation(t *testing.T) {
 	defer ctx.Close()
 
 	tests := []struct {
-		name     string
-		provider string
-		baseurl  string
+		name      string
+		provider  string
+		baseurl   string
 		shouldErr bool
 	}{
 		{
-			name:     "openai with baseurl",
-			provider: "openai",
-			baseurl:  "https://api.example.com/v1",
+			name:      "openai with baseurl",
+			provider:  "openai",
+			baseurl:   "https://api.example.com/v1",
 			shouldErr: false,
 		},
 		{
-			name:     "openai-native with baseurl",
-			provider: "openai-native",
-			baseurl:  "https://api.example.com/v1",
+			name:      "openai-native with baseurl",
+			provider:  "openai-native",
+			baseurl:   "https://api.example.com/v1",
 			shouldErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-	// Reset auth flags
-	authFlags = struct {
-		provider string
-		apikey   string
-		modelid  string
-		baseurl  string
-		cwd      string
-		verbose  bool
-		config   string
-		json     bool
-	}{
-		provider: tt.provider,
-		apikey:   "sk-test123",
-		modelid:  "gpt-4o",
-		baseurl:  tt.baseurl,
-		verbose:  false,
-	}
+			// Reset auth flags
+			authFlags = struct {
+				provider string
+				apikey   string
+				modelid  string
+				baseurl  string
+				cwd      string
+				verbose  bool
+				config   string
+				json     bool
+			}{
+				provider: tt.provider,
+				apikey:   "sk-test123",
+				modelid:  "gpt-4o",
+				baseurl:  tt.baseurl,
+				verbose:  false,
+			}
 
 			output := &bytes.Buffer{}
 			cmd := &mockCommand{output: output}

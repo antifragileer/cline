@@ -34,11 +34,11 @@ type NPMRegistryResponse struct {
 
 // UpdateInfo holds information about available updates
 type UpdateInfo struct {
-	CurrentVersion string
-	LatestVersion  string
+	CurrentVersion  string
+	LatestVersion   string
 	UpdateAvailable bool
-	ReleaseDate    string
-	Homepage       string
+	ReleaseDate     string
+	Homepage        string
 }
 
 // npmRegistryURL is the URL for checking the latest version
@@ -169,11 +169,11 @@ func displayVerboseInfo(output io.Writer, info *UpdateInfo) error {
 	fmt.Fprintf(output, "Registry URL: %s\n", npmRegistryURL)
 	fmt.Fprintf(output, "Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	fmt.Fprintf(output, "Go Version: %s\n", runtime.Version())
-	
+
 	if info.ReleaseDate != "" {
 		fmt.Fprintf(output, "Release Date (raw): %s\n", info.ReleaseDate)
 	}
-	
+
 	return nil
 }
 
@@ -205,7 +205,7 @@ func isNewerVersion(current, latest string) bool {
 func parseVersion(version string) [3]int {
 	// Trim 'v' prefix if present
 	version = strings.TrimPrefix(version, "v")
-	
+
 	parts := strings.Split(version, ".")
 	result := [3]int{0, 0, 0}
 
@@ -271,7 +271,7 @@ func GetLatestVersion() (string, error) {
 
 // UpdateChecker provides methods for checking updates
 type UpdateChecker struct {
-	client  *http.Client
+	client      *http.Client
 	registryURL string
 }
 
@@ -330,7 +330,7 @@ func AutoUpdateCheck() {
 	}
 
 	if info.UpdateAvailable {
-		fmt.Fprintf(os.Stderr, "\n📦 A new version of Cline CLI is available: %s → %s\n", 
+		fmt.Fprintf(os.Stderr, "\n📦 A new version of Cline CLI is available: %s → %s\n",
 			info.CurrentVersion, info.LatestVersion)
 		fmt.Fprintf(os.Stderr, "   Run 'cline update' for more information.\n\n")
 	}
@@ -339,8 +339,8 @@ func AutoUpdateCheck() {
 // GetPlatformInfo returns platform information for update purposes
 func GetPlatformInfo() map[string]string {
 	return map[string]string{
-		"os":       runtime.GOOS,
-		"arch":     runtime.GOARCH,
-		"version":  Version,
+		"os":      runtime.GOOS,
+		"arch":    runtime.GOARCH,
+		"version": Version,
 	}
 }

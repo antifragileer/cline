@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // Hook represents a Cline hook configuration
@@ -66,22 +66,22 @@ var hooksListCmd = &cobra.Command{
 
 // hooksEnableCmd represents the hooks enable subcommand
 var hooksEnableCmd = &cobra.Command{
-	Use:   "enable <name>",
-	Short: "Enable a hook",
-	Long:  `Enable a previously disabled hook.`,
+	Use:     "enable <name>",
+	Short:   "Enable a hook",
+	Long:    `Enable a previously disabled hook.`,
 	Example: `  cline hooks enable my-hook`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runHooksEnable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runHooksEnable,
 }
 
 // hooksDisableCmd represents the hooks disable subcommand
 var hooksDisableCmd = &cobra.Command{
-	Use:   "disable <name>",
-	Short: "Disable a hook",
-	Long:  `Disable a hook without removing it from configuration.`,
+	Use:     "disable <name>",
+	Short:   "Disable a hook",
+	Long:    `Disable a hook without removing it from configuration.`,
 	Example: `  cline hooks disable my-hook`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runHooksDisable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runHooksDisable,
 }
 
 // hooksAddCmd represents the hooks add subcommand

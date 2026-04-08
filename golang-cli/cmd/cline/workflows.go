@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // Workflow represents a Cline workflow configuration
@@ -59,22 +59,22 @@ var workflowsListCmd = &cobra.Command{
 
 // workflowsEnableCmd represents the workflows enable subcommand
 var workflowsEnableCmd = &cobra.Command{
-	Use:   "enable <path>",
-	Short: "Enable a workflow",
-	Long:  `Enable a previously disabled workflow.`,
+	Use:     "enable <path>",
+	Short:   "Enable a workflow",
+	Long:    `Enable a previously disabled workflow.`,
 	Example: `  cline workflows enable my-workflow`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runWorkflowsEnable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runWorkflowsEnable,
 }
 
 // workflowsDisableCmd represents the workflows disable subcommand
 var workflowsDisableCmd = &cobra.Command{
-	Use:   "disable <path>",
-	Short: "Disable a workflow",
-	Long:  `Disable a workflow without removing it from configuration.`,
+	Use:     "disable <path>",
+	Short:   "Disable a workflow",
+	Long:    `Disable a workflow without removing it from configuration.`,
 	Example: `  cline workflows disable my-workflow`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runWorkflowsDisable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runWorkflowsDisable,
 }
 
 func init() {

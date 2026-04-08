@@ -28,14 +28,14 @@ import (
 )
 
 type config struct {
-	version    string
-	outputPath string
-	baseURL    string
-	binaryDir  string
+	version     string
+	outputPath  string
+	baseURL     string
+	binaryDir   string
 	formulaName string
-	tapDir     string
-	localMode  bool
-	dryRun     bool
+	tapDir      string
+	localMode   bool
+	dryRun      bool
 }
 
 func parseFlags() *config {

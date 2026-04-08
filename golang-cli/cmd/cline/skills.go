@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // Skill represents a Cline skill configuration
@@ -23,9 +23,9 @@ type Skill struct {
 
 // skillsFlags holds flags for skills commands
 var skillsFlags struct {
-	json     bool
-	global   bool
-	search   string
+	json   bool
+	global bool
+	search string
 }
 
 // skillsCmd represents the skills command
@@ -60,22 +60,22 @@ var skillsListCmd = &cobra.Command{
 
 // skillsEnableCmd represents the skills enable subcommand
 var skillsEnableCmd = &cobra.Command{
-	Use:   "enable <path>",
-	Short: "Enable a skill",
-	Long:  `Enable a previously disabled skill.`,
+	Use:     "enable <path>",
+	Short:   "Enable a skill",
+	Long:    `Enable a previously disabled skill.`,
 	Example: `  cline skills enable my-skill`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runSkillsEnable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runSkillsEnable,
 }
 
 // skillsDisableCmd represents the skills disable subcommand
 var skillsDisableCmd = &cobra.Command{
-	Use:   "disable <path>",
-	Short: "Disable a skill",
-	Long:  `Disable a skill without removing it from configuration.`,
+	Use:     "disable <path>",
+	Short:   "Disable a skill",
+	Long:    `Disable a skill without removing it from configuration.`,
 	Example: `  cline skills disable my-skill`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runSkillsDisable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runSkillsDisable,
 }
 
 // skillsMarketplaceCmd represents the skills marketplace subcommand

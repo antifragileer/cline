@@ -7,9 +7,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/api"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // authFlags holds the parsed flag values for auth command
@@ -168,14 +168,13 @@ func init() {
 	authCmd.Flags().StringVar(&authFlags.config, "config", "", "Path to Cline configuration directory")
 	authCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
 
-
 	// Add subcommands
 	authCmd.AddCommand(authListCmd)
 	authCmd.AddCommand(authStatusCmd)
-	
+
 	// Add flags to auth list subcommand
 	authListCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
-	
+
 	// Add flags to auth status subcommand
 	authStatusCmd.Flags().BoolVarP(&authFlags.json, "json", "j", false, "Output in JSON format")
 }
@@ -244,7 +243,7 @@ func runAuth(cmd *cobra.Command, args []string) error {
 			if normalizedProvider == "openai" {
 				// Allow "openai" as an alias for configuration
 			} else {
-				return fmt.Errorf("unsupported provider: %s. Supported providers: %s, %s", 
+				return fmt.Errorf("unsupported provider: %s. Supported providers: %s, %s",
 					provider, getSupportedProviderList(), strings.Join(GetOAuthProviders(), ", "))
 			}
 		}
@@ -550,7 +549,7 @@ func saveAuthConfig(ctx *storage.StorageContext, provider, apiKey, model, baseUR
 	if err := ctx.GlobalState.Set(modelKey, model); err != nil {
 		return fmt.Errorf("failed to save model: %w", err)
 	}
-	
+
 	// Also save as defaultModel for compatibility
 	if err := ctx.GlobalState.Set("defaultModel", model); err != nil {
 		return fmt.Errorf("failed to save default model: %w", err)
@@ -758,7 +757,6 @@ func runAuthList(cmd *cobra.Command, args []string) error {
 	if model, ok := authInfo["currentModel"].(string); ok && model != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "  Current Model: %s\n", model)
 	}
-
 
 	if hasKey, ok := authInfo["hasApiKey"].(bool); ok {
 		if hasKey {

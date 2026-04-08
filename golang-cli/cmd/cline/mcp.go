@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/cline/cline/golang-cli/internal/storage"
 	internalMCP "github.com/cline/cline/golang-cli/internal/mcp"
+	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // mcpFlags holds the parsed flag values for mcp command
@@ -107,22 +107,22 @@ var mcpListCmd = &cobra.Command{
 
 // mcpEnableCmd represents the mcp enable subcommand
 var mcpEnableCmd = &cobra.Command{
-	Use:   "enable [name]",
-	Short: "Enable an MCP server",
-	Long:  `Enable a previously disabled MCP server.`,
+	Use:     "enable [name]",
+	Short:   "Enable an MCP server",
+	Long:    `Enable a previously disabled MCP server.`,
 	Example: `  cline mcp enable filesystem`,
-	Args: cobra.ExactArgs(1),
-	RunE: runMCPEnable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runMCPEnable,
 }
 
 // mcpDisableCmd represents the mcp disable subcommand
 var mcpDisableCmd = &cobra.Command{
-	Use:   "disable [name]",
-	Short: "Disable an MCP server",
-	Long:  `Disable an MCP server without removing it from configuration.`,
+	Use:     "disable [name]",
+	Short:   "Disable an MCP server",
+	Long:    `Disable an MCP server without removing it from configuration.`,
 	Example: `  cline mcp disable filesystem`,
-	Args: cobra.ExactArgs(1),
-	RunE: runMCPDisable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runMCPDisable,
 }
 
 // mcpMarketplaceCmd represents the mcp marketplace subcommand
@@ -169,7 +169,7 @@ var mcpToolsCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mcpCmd)
-	
+
 	// Add subcommands
 	mcpCmd.AddCommand(mcpAddCmd)
 	mcpCmd.AddCommand(mcpRemoveCmd)
@@ -186,10 +186,10 @@ func init() {
 	mcpAddCmd.Flags().StringArrayVar(&mcpFlags.env, "env", nil, "Environment variables (KEY=value format)")
 	mcpAddCmd.Flags().IntVar(&mcpFlags.timeout, "timeout", 60, "Timeout in seconds")
 	mcpAddCmd.Flags().BoolVar(&mcpFlags.autoApprove, "auto-approve", false, "Auto-approve all tool requests from this server")
-	
+
 	// Add flags for mcp list
 	mcpListCmd.Flags().BoolVarP(&mcpFlags.json, "json", "j", false, "Output in JSON format")
-	
+
 	// Add flags for marketplace
 	mcpMarketplaceCmd.Flags().StringVar(&mcpFlags.name, "search", "", "Search term")
 
@@ -200,7 +200,7 @@ func init() {
 // runMCPRun executes the mcp run command
 func runMCPRun(cmd *cobra.Command, args []string) error {
 	serverName := args[0]
-	
+
 	// Initialize storage
 	ctx, err := storage.NewStorageContext("", "")
 	if err != nil {
@@ -225,21 +225,21 @@ func runMCPRun(cmd *cobra.Command, args []string) error {
 	}
 
 	verbose, _ := cmd.Flags().GetBool("verbose")
-	
+
 	// Create process config
 	config := &internalMCP.ProcessConfig{
-		Name:        serverName,
-		Command:     server.Command,
-		Args:        server.Args,
-		Env:         server.Env,
-		Timeout:     server.Timeout,
+		Name:          serverName,
+		Command:       server.Command,
+		Args:          server.Args,
+		Env:           server.Env,
+		Timeout:       server.Timeout,
 		RestartPolicy: internalMCP.RestartNever,
-		MaxRestarts: 0,
+		MaxRestarts:   0,
 	}
 
 	// Create and start process
 	process := internalMCP.NewProcess(config)
-	
+
 	fmt.Fprintf(cmd.OutOrStdout(), "Starting MCP server '%s'...\n", serverName)
 	fmt.Fprintf(cmd.OutOrStdout(), "Command: %s %s\n\n", server.Command, strings.Join(server.Args, " "))
 
@@ -263,7 +263,7 @@ func runMCPRun(cmd *cobra.Command, args []string) error {
 	if verbose {
 		outputCh := process.SubscribeOutput()
 		defer process.UnsubscribeOutput(outputCh)
-		
+
 		go func() {
 			for line := range outputCh {
 				prefix := "[stdout]"
@@ -292,7 +292,7 @@ func runMCPRun(cmd *cobra.Command, args []string) error {
 // runMCPTools executes the mcp tools command
 func runMCPTools(cmd *cobra.Command, args []string) error {
 	serverName := args[0]
-	
+
 	// Initialize storage
 	ctx, err := storage.NewStorageContext("", "")
 	if err != nil {
@@ -318,18 +318,18 @@ func runMCPTools(cmd *cobra.Command, args []string) error {
 
 	// Create process config
 	config := &internalMCP.ProcessConfig{
-		Name:        serverName,
-		Command:     server.Command,
-		Args:        server.Args,
-		Env:         server.Env,
-		Timeout:     server.Timeout,
+		Name:          serverName,
+		Command:       server.Command,
+		Args:          server.Args,
+		Env:           server.Env,
+		Timeout:       server.Timeout,
 		RestartPolicy: internalMCP.RestartNever,
-		MaxRestarts: 0,
+		MaxRestarts:   0,
 	}
 
 	// Create and start process
 	process := internalMCP.NewProcess(config)
-	
+
 	fmt.Fprintf(cmd.OutOrStdout(), "Starting MCP server '%s' to list tools...\n", serverName)
 
 	if err := process.Start(cmd.Context()); err != nil {
@@ -373,7 +373,7 @@ func runMCPTools(cmd *cobra.Command, args []string) error {
 // runMCPAdd executes the mcp add command
 func runMCPAdd(cmd *cobra.Command, args []string) error {
 	serverName := args[0]
-	
+
 	// Initialize storage
 	ctx, err := storage.NewStorageContext("", "")
 	if err != nil {
@@ -404,7 +404,7 @@ func runMCPAdd(cmd *cobra.Command, args []string) error {
 	if mcpFlags.command != "" {
 		server.Command = mcpFlags.command
 		server.Args = mcpFlags.args
-		
+
 		// Parse environment variables
 		for _, env := range mcpFlags.env {
 			parts := strings.SplitN(env, "=", 2)
@@ -418,7 +418,7 @@ func runMCPAdd(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to fetch server from marketplace: %w\n\nYou can specify a custom server with --command", err)
 		}
-		
+
 		server.Description = marketServer.Description
 		// For marketplace servers, we'll use npx as the default runner
 		server.Command = "npx"
@@ -436,14 +436,14 @@ func runMCPAdd(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "  Description: %s\n", server.Description)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "  Command: %s %s\n", server.Command, strings.Join(server.Args, " "))
-	
+
 	return nil
 }
 
 // runMCPRemove executes the mcp remove command
 func runMCPRemove(cmd *cobra.Command, args []string) error {
 	serverName := args[0]
-	
+
 	// Initialize storage
 	ctx, err := storage.NewStorageContext("", "")
 	if err != nil {
@@ -539,26 +539,26 @@ func runMCPList(cmd *cobra.Command, args []string) error {
 		if server.Disabled {
 			status = "✗ disabled"
 		}
-		
+
 		fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", status, name)
-		
+
 		if server.Description != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "    Description: %s\n", server.Description)
 		}
-		
+
 		fmt.Fprintf(cmd.OutOrStdout(), "    Command: %s %s\n", server.Command, strings.Join(server.Args, " "))
-		
+
 		if server.AutoApprove {
 			fmt.Fprintln(cmd.OutOrStdout(), "    Auto-approve: yes")
 		}
-		
+
 		if len(server.Env) > 0 {
 			fmt.Fprintln(cmd.OutOrStdout(), "    Environment:")
 			for key := range server.Env {
 				fmt.Fprintf(cmd.OutOrStdout(), "      %s=***\n", key)
 			}
 		}
-		
+
 		fmt.Fprintln(cmd.OutOrStdout())
 	}
 
@@ -568,7 +568,7 @@ func runMCPList(cmd *cobra.Command, args []string) error {
 // runMCPEnable executes the mcp enable command
 func runMCPEnable(cmd *cobra.Command, args []string) error {
 	serverName := args[0]
-	
+
 	// Initialize storage
 	ctx, err := storage.NewStorageContext("", "")
 	if err != nil {
@@ -596,7 +596,7 @@ func runMCPEnable(cmd *cobra.Command, args []string) error {
 
 	server.Disabled = false
 	servers[serverName] = server
-	
+
 	if err := saveMCPServers(ctx, servers); err != nil {
 		return fmt.Errorf("failed to save MCP servers: %w", err)
 	}
@@ -608,7 +608,7 @@ func runMCPEnable(cmd *cobra.Command, args []string) error {
 // runMCPDisable executes the mcp disable command
 func runMCPDisable(cmd *cobra.Command, args []string) error {
 	serverName := args[0]
-	
+
 	// Initialize storage
 	ctx, err := storage.NewStorageContext("", "")
 	if err != nil {
@@ -636,7 +636,7 @@ func runMCPDisable(cmd *cobra.Command, args []string) error {
 
 	server.Disabled = true
 	servers[serverName] = server
-	
+
 	if err := saveMCPServers(ctx, servers); err != nil {
 		return fmt.Errorf("failed to save MCP servers: %w", err)
 	}
@@ -649,7 +649,7 @@ func runMCPDisable(cmd *cobra.Command, args []string) error {
 func runCPMarketplace(cmd *cobra.Command, args []string) error {
 	// For now, show a curated list of popular MCP servers
 	// In the future, this could fetch from an actual marketplace API
-	
+
 	servers := []MCPRegistryEntry{
 		{
 			ID:          "filesystem",
@@ -739,7 +739,7 @@ func runCPMarketplace(cmd *cobra.Command, args []string) error {
 		var filtered []MCPRegistryEntry
 		for _, server := range servers {
 			if strings.Contains(strings.ToLower(server.Name), searchTerm) ||
-			   strings.Contains(strings.ToLower(server.Description), searchTerm) {
+				strings.Contains(strings.ToLower(server.Description), searchTerm) {
 				filtered = append(filtered, server)
 			}
 		}
@@ -754,11 +754,11 @@ func runCPMarketplace(cmd *cobra.Command, args []string) error {
 	// Output servers
 	fmt.Fprintln(cmd.OutOrStdout(), "Available MCP Servers:")
 	fmt.Fprintln(cmd.OutOrStdout())
-	
+
 	for _, server := range servers {
 		fmt.Fprintf(cmd.OutOrStdout(), "  📦 %s\n", server.Name)
 		fmt.Fprintf(cmd.OutOrStdout(), "     %s\n", server.Description)
-		fmt.Fprintf(cmd.OutOrStdout(), "     Author: %s | ⭐ %d | 📥 %d\n", 
+		fmt.Fprintf(cmd.OutOrStdout(), "     Author: %s | ⭐ %d | 📥 %d\n",
 			server.Author, server.Stars, server.Downloads)
 		fmt.Fprintf(cmd.OutOrStdout(), "     Install: cline mcp add %s\n", server.ID)
 		fmt.Fprintln(cmd.OutOrStdout())
@@ -791,7 +791,7 @@ func loadMCPServers(ctx *storage.StorageContext) (map[string]*MCPServer, error) 
 		if err := json.Unmarshal(jsonData, &serverList); err != nil {
 			return servers, nil
 		}
-		
+
 		for _, server := range serverList {
 			if server.Name != "" {
 				servers[server.Name] = server

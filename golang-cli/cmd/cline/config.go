@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
 	"github.com/cline/cline/golang-cli/internal/tui"
+	"github.com/spf13/cobra"
 )
 
 // configFlags holds the parsed flag values for config command
@@ -135,7 +135,7 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 
 	// Get the --global flag value
 	global, _ := cmd.Flags().GetBool("global")
-	
+
 	return setConfigValue(ctx, args[0], args[1], global)
 }
 
@@ -150,7 +150,7 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 
 	// Get the --global flag value
 	global, _ := cmd.Flags().GetBool("global")
-	
+
 	return getConfigValue(ctx, args[0], global)
 }
 
@@ -629,7 +629,7 @@ func displayConfigJSON(ctx *storage.StorageContext, globalOnly bool) error {
 func displayConfigHuman(ctx *storage.StorageContext, globalOnly bool) error {
 	// Get global state
 	globalData := ctx.GlobalState.GetAll()
-	
+
 	// Get workspace state if available and not global-only
 	var workspaceData map[string]interface{}
 	if !globalOnly && ctx.WorkspaceState != nil {

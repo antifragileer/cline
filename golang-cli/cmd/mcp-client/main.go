@@ -15,20 +15,20 @@ import (
 
 var (
 	// Server flags
-	serverURL      string
-	serverCommand  string
-	serverArgs     []string
-	serverEnv      map[string]string
-	autoApprove    bool
-	serverTimeout  int
+	serverURL     string
+	serverCommand string
+	serverArgs    []string
+	serverEnv     map[string]string
+	autoApprove   bool
+	serverTimeout int
 
 	// Operation flags
-	listTools      bool
-	listResources  bool
-	callTool       string
-	toolArgs       string
-	readResource   string
-	resourceURI    string
+	listTools     bool
+	listResources bool
+	callTool      string
+	toolArgs      string
+	readResource  string
+	resourceURI   string
 )
 
 func main() {

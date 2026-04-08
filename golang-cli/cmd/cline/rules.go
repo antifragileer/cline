@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/cline/cline/golang-cli/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 // Rule represents a Cline rule configuration
@@ -66,22 +66,22 @@ var rulesListCmd = &cobra.Command{
 
 // rulesEnableCmd represents the rules enable subcommand
 var rulesEnableCmd = &cobra.Command{
-	Use:   "enable <path>",
-	Short: "Enable a rule",
-	Long:  `Enable a previously disabled rule.`,
+	Use:     "enable <path>",
+	Short:   "Enable a rule",
+	Long:    `Enable a previously disabled rule.`,
 	Example: `  cline rules enable my-rule`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runRulesEnable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runRulesEnable,
 }
 
 // rulesDisableCmd represents the rules disable subcommand
 var rulesDisableCmd = &cobra.Command{
-	Use:   "disable <path>",
-	Short: "Disable a rule",
-	Long:  `Disable a rule without removing it from configuration.`,
+	Use:     "disable <path>",
+	Short:   "Disable a rule",
+	Long:    `Disable a rule without removing it from configuration.`,
 	Example: `  cline rules disable my-rule`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runRulesDisable,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runRulesDisable,
 }
 
 func init() {
