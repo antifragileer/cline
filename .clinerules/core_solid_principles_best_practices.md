@@ -1,6 +1,6 @@
 ---
 description: SOLID principles application rules
-applies_to: ["src/**/*.ts", "src/**/*.tsx"]
+applies_to: ["src/**/*.ts", "src/**/*.tsx", "**/*.go"]
 priority: high
 ---
 

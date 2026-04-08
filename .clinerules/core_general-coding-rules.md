@@ -1,6 +1,6 @@
 ---
 description: General coding rules for all languages
-applies_to: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.sh"]
+applies_to: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.sh", "**/*.go"]
 priority: high
 ---
 

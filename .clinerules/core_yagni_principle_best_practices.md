@@ -1,6 +1,6 @@
 ---
 description: YAGNI principle enforcement for lean, focused development
-applies_to: ["src/**/*.ts", "src/**/*.tsx"]
+applies_to: ["src/**/*.ts", "src/**/*.tsx", "**/*.go"]
 priority: high
 ---
 
