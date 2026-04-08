@@ -136,10 +136,10 @@ func TestBuildSupportedPlatforms(t *testing.T) {
 
 func TestValidateBuildPlatform(t *testing.T) {
 	tests := []struct {
-		os       string
-		arch     string
-		wantErr  bool
-		errMsg   string
+		os      string
+		arch    string
+		wantErr bool
+		errMsg  string
 	}{
 		{"linux", "amd64", false, ""},
 		{"linux", "arm64", false, ""},
@@ -171,10 +171,10 @@ func TestValidateBuildPlatform(t *testing.T) {
 
 func TestParseBuildPlatform(t *testing.T) {
 	tests := []struct {
-		input       string
-		expectedOS  string
+		input        string
+		expectedOS   string
 		expectedArch string
-		wantErr     bool
+		wantErr      bool
 	}{
 		{"linux/amd64", "linux", "amd64", false},
 		{"darwin/arm64", "darwin", "arm64", false},

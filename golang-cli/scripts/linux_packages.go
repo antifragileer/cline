@@ -369,9 +369,9 @@ func (b *LinuxPackageBuilder) createDEBControl(tempDir string) error {
 
 	data := struct {
 		*LinuxPackageConfig
-		DependsStr   string
-		SuggestsStr  string
-		DebianArch   string
+		DependsStr    string
+		SuggestsStr   string
+		DebianArch    string
 		InstalledSize int64
 	}{
 		LinuxPackageConfig: b.config,
@@ -649,10 +649,10 @@ func GeneratePackageInfo(pkgPath string, pkgType LinuxPackageType) (*PackageInfo
 	filename := filepath.Base(pkgPath)
 
 	info := &PackageInfo{
-		Path:         pkgPath,
-		Type:         pkgType,
-		Size:         stat.Size(),
-		SHA256:       sha256,
+		Path:   pkgPath,
+		Type:   pkgType,
+		Size:   stat.Size(),
+		SHA256: sha256,
 	}
 
 	// Try to parse the filename

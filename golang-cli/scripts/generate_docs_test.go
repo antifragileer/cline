@@ -94,7 +94,7 @@ func Main() {}
 
 	t.Run("handles different formats", func(t *testing.T) {
 		formats := []string{"markdown", "html", "json"}
-		
+
 		for _, format := range formats {
 			t.Run(format, func(t *testing.T) {
 				tempDir := t.TempDir()

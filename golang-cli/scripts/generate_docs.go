@@ -334,8 +334,8 @@ func generateHTMLDocs(config *DocConfig, docs []PackageDocs) error {
 	}
 
 	data := struct {
-		Config   *DocConfig
-		Packages []PackageDocs
+		Config    *DocConfig
+		Packages  []PackageDocs
 		Generated string
 	}{
 		Config:    config,
@@ -421,7 +421,7 @@ const htmlTemplate = `<!DOCTYPE html>
 func getFuncSignature(fn *ast.FuncDecl) (string, error) {
 	// Create a minimal file set for formatting
 	fset := token.NewFileSet()
-	
+
 	// Create a copy of just the function signature (without body)
 	sig := &ast.FuncDecl{
 		Doc:  fn.Doc,
@@ -429,13 +429,13 @@ func getFuncSignature(fn *ast.FuncDecl) (string, error) {
 		Name: fn.Name,
 		Type: fn.Type,
 	}
-	
+
 	var buf bytes.Buffer
 	if err := format.Node(&buf, fset, sig); err != nil {
 		// Fallback: return just the function name
 		return fn.Name.Name + "(...)", err
 	}
-	
+
 	return buf.String(), nil
 }
 
