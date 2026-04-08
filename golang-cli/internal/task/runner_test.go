@@ -330,7 +330,7 @@ func TestRunnerStart(t *testing.T) {
 		err := runner2.Start(ctx, "Test prompt")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "task already running")
-		
+
 		// Reset the state
 		runner2.mu.Lock()
 		runner2.isRunning = false

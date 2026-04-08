@@ -10,7 +10,7 @@ import (
 
 func setupTestStorage(t *testing.T) (*storage.StorageContext, func()) {
 	t.Helper()
-	
+
 	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "state-manager-test-*")
 	if err != nil {
@@ -698,7 +698,6 @@ func TestStateManager_DeleteWorkspaceState(t *testing.T) {
 	}
 }
 
-
 func TestStateManager_GetStorage(t *testing.T) {
 	storageCtx, cleanup := setupTestStorage(t)
 	defer cleanup()
@@ -888,4 +887,3 @@ func TestStateManager_SetTyped_NonSerializable(t *testing.T) {
 		t.Error("expected error for non-serializable value")
 	}
 }
-

@@ -37,19 +37,19 @@ type GeminiModel string
 
 const (
 	// Gemini 2.0 models
-	Gemini20Flash       GeminiModel = "gemini-2.0-flash-exp"
-	Gemini20FlashLite   GeminiModel = "gemini-2.0-flash-lite-preview-02-05"
+	Gemini20Flash     GeminiModel = "gemini-2.0-flash-exp"
+	Gemini20FlashLite GeminiModel = "gemini-2.0-flash-lite-preview-02-05"
 
 	// Gemini 1.5 models
-	Gemini15Pro         GeminiModel = "gemini-1.5-pro"
-	Gemini15ProLatest   GeminiModel = "gemini-1.5-pro-latest"
-	Gemini15Flash       GeminiModel = "gemini-1.5-flash"
-	Gemini15FlashLatest GeminiModel = "gemini-1.5-flash-latest"
-	Gemini15Flash8B     GeminiModel = "gemini-1.5-flash-8b"
+	Gemini15Pro           GeminiModel = "gemini-1.5-pro"
+	Gemini15ProLatest     GeminiModel = "gemini-1.5-pro-latest"
+	Gemini15Flash         GeminiModel = "gemini-1.5-flash"
+	Gemini15FlashLatest   GeminiModel = "gemini-1.5-flash-latest"
+	Gemini15Flash8B       GeminiModel = "gemini-1.5-flash-8b"
 	Gemini15Flash8BLatest GeminiModel = "gemini-1.5-flash-8b-latest"
 
 	// Gemini 1.0 models
-	Gemini10Pro         GeminiModel = "gemini-1.0-pro"
+	Gemini10Pro GeminiModel = "gemini-1.0-pro"
 )
 
 // geminiModels is the list of supported Gemini models
@@ -134,8 +134,8 @@ type geminiRequest struct {
 
 // geminiContent represents content in Gemini format
 type geminiContent struct {
-	Role  string          `json:"role,omitempty"`
-	Parts []geminiPart    `json:"parts"`
+	Role  string       `json:"role,omitempty"`
+	Parts []geminiPart `json:"parts"`
 }
 
 // geminiPart represents a part of content
@@ -159,16 +159,16 @@ type geminiSafetySetting struct {
 
 // geminiResponse represents a non-streaming response from Gemini
 type geminiResponse struct {
-	Candidates []geminiCandidate `json:"candidates"`
-	UsageMetadata *geminiUsageMetadata `json:"usageMetadata,omitempty"`
+	Candidates     []geminiCandidate     `json:"candidates"`
+	UsageMetadata  *geminiUsageMetadata  `json:"usageMetadata,omitempty"`
 	PromptFeedback *geminiPromptFeedback `json:"promptFeedback,omitempty"`
 }
 
 // geminiCandidate represents a response candidate
 type geminiCandidate struct {
-	Content       geminiContent `json:"content"`
-	FinishReason  string        `json:"finishReason,omitempty"`
-	Index         int           `json:"index"`
+	Content       geminiContent        `json:"content"`
+	FinishReason  string               `json:"finishReason,omitempty"`
+	Index         int                  `json:"index"`
 	SafetyRatings []geminiSafetyRating `json:"safetyRatings,omitempty"`
 }
 
@@ -193,7 +193,7 @@ type geminiPromptFeedback struct {
 
 // geminiStreamResponse represents a streaming chunk from Gemini
 type geminiStreamResponse struct {
-	Candidates []geminiCandidate `json:"candidates"`
+	Candidates    []geminiCandidate    `json:"candidates"`
 	UsageMetadata *geminiUsageMetadata `json:"usageMetadata,omitempty"`
 }
 
@@ -486,10 +486,10 @@ func (p *GeminiProvider) toGeminiRequest(req GeminiCompletionRequest) geminiRequ
 	}
 
 	genConfig := &geminiGenerationConfig{
-		Temperature: req.Temperature,
+		Temperature:     req.Temperature,
 		MaxOutputTokens: req.MaxTokens,
-		TopP: req.TopP,
-		TopK: req.TopK,
+		TopP:            req.TopP,
+		TopK:            req.TopK,
 	}
 
 	// Set defaults if not provided

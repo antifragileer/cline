@@ -57,15 +57,15 @@ func DefaultYoloModeConfig() *YoloModeConfig {
 
 // YoloModeRunner executes tasks in yolo mode with auto-approval.
 type YoloModeRunner struct {
-	config     *YoloModeConfig
-	approver   *task.AutoApprover
-	executor   *task.ToolExecutor
-	actionLog  []YoloAction
-	mu         sync.RWMutex
-	startTime  time.Time
-	toolCount  int
-	hasErrors  bool
-	exitCode   int
+	config    *YoloModeConfig
+	approver  *task.AutoApprover
+	executor  *task.ToolExecutor
+	actionLog []YoloAction
+	mu        sync.RWMutex
+	startTime time.Time
+	toolCount int
+	hasErrors bool
+	exitCode  int
 }
 
 // YoloAction represents a logged action in yolo mode.

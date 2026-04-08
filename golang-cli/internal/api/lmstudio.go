@@ -16,14 +16,14 @@ import (
 
 // LMStudio errors
 var (
-	ErrLMStudioInvalidURL        = errors.New("invalid LM Studio URL")
-	ErrLMStudioModelNotFound     = errors.New("LM Studio model not found")
-	ErrLMStudioModelNotLoaded    = errors.New("LM Studio model not loaded")
-	ErrLMStudioInvalidRequest    = errors.New("invalid LM Studio request")
-	ErrLMStudioInvalidResponse   = errors.New("invalid response from LM Studio API")
-	ErrLMStudioProviderError     = errors.New("LM Studio provider error")
-	ErrLMStudioContextCanceled   = errors.New("LM Studio request canceled")
-	ErrLMStudioConnectionFailed  = errors.New("failed to connect to LM Studio")
+	ErrLMStudioInvalidURL       = errors.New("invalid LM Studio URL")
+	ErrLMStudioModelNotFound    = errors.New("LM Studio model not found")
+	ErrLMStudioModelNotLoaded   = errors.New("LM Studio model not loaded")
+	ErrLMStudioInvalidRequest   = errors.New("invalid LM Studio request")
+	ErrLMStudioInvalidResponse  = errors.New("invalid response from LM Studio API")
+	ErrLMStudioProviderError    = errors.New("LM Studio provider error")
+	ErrLMStudioContextCanceled  = errors.New("LM Studio request canceled")
+	ErrLMStudioConnectionFailed = errors.New("failed to connect to LM Studio")
 )
 
 // Default settings for LM Studio
@@ -93,12 +93,12 @@ type LMStudioStreamChunk struct {
 
 // lmStudioChatRequest represents the request body for LM Studio chat API (OpenAI-compatible)
 type lmStudioChatRequest struct {
-	Model       string              `json:"model"`
-	Messages    []lmStudioMessage   `json:"messages"`
-	Temperature float64             `json:"temperature,omitempty"`
-	MaxTokens   int                 `json:"max_tokens,omitempty"`
-	TopP        float64             `json:"top_p,omitempty"`
-	Stream      bool                `json:"stream"`
+	Model       string            `json:"model"`
+	Messages    []lmStudioMessage `json:"messages"`
+	Temperature float64           `json:"temperature,omitempty"`
+	MaxTokens   int               `json:"max_tokens,omitempty"`
+	TopP        float64           `json:"top_p,omitempty"`
+	Stream      bool              `json:"stream"`
 }
 
 // lmStudioMessage represents a message in LM Studio format
@@ -164,11 +164,11 @@ type lmStudioModelsResponse struct {
 
 // lmStudioModelInfo represents detailed model information
 type lmStudioModelInfo struct {
-	ID       string                 `json:"id"`
-	Object   string                 `json:"object"`
-	Created  int64                  `json:"created"`
-	OwnedBy  string                 `json:"owned_by"`
-	Meta     map[string]interface{} `json:"meta"`
+	ID      string                 `json:"id"`
+	Object  string                 `json:"object"`
+	Created int64                  `json:"created"`
+	OwnedBy string                 `json:"owned_by"`
+	Meta    map[string]interface{} `json:"meta"`
 }
 
 // lmStudioError represents an error response from LM Studio

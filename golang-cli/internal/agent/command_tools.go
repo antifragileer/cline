@@ -286,8 +286,8 @@ type BrowserTool struct {
 
 // BrowserSession represents a browser session
 type BrowserSession struct {
-	URL     string
-	Open    bool
+	URL        string
+	Open       bool
 	LaunchedAt time.Time
 }
 

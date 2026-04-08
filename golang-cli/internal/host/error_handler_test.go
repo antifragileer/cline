@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNewErrorHandler(t *testing.T) {
@@ -134,7 +134,7 @@ func TestErrorHandler_CalculateBackoff(t *testing.T) {
 		{3, 4 * time.Second},
 		{4, 8 * time.Second},
 		{5, 16 * time.Second},
-		{6, 30 * time.Second}, // capped at max
+		{6, 30 * time.Second},  // capped at max
 		{10, 30 * time.Second}, // capped at max
 	}
 
@@ -220,7 +220,7 @@ func TestErrorHandler_GetMetrics(t *testing.T) {
 	handler := NewErrorHandler()
 
 	// Generate some errors
-	handler.HandleError(errors.New("connection refused"), "op", 0, StateConnected) // retryable (string match)
+	handler.HandleError(errors.New("connection refused"), "op", 0, StateConnected)               // retryable (string match)
 	handler.HandleError(status.Error(codes.Unavailable, "unavailable"), "op", 0, StateConnected) // retryable (gRPC code)
 	handler.HandleError(status.Error(codes.InvalidArgument, "invalid"), "op", 0, StateConnected) // non-retryable (gRPC code)
 

@@ -117,8 +117,8 @@ func (s *AccountService) GetUserCredits(ctx context.Context, req *cline.EmptyReq
 		Balance: &cline.UserCreditsBalance{
 			CurrentBalance: 0.0,
 		},
-		UsageTransactions:    []*cline.UsageTransaction{},
-		PaymentTransactions:  []*cline.PaymentTransaction{},
+		UsageTransactions:   []*cline.UsageTransaction{},
+		PaymentTransactions: []*cline.PaymentTransaction{},
 	}, nil
 }
 
@@ -132,9 +132,9 @@ func (s *AccountService) GetOrganizationCredits(ctx context.Context, req *cline.
 
 	// Return placeholder data
 	return &cline.OrganizationCreditsData{
-		OrganizationId:      req.OrganizationId,
-		Balance:             &cline.UserCreditsBalance{CurrentBalance: 0.0},
-		UsageTransactions:   []*cline.OrganizationUsageTransaction{},
+		OrganizationId:    req.OrganizationId,
+		Balance:           &cline.UserCreditsBalance{CurrentBalance: 0.0},
+		UsageTransactions: []*cline.OrganizationUsageTransaction{},
 	}, nil
 }
 

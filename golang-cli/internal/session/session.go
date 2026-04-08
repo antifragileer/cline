@@ -112,8 +112,8 @@ type Manager interface {
 
 // DefaultManager implements the Manager interface
 type DefaultManager struct {
-	mu       sync.RWMutex
-	sessionID string
+	mu               sync.RWMutex
+	sessionID        string
 	sessionStartTime time.Time
 	toolCalls        []ToolCallRecord
 	apiTimeMs        int64

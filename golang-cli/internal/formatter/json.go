@@ -52,24 +52,24 @@ func NewJSONFormatter(output, errOutput io.Writer, streaming bool) *JSONFormatte
 // JSONMessage represents a complete JSON message matching TypeScript CLI format
 type JSONMessage struct {
 	// Standard fields
-	Ts        int64                  `json:"ts"`
-	Type      string                 `json:"type"`
-	Text      string                 `json:"text,omitempty"`
-	Partial   bool                   `json:"partial,omitempty"`
+	Ts      int64  `json:"ts"`
+	Type    string `json:"type"`
+	Text    string `json:"text,omitempty"`
+	Partial bool   `json:"partial,omitempty"`
 
 	// SAY message fields
-	Say       string                 `json:"say,omitempty"`
-	Ask       string                 `json:"ask,omitempty"`
+	Say string `json:"say,omitempty"`
+	Ask string `json:"ask,omitempty"`
 
 	// Reasoning fields
-	Reasoning string                 `json:"reasoning,omitempty"`
+	Reasoning string `json:"reasoning,omitempty"`
 
 	// Media fields
-	Images    []string               `json:"images,omitempty"`
-	Files     []string               `json:"files,omitempty"`
+	Images []string `json:"images,omitempty"`
+	Files  []string `json:"files,omitempty"`
 
 	// Command fields
-	CommandCompleted bool           `json:"commandCompleted,omitempty"`
+	CommandCompleted bool `json:"commandCompleted,omitempty"`
 
 	// Checkpoint fields
 	LastCheckpointHash     string `json:"lastCheckpointHash,omitempty"`
@@ -79,7 +79,7 @@ type JSONMessage struct {
 	IsOperationOutsideWorkspace bool `json:"isOperationOutsideWorkspace,omitempty"`
 
 	// Conversation fields
-	ConversationHistoryIndex      int   `json:"conversationHistoryIndex,omitempty"`
+	ConversationHistoryIndex        int   `json:"conversationHistoryIndex,omitempty"`
 	ConversationHistoryDeletedRange []int `json:"conversationHistoryDeletedRange,omitempty"`
 
 	// Tool execution fields
@@ -213,12 +213,12 @@ func (f *JSONFormatter) FormatAskMessage(askType string, text string, metadata m
 // FormatToolUse formats a tool_use message
 func (f *JSONFormatter) FormatToolUse(toolName string, toolInput map[string]interface{}, partial bool) error {
 	message := JSONMessage{
-		Ts:       f.getNextTimestamp(),
-		Type:     "say",
-		Say:      "tool_use",
-		ToolName: toolName,
+		Ts:        f.getNextTimestamp(),
+		Type:      "say",
+		Say:       "tool_use",
+		ToolName:  toolName,
 		ToolInput: toolInput,
-		Partial:  partial,
+		Partial:   partial,
 	}
 	return f.outputJSON(message)
 }
@@ -506,10 +506,10 @@ func (h *JSONHandler) OnSay(sayType string, text string, partial bool) error {
 	if partial && !h.verbose {
 		return nil
 	}
-	
+
 	// Map internal types to ClineSay types
 	clineSay := task.ClineSay(sayType)
-	
+
 	// Handle special cases
 	switch clineSay {
 	case task.ClineSayText, task.ClineSayReasoning, task.ClineSayCommand,

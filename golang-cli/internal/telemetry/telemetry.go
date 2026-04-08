@@ -233,7 +233,7 @@ func (s *DefaultService) CaptureAuthInteractive() error {
 // Reference: src/services/telemetry/TelemetryService.ts:674-680
 func (s *DefaultService) CaptureTaskCreated(taskID string, apiProvider string) error {
 	return s.CaptureHostEvent("task.created", map[string]interface{}{
-		"ulid":       taskID,
+		"ulid":        taskID,
 		"apiProvider": apiProvider,
 	})
 }

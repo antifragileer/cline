@@ -96,9 +96,9 @@ func TestAppModel_Update_WindowSize(t *testing.T) {
 
 func TestAppModel_Update_WelcomeResult(t *testing.T) {
 	tests := []struct {
-		name           string
-		action         WelcomeAction
-		expectedState  AppState
+		name             string
+		action           WelcomeAction
+		expectedState    AppState
 		expectedQuitting bool
 	}{
 		{
@@ -151,8 +151,8 @@ func TestAppModel_Update_WelcomeResultWithInput(t *testing.T) {
 		model := NewAppModel(nil, nil, nil)
 
 		msg := WelcomeResultMsg{
-			Action:      ActionNewTask,
-			InputValue:  "test task input",
+			Action:     ActionNewTask,
+			InputValue: "test task input",
 		}
 		model.Update(msg)
 

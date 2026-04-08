@@ -14,9 +14,9 @@ import (
 
 // ConnectionManager manages the gRPC connection to the Cline core extension
 type ConnectionManager struct {
-	config     *EndpointConfig
-	conn       *grpc.ClientConn
-	protoClient *ProtoClient
+	config       *EndpointConfig
+	conn         *grpc.ClientConn
+	protoClient  *ProtoClient
 	healthClient grpc_health_v1.HealthClient
 }
 
@@ -68,15 +68,15 @@ func (cm *ConnectionManager) Connect(ctx context.Context) error {
 
 	cm.conn = conn
 	cm.healthClient = grpc_health_v1.NewHealthClient(conn)
-	
+
 	// Create a connection pool with the existing connection
 	pool, _ := NewConnPool(PoolConfig{
-		Target: cm.config.Address,
+		Target:   cm.config.Address,
 		PoolSize: 1,
 	})
 	pool.connections = []*grpc.ClientConn{conn}
 	pool.state.Store(int32(StateConnected))
-	
+
 	cm.protoClient = NewProtoClient(&Client{
 		pool:   pool,
 		target: cm.config.Address,
@@ -88,7 +88,7 @@ func (cm *ConnectionManager) Connect(ctx context.Context) error {
 // ConnectWithRetry attempts to connect with exponential backoff
 func (cm *ConnectionManager) ConnectWithRetry(ctx context.Context, maxRetries int) error {
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			// Exponential backoff: 500ms, 1s, 2s, 4s...
@@ -96,7 +96,7 @@ func (cm *ConnectionManager) ConnectWithRetry(ctx context.Context, maxRetries in
 			if backoff > 10*time.Second {
 				backoff = 10 * time.Second
 			}
-			
+
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -119,7 +119,7 @@ func (cm *ConnectionManager) IsConnected() bool {
 	if cm.conn == nil {
 		return false
 	}
-	
+
 	state := cm.conn.GetState()
 	return state == connectivity.Ready
 }
@@ -179,7 +179,7 @@ func (cm *ConnectionManager) WaitForReady(ctx context.Context) error {
 			if state == connectivity.Ready {
 				return nil
 			}
-			
+
 			// Wait for state change
 			if !cm.conn.WaitForStateChange(ctx, state) {
 				return ctx.Err()

@@ -483,13 +483,13 @@ func TestOpenRouterProvider_Complete(t *testing.T) {
 
 func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 	tests := []struct {
-		name         string
-		streamChunks []string
-		request      CompletionRequest
-		wantErr      bool
-		expectedErr  error
-		wantChunks   int
-		wantContent  string
+		name          string
+		streamChunks  []string
+		request       CompletionRequest
+		wantErr       bool
+		expectedErr   error
+		wantChunks    int
+		wantContent   string
 		wantReasoning string
 	}{
 		{
@@ -506,8 +506,8 @@ func TestOpenRouterProvider_CompleteStream(t *testing.T) {
 					{Role: "user", Content: "Hello"},
 				},
 			},
-			wantErr:    false,
-			wantChunks: 3,
+			wantErr:     false,
+			wantChunks:  3,
 			wantContent: "Hello world!",
 		},
 		{
@@ -843,14 +843,14 @@ func TestOpenRouterProvider_toOpenRouterRequest(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		req                CompletionRequest
-		stream             bool
-		wantModel          string
-		wantStream         bool
-		wantTools          bool
-		wantParallelTools  bool
-		wantReasoning      bool
+		name              string
+		req               CompletionRequest
+		stream            bool
+		wantModel         string
+		wantStream        bool
+		wantTools         bool
+		wantParallelTools bool
+		wantReasoning     bool
 	}{
 		{
 			name: "default values",
@@ -959,41 +959,41 @@ func TestOpenRouterProvider_getModelSpecificSettings(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		modelID         string
-		userTemp        float64
-		userTopP        float64
-		wantTempSet     bool
-		wantTopPSet     bool
-		wantTempValue   float64
-		wantTopPValue   float64
+		name          string
+		modelID       string
+		userTemp      float64
+		userTopP      float64
+		wantTempSet   bool
+		wantTopPSet   bool
+		wantTempValue float64
+		wantTopPValue float64
 	}{
 		{
-			name:        "deepseek r1 with defaults",
-			modelID:     "deepseek/deepseek-r1",
-			userTemp:    0,
-			userTopP:    0,
-			wantTempSet: true,
-			wantTopPSet: true,
+			name:          "deepseek r1 with defaults",
+			modelID:       "deepseek/deepseek-r1",
+			userTemp:      0,
+			userTopP:      0,
+			wantTempSet:   true,
+			wantTopPSet:   true,
 			wantTempValue: 0.7,
 			wantTopPValue: 0.95,
 		},
 		{
-			name:        "gemini 3 with defaults",
-			modelID:     "google/gemini-3.5-pro",
-			userTemp:    0,
-			userTopP:    0,
-			wantTempSet: true,
-			wantTopPSet: false,
+			name:          "gemini 3 with defaults",
+			modelID:       "google/gemini-3.5-pro",
+			userTemp:      0,
+			userTopP:      0,
+			wantTempSet:   true,
+			wantTopPSet:   false,
 			wantTempValue: 1.0,
 		},
 		{
-			name:        "claude with user temp",
-			modelID:     "anthropic/claude-3.5-sonnet",
-			userTemp:    0.5,
-			userTopP:    0,
-			wantTempSet: true,
-			wantTopPSet: false,
+			name:          "claude with user temp",
+			modelID:       "anthropic/claude-3.5-sonnet",
+			userTemp:      0.5,
+			userTopP:      0,
+			wantTempSet:   true,
+			wantTopPSet:   false,
 			wantTempValue: 0.5,
 		},
 	}
@@ -1023,10 +1023,10 @@ func TestOpenRouterProvider_getModelSpecificSettings(t *testing.T) {
 
 func TestOpenRouterProvider_setHeaders(t *testing.T) {
 	tests := []struct {
-		name         string
-		config       OpenRouterConfig
-		wantHeaders  map[string]string
-		dontWant     []string
+		name        string
+		config      OpenRouterConfig
+		wantHeaders map[string]string
+		dontWant    []string
 	}{
 		{
 			name: "basic headers",

@@ -62,7 +62,7 @@ type OAuthConfig struct {
 
 // BaseOAuthProvider provides a base implementation of OAuthProvider
 type BaseOAuthProvider struct {
-	oauthToken *OAuthToken
+	oauthToken  *OAuthToken
 	oauthConfig *OAuthConfig
 }
 
@@ -89,12 +89,12 @@ func (p *BaseOAuthProvider) NeedsTokenRefresh() bool {
 	if p.oauthToken == nil || p.oauthToken.RefreshToken == "" {
 		return false
 	}
-	
+
 	buffer := 5 * time.Minute
 	if p.oauthConfig != nil && p.oauthConfig.TokenRefreshBuffer > 0 {
 		buffer = p.oauthConfig.TokenRefreshBuffer
 	}
-	
+
 	return time.Until(p.oauthToken.Expiry) < buffer
 }
 
@@ -103,7 +103,7 @@ func (p *BaseOAuthProvider) RefreshOAuthToken(ctx context.Context) error {
 	if p.oauthToken == nil || p.oauthToken.RefreshToken == "" {
 		return fmt.Errorf("no refresh token available")
 	}
-	
+
 	// Base implementation - specific providers should override
 	return fmt.Errorf("token refresh not implemented for this provider")
 }

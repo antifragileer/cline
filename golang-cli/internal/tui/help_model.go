@@ -27,15 +27,15 @@ type HelpModel struct {
 
 // HelpStyles holds styling for the help screen.
 type HelpStyles struct {
-	containerStyle   lipgloss.Style
-	titleStyle       lipgloss.Style
-	subtitleStyle    lipgloss.Style
-	sectionStyle     lipgloss.Style
+	containerStyle    lipgloss.Style
+	titleStyle        lipgloss.Style
+	subtitleStyle     lipgloss.Style
+	sectionStyle      lipgloss.Style
 	sectionTitleStyle lipgloss.Style
-	contentStyle     lipgloss.Style
-	keyStyle         lipgloss.Style
-	descriptionStyle lipgloss.Style
-	helpStyle        lipgloss.Style
+	contentStyle      lipgloss.Style
+	keyStyle          lipgloss.Style
+	descriptionStyle  lipgloss.Style
+	helpStyle         lipgloss.Style
 }
 
 // DefaultHelpStyles returns default help screen styles.

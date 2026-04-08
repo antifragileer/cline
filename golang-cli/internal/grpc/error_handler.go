@@ -117,12 +117,12 @@ func (p *RetryPolicy) CalculateBackoff(attempt int) time.Duration {
 
 // ErrorHandler handles errors with retry logic
 type ErrorHandler struct {
-	policy         *RetryPolicy
-	attempts       map[string]int
-	attemptsMu     sync.RWMutex
-	onRetry        func(attempt int, err error, backoff time.Duration)
-	onMaxRetries   func(err error)
-	onSuccess      func(attempts int)
+	policy       *RetryPolicy
+	attempts     map[string]int
+	attemptsMu   sync.RWMutex
+	onRetry      func(attempt int, err error, backoff time.Duration)
+	onMaxRetries func(err error)
+	onSuccess    func(attempts int)
 }
 
 // NewErrorHandler creates a new error handler
@@ -299,10 +299,10 @@ type CircuitBreaker struct {
 	// ResetTimeout is the duration before attempting to close the circuit
 	ResetTimeout time.Duration
 
-	failures     int
-	lastFailure  time.Time
-	state        CircuitState
-	stateMu      sync.RWMutex
+	failures      int
+	lastFailure   time.Time
+	state         CircuitState
+	stateMu       sync.RWMutex
 	onStateChange func(oldState, newState CircuitState)
 }
 

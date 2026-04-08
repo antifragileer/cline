@@ -25,9 +25,9 @@ type ErrorHandler struct {
 
 // RetryConfig defines retry behavior
 type RetryConfig struct {
-	MaxRetries      int
-	InitialBackoff  time.Duration
-	MaxBackoff      time.Duration
+	MaxRetries        int
+	InitialBackoff    time.Duration
+	MaxBackoff        time.Duration
 	BackoffMultiplier float64
 }
 
@@ -256,7 +256,7 @@ func (h *ErrorHandler) GetMetrics() ErrorMetrics {
 func (h *ErrorHandler) ResetMetrics() {
 	h.metrics.mu.Lock()
 	defer h.metrics.mu.Unlock()
-	
+
 	// Reset individual fields without replacing the struct (which would replace the mutex)
 	h.metrics.TotalErrors = 0
 	h.metrics.RetryableErrors = 0
@@ -368,9 +368,9 @@ func copyErrorCounts(src map[string]int64) map[string]int64 {
 
 // GRPCError represents a structured gRPC error
 type GRPCError struct {
-	Code    codes.Code
-	Message string
-	Details string
+	Code      codes.Code
+	Message   string
+	Details   string
 	Retryable bool
 }
 

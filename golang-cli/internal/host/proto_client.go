@@ -13,19 +13,19 @@ import (
 // ProtoClient wraps the generated gRPC clients to provide a unified interface
 // for communicating with the Cline extension backend.
 type ProtoClient struct {
-	client    *Client
-	taskSvc   cline.TaskServiceClient
-	stateSvc  cline.StateServiceClient
-	uiSvc     cline.UiServiceClient
-	fileSvc   cline.FileServiceClient
-	modelsSvc cline.ModelsServiceClient
-	browserSvc cline.BrowserServiceClient
-	mcpSvc    cline.McpServiceClient
-	accountSvc cline.AccountServiceClient
-	slashSvc  cline.SlashServiceClient
-	webSvc    cline.WebServiceClient
+	client        *Client
+	taskSvc       cline.TaskServiceClient
+	stateSvc      cline.StateServiceClient
+	uiSvc         cline.UiServiceClient
+	fileSvc       cline.FileServiceClient
+	modelsSvc     cline.ModelsServiceClient
+	browserSvc    cline.BrowserServiceClient
+	mcpSvc        cline.McpServiceClient
+	accountSvc    cline.AccountServiceClient
+	slashSvc      cline.SlashServiceClient
+	webSvc        cline.WebServiceClient
 	checkpointSvc cline.CheckpointsServiceClient
-	worktreeSvc cline.WorktreeServiceClient
+	worktreeSvc   cline.WorktreeServiceClient
 }
 
 // NewProtoClient creates a new ProtoClient with the given host client.

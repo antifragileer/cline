@@ -19,8 +19,8 @@ func TestParseMessage(t *testing.T) {
 		wantMsg *Message
 	}{
 		{
-			name: "valid text message",
-			json: `{"type":"text","id":"msg-1","content":"Hello","timestamp":"2024-01-01T00:00:00Z"}`,
+			name:    "valid text message",
+			json:    `{"type":"text","id":"msg-1","content":"Hello","timestamp":"2024-01-01T00:00:00Z"}`,
 			wantErr: false,
 		},
 		{

@@ -17,36 +17,36 @@ import (
 
 // YoloIntegration provides yolo mode functionality integrated with task execution.
 type YoloIntegration struct {
-	config           *YoloModeConfig
-	approver         *task.AutoApprover
-	executor         *task.ToolExecutor
-	auditLogger      *audit.Logger
-	securityChecker  *security.CommandValidator
-	actionLog        []YoloAction
-	mu               sync.RWMutex
-	startTime        time.Time
-	toolCount        int
-	hasErrors        bool
-	exitCode         int
-	maxToolsReached  bool
-	paused           bool
-	pauseReason      string
+	config          *YoloModeConfig
+	approver        *task.AutoApprover
+	executor        *task.ToolExecutor
+	auditLogger     *audit.Logger
+	securityChecker *security.CommandValidator
+	actionLog       []YoloAction
+	mu              sync.RWMutex
+	startTime       time.Time
+	toolCount       int
+	hasErrors       bool
+	exitCode        int
+	maxToolsReached bool
+	paused          bool
+	pauseReason     string
 }
 
 // YoloIntegrationConfig configures the yolo integration.
 type YoloIntegrationConfig struct {
 	// Base yolo configuration
 	*YoloModeConfig
-	
+
 	// AuditLogger for logging actions
 	AuditLogger *audit.Logger
-	
+
 	// SecurityChecker for command validation
 	SecurityChecker *security.CommandValidator
-	
+
 	// MaxConsecutiveErrors is the maximum allowed consecutive errors before pausing
 	MaxConsecutiveErrors int
-	
+
 	// DangerousCommandAction is what to do when a dangerous command is detected
 	DangerousCommandAction DangerousCommandAction
 }
@@ -216,7 +216,7 @@ func (yi *YoloIntegration) ExecuteTool(ctx context.Context, req task.ToolRequest
 	// Handle errors
 	if err != nil || !result.Success {
 		yi.hasErrors = true
-		
+
 		// Update exit code
 		if result != nil && result.ExitCode != 0 {
 			yi.exitCode = result.ExitCode
@@ -255,7 +255,7 @@ func (yi *YoloIntegration) performSafetyChecks(ctx context.Context, req *task.To
 					"command": command,
 					"tool":    req.ToolName,
 				})
-				
+
 				switch yi.config.DangerousCommandAction {
 				case DangerousCommandBlock:
 					return fmt.Errorf("dangerous command detected and blocked: %s", command)
@@ -489,7 +489,7 @@ func isSensitiveKey(key string) bool {
 		"password", "secret", "token", "key", "auth", "credential",
 		"api_key", "apikey", "access_token", "private_key",
 	}
-	
+
 	lowerKey := strings.ToLower(key)
 	for _, sensitive := range sensitiveKeys {
 		if strings.Contains(lowerKey, sensitive) {
@@ -534,7 +534,7 @@ func (w *yoloHandlerWrapper) OnAsk(askType string, text string) (string, error) 
 		})
 		return "yesButtonClicked", nil
 	}
-	
+
 	// Otherwise, delegate to inner handler
 	return w.inner.OnAsk(askType, text)
 }
@@ -608,19 +608,19 @@ func (w *yoloHandlerWrapper) OnCompletion(success bool, summary string) error {
 type YoloSafetyLimits struct {
 	// MaxTools is the maximum number of tools to execute
 	MaxTools int
-	
+
 	// MaxConsecutiveErrors is the maximum allowed consecutive errors
 	MaxConsecutiveErrors int
-	
+
 	// MaxExecutionTime is the maximum execution time
 	MaxExecutionTime time.Duration
-	
+
 	// BlockDangerousCommands blocks commands with dangerous characters
 	BlockDangerousCommands bool
-	
+
 	// BlockPathTraversal blocks file operations with path traversal
 	BlockPathTraversal bool
-	
+
 	// RequireSecurityValidation requires security validation for all commands
 	RequireSecurityValidation bool
 }
@@ -646,14 +646,14 @@ func ValidateLimits(config *YoloModeConfig, limits *YoloSafetyLimits) []string {
 	}
 
 	if config.MaxTools > limits.MaxTools {
-		violations = append(violations, 
-			fmt.Sprintf("max_tools (%d) exceeds safety limit (%d)", 
+		violations = append(violations,
+			fmt.Sprintf("max_tools (%d) exceeds safety limit (%d)",
 				config.MaxTools, limits.MaxTools))
 	}
 
 	if config.Timeout > limits.MaxExecutionTime {
-		violations = append(violations, 
-			fmt.Sprintf("timeout (%v) exceeds safety limit (%v)", 
+		violations = append(violations,
+			fmt.Sprintf("timeout (%v) exceeds safety limit (%v)",
 				config.Timeout, limits.MaxExecutionTime))
 	}
 

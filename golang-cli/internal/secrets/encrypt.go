@@ -185,9 +185,9 @@ func DeriveKey(password string, salt []byte) []byte {
 
 // RotatingEncryptor manages key rotation for encryption
 type RotatingEncryptor struct {
-	current   *Encryptor
-	previous  *Encryptor
-	keyID     string
+	current      *Encryptor
+	previous     *Encryptor
+	keyID        string
 	rotationTime time.Time
 }
 

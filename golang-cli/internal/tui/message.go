@@ -48,6 +48,14 @@ type Message struct {
 	ToolResult string
 	// Language is set for code blocks.
 	Language string
+	// SayType is the subtype for say messages (e.g., "text", "tool", "command").
+	SayType string
+	// AskType is the subtype for ask messages (e.g., "tool", "command", "followup").
+	AskType string
+	// HasOutput indicates if this message has output content (for commands).
+	HasOutput bool
+	// CommandCompleted indicates if a command has completed execution.
+	CommandCompleted bool
 }
 
 // NewMessage creates a new message with the given type and content.
@@ -134,6 +142,41 @@ func (m *Message) IsToolRelated() bool {
 // String returns a string representation of the message.
 func (m *Message) String() string {
 	return fmt.Sprintf("[%s] %s: %s", m.Timestamp.Format("15:04:05"), m.Type, m.Content)
+}
+
+// GetKey returns a unique key for this message for static rendering.
+func (m *Message) GetKey() string {
+	if m.ID != "" {
+		return m.ID
+	}
+	if m.Timestamp.UnixNano() > 0 {
+		return fmt.Sprintf("%d", m.Timestamp.UnixNano())
+	}
+	return generateID()
+}
+
+// SetSayType sets the say type for the message.
+func (m *Message) SetSayType(sayType string) *Message {
+	m.SayType = sayType
+	return m
+}
+
+// SetAskType sets the ask type for the message.
+func (m *Message) SetAskType(askType string) *Message {
+	m.AskType = askType
+	return m
+}
+
+// SetHasOutput sets whether this message has output.
+func (m *Message) SetHasOutput(hasOutput bool) *Message {
+	m.HasOutput = hasOutput
+	return m
+}
+
+// SetCommandCompleted sets whether a command has completed.
+func (m *Message) SetCommandCompleted(completed bool) *Message {
+	m.CommandCompleted = completed
+	return m
 }
 
 // generateID generates a simple unique ID for messages.

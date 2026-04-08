@@ -68,13 +68,13 @@ type ConfigEntry struct {
 
 // ToggleEntry represents a toggleable item (rules, workflows, hooks, skills)
 type ToggleEntry struct {
-	Key          string
-	Label        string
-	Enabled      bool
-	Source       string // "global" or "workspace"
-	Type         string // "cline", "cursor", "windsurf", "agents" for rules
+	Key           string
+	Label         string
+	Enabled       bool
+	Source        string // "global" or "workspace"
+	Type          string // "cline", "cursor", "windsurf", "agents" for rules
 	WorkspaceName string // for workspace-specific hooks
-	Description  string
+	Description   string
 }
 
 // HookInfo represents hook information
@@ -115,8 +115,8 @@ type ConfigModel struct {
 
 	// Hooks tab data
 	HookEntries []struct {
-		Hook        HookInfo
-		IsGlobal    bool
+		Hook          HookInfo
+		IsGlobal      bool
 		WorkspaceName string
 	}
 
@@ -140,10 +140,10 @@ type ConfigModel struct {
 	Height int
 
 	// Configuration data
-	Provider    string
-	Model       string
-	APIKeySet   bool
-	DataDir     string
+	Provider  string
+	Model     string
+	APIKeySet bool
+	DataDir   string
 
 	// Feature flags
 	HooksEnabled  bool
@@ -153,14 +153,14 @@ type ConfigModel struct {
 	StorageCtx *storage.StorageContext
 
 	// Callbacks
-	OnUpdateGlobal   func(key string, value interface{}) error
+	OnUpdateGlobal    func(key string, value interface{}) error
 	OnUpdateWorkspace func(key string, value interface{}) error
-	OnToggleRule     func(isGlobal bool, rulePath string, enabled bool, ruleType string) error
-	OnToggleWorkflow func(isGlobal bool, workflowPath string, enabled bool) error
-	OnToggleHook     func(isGlobal bool, hookName string, enabled bool, workspaceName string) error
-	OnToggleSkill    func(isGlobal bool, skillPath string, enabled bool) error
-	OnOpenFolder     func(folderType string, isGlobal bool) error
-	OnQuit           func()
+	OnToggleRule      func(isGlobal bool, rulePath string, enabled bool, ruleType string) error
+	OnToggleWorkflow  func(isGlobal bool, workflowPath string, enabled bool) error
+	OnToggleHook      func(isGlobal bool, hookName string, enabled bool, workspaceName string) error
+	OnToggleSkill     func(isGlobal bool, skillPath string, enabled bool) error
+	OnOpenFolder      func(folderType string, isGlobal bool) error
+	OnQuit            func()
 
 	// Error state
 	Err error
@@ -180,20 +180,20 @@ const (
 
 // ConfigStyles holds the styling for the config TUI
 type ConfigStyles struct {
-	TitleStyle       lipgloss.Style
-	SubtitleStyle    lipgloss.Style
-	TabStyle         lipgloss.Style
-	SelectedTabStyle lipgloss.Style
-	SelectedStyle    lipgloss.Style
-	ItemStyle        lipgloss.Style
-	DescriptionStyle lipgloss.Style
-	HelpStyle        lipgloss.Style
-	ErrorStyle       lipgloss.Style
-	HeaderStyle      lipgloss.Style
+	TitleStyle         lipgloss.Style
+	SubtitleStyle      lipgloss.Style
+	TabStyle           lipgloss.Style
+	SelectedTabStyle   lipgloss.Style
+	SelectedStyle      lipgloss.Style
+	ItemStyle          lipgloss.Style
+	DescriptionStyle   lipgloss.Style
+	HelpStyle          lipgloss.Style
+	ErrorStyle         lipgloss.Style
+	HeaderStyle        lipgloss.Style
 	SectionHeaderStyle lipgloss.Style
-	BoxStyle         lipgloss.Style
-	DisabledStyle    lipgloss.Style
-	EnabledStyle     lipgloss.Style
+	BoxStyle           lipgloss.Style
+	DisabledStyle      lipgloss.Style
+	EnabledStyle       lipgloss.Style
 }
 
 // DefaultConfigStyles returns the default styling configuration
@@ -246,8 +246,8 @@ func NewConfigModel(storageCtx *storage.StorageContext, dataDir string) ConfigMo
 		APIKeySet:     apiKeySet,
 		DataDir:       dataDir,
 		StorageCtx:    storageCtx,
-		HooksEnabled:  true,  // Default to enabled
-		SkillsEnabled: true,  // Default to enabled
+		HooksEnabled:  true, // Default to enabled
+		SkillsEnabled: true, // Default to enabled
 	}
 
 	m.buildAllEntries()
@@ -485,8 +485,8 @@ func (m *ConfigModel) buildWorkflowEntries() {
 // buildHookEntries builds hook entries
 func (m *ConfigModel) buildHookEntries() {
 	var entries []struct {
-		Hook         HookInfo
-		IsGlobal     bool
+		Hook          HookInfo
+		IsGlobal      bool
 		WorkspaceName string
 	}
 
@@ -498,8 +498,8 @@ func (m *ConfigModel) buildHookEntries() {
 					if hookMap, ok := h.(map[string]interface{}); ok {
 						name := getStringValue(hookMap["name"])
 						entries = append(entries, struct {
-							Hook         HookInfo
-							IsGlobal     bool
+							Hook          HookInfo
+							IsGlobal      bool
 							WorkspaceName string
 						}{
 							Hook: HookInfo{
@@ -527,8 +527,8 @@ func (m *ConfigModel) buildHookEntries() {
 								if hookMap, ok := h.(map[string]interface{}); ok {
 									name := getStringValue(hookMap["name"])
 									entries = append(entries, struct {
-										Hook         HookInfo
-										IsGlobal     bool
+										Hook          HookInfo
+										IsGlobal      bool
 										WorkspaceName string
 									}{
 										Hook: HookInfo{

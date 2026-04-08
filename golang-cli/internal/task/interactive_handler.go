@@ -15,7 +15,7 @@ type InteractiveHandler struct {
 	Verbose     bool
 
 	// State for tracking current operation
-	currentAsk    string
+	currentAsk     string
 	currentAskType string
 }
 
@@ -218,11 +218,11 @@ func isDangerousCommand(cmd string) bool {
 // parseToolInfo parses tool name and parameters from text
 func parseToolInfo(text string) (string, map[string]interface{}) {
 	params := make(map[string]interface{})
-	
+
 	// Try to extract tool name from first line
 	lines := strings.Split(text, "\n")
 	toolName := "unknown"
-	
+
 	if len(lines) > 0 {
 		firstLine := strings.TrimSpace(lines[0])
 		// Look for patterns like "Tool: read_file" or "read_file"

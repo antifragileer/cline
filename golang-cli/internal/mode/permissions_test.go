@@ -697,8 +697,8 @@ func TestHasRedirect(t *testing.T) {
 		{"ls", false},
 		{"cat file.txt", false},
 		{"echo hello world", false},
-		{`echo ">"`, false},   // > in quotes should not count
-		{`echo '>'`, false},   // > in single quotes should not count
+		{`echo ">"`, false}, // > in quotes should not count
+		{`echo '>'`, false}, // > in single quotes should not count
 		{`echo "hello >"`, false},
 		{`echo ">" > file.txt`, true}, // > outside quotes
 	}

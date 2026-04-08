@@ -353,7 +353,7 @@ func TestTestKey(t *testing.T) {
 
 	t.Run("skips test for local providers", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		err := manager.TestKey(ctx, string(ProviderOllama), "any-key")
 		if err != nil {
 			t.Errorf("expected no error for Ollama, got %v", err)
@@ -369,7 +369,7 @@ func TestRotateKey(t *testing.T) {
 	t.Run("rotates key for supported provider", func(t *testing.T) {
 		oldKey := "sk-ant-api03-oldkey1234567890123456789012"
 		newKey := "sk-ant-api03-newkey1234567890123456789012"
-		
+
 		mock.secrets["anthropic_api_key"] = oldKey
 
 		rotationInfo, err := manager.RotateKey(string(ProviderAnthropic), newKey, 24*time.Hour)
@@ -486,7 +486,7 @@ func TestKeyInputReader(t *testing.T) {
 	t.Run("reads from file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		tmpFile := filepath.Join(tmpDir, "apikey.txt")
-		
+
 		content := "sk-file-key12345678901234567890\n"
 		if err := os.WriteFile(tmpFile, []byte(content), 0600); err != nil {
 			t.Fatalf("failed to create temp file: %v", err)

@@ -72,8 +72,8 @@ type JSONRPCResponse struct {
 
 // JSONRPCError represents a JSON-RPC error
 type JSONRPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
@@ -92,9 +92,9 @@ type Notification struct {
 
 const (
 	// MCP Methods
-	MethodInitialize   = "initialize"
-	MethodToolsList    = "tools/list"
-	MethodToolsCall    = "tools/call"
+	MethodInitialize    = "initialize"
+	MethodToolsList     = "tools/list"
+	MethodToolsCall     = "tools/call"
 	MethodResourcesList = "resources/list"
 	MethodResourcesRead = "resources/read"
 	MethodPromptsList   = "prompts/list"
@@ -318,7 +318,7 @@ func (e *Executor) writeRequest(req *JSONRPCRequest) error {
 
 	// Write with newline
 	data = append(data, '\n')
-	
+
 	return e.process.WriteStdin(data)
 }
 
@@ -420,7 +420,7 @@ func (em *ExecutorManager) AddExecutor(name string, executor *Executor) {
 func (em *ExecutorManager) RemoveExecutor(name string) {
 	em.mu.Lock()
 	defer em.mu.Unlock()
-	
+
 	if executor, exists := em.executors[name]; exists {
 		executor.Close()
 		delete(em.executors, name)

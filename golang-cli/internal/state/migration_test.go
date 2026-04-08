@@ -628,11 +628,11 @@ func TestMigrator_createBackup_WithUnserializableData(t *testing.T) {
 func TestMigrationStatus(t *testing.T) {
 	// Test that MigrationStatus struct exists and can be used
 	status := &MigrationStatus{
-		VSCodeStateExists:   true,
-		VSCodeStateSize:     1024,
-		GoStateExists:       false,
-		GoStateSize:         0,
-		MigrationNeeded:     true,
+		VSCodeStateExists: true,
+		VSCodeStateSize:   1024,
+		GoStateExists:     false,
+		GoStateSize:       0,
+		MigrationNeeded:   true,
 	}
 
 	assert.True(t, status.VSCodeStateExists)

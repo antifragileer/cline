@@ -22,20 +22,20 @@ const (
 
 // DiffModel is the Bubble Tea model for diff viewing
 type DiffModel struct {
-	width      int
-	height     int
-	viewport   viewport.Model
-	diff       string
-	filename   string
-	mode       DiffViewMode
-	
+	width    int
+	height   int
+	viewport viewport.Model
+	diff     string
+	filename string
+	mode     DiffViewMode
+
 	// Styling
-	addedStyle     lipgloss.Style
-	removedStyle   lipgloss.Style
-	contextStyle   lipgloss.Style
-	headerStyle    lipgloss.Style
+	addedStyle      lipgloss.Style
+	removedStyle    lipgloss.Style
+	contextStyle    lipgloss.Style
+	headerStyle     lipgloss.Style
 	hunkHeaderStyle lipgloss.Style
-	
+
 	// State
 	ready   bool
 	done    bool
@@ -54,22 +54,22 @@ func NewDiffModel(filename, diff string) DiffModel {
 		filename: filename,
 		diff:     diff,
 		mode:     DiffViewModeUnified,
-		
+
 		addedStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00FF00")).
 			Background(lipgloss.Color("#0a2a0a")),
-		
+
 		removedStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF0000")).
 			Background(lipgloss.Color("#2a0a0a")),
-		
+
 		contextStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#E0E0E0")),
-		
+
 		headerStyle: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#7D56F4")),
-		
+
 		hunkHeaderStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFD700")).
 			Bold(true),
@@ -185,7 +185,7 @@ func (m DiffModel) View() string {
 	modeInfo := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#808080")).
 		Render(fmt.Sprintf(" [%s] ", modeStr))
-	
+
 	content.WriteString(header)
 	content.WriteString(modeInfo)
 	content.WriteString("\n")
@@ -259,19 +259,19 @@ func (m DiffModel) IsApproved() bool {
 // ShowDiffViewer shows a diff viewer and returns approval decision
 func ShowDiffViewer(filename, diff string) (bool, error) {
 	model := NewDiffModel(filename, diff)
-	
+
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	m, err := p.Run()
 	if err != nil {
 		return false, err
 	}
-	
+
 	diffModel, ok := m.(DiffModel)
 	if !ok {
 		return false, fmt.Errorf("unexpected model type")
 	}
-	
+
 	return diffModel.IsApproved(), nil
 }
 
@@ -280,10 +280,10 @@ func FormatDiff(diff string, maxWidth int) string {
 	if maxWidth <= 0 {
 		maxWidth = 80
 	}
-	
+
 	lines := strings.Split(diff, "\n")
 	var result strings.Builder
-	
+
 	for _, line := range lines {
 		if len(line) > maxWidth {
 			// Wrap long lines
@@ -301,6 +301,6 @@ func FormatDiff(diff string, maxWidth int) string {
 			result.WriteString("\n")
 		}
 	}
-	
+
 	return result.String()
 }

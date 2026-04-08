@@ -72,16 +72,16 @@ type AskPrompt struct {
 	response    AskResponse
 
 	// Styling
-	containerStyle   lipgloss.Style
-	titleStyle       lipgloss.Style
-	messageStyle     lipgloss.Style
-	detailsStyle     lipgloss.Style
-	buttonYesStyle   lipgloss.Style
-	buttonNoStyle    lipgloss.Style
+	containerStyle    lipgloss.Style
+	titleStyle        lipgloss.Style
+	messageStyle      lipgloss.Style
+	detailsStyle      lipgloss.Style
+	buttonYesStyle    lipgloss.Style
+	buttonNoStyle     lipgloss.Style
 	buttonAlwaysStyle lipgloss.Style
-	selectedStyle    lipgloss.Style
-	helpStyle        lipgloss.Style
-	warningStyle     lipgloss.Style
+	selectedStyle     lipgloss.Style
+	helpStyle         lipgloss.Style
+	warningStyle      lipgloss.Style
 }
 
 // NewAskPrompt creates a new ask prompt

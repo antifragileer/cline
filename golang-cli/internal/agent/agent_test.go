@@ -26,7 +26,10 @@ type mockMessageHandler struct {
 
 func newMockMessageHandler() *mockMessageHandler {
 	return &mockMessageHandler{
-		sayMessages:  make([]struct{ sayType, text string; partial bool }, 0),
+		sayMessages: make([]struct {
+			sayType, text string
+			partial       bool
+		}, 0),
 		askResponses: make(map[string]string),
 	}
 }
@@ -508,7 +511,7 @@ func TestAgentConversationIntegration(t *testing.T) {
 
 	// Use a unique task ID with timestamp to avoid conflicts with persisted data
 	taskID := fmt.Sprintf("conv-test-%d", time.Now().UnixMilli())
-	
+
 	config := &AgentConfig{WorkingDirectory: tempDir}
 	handler := newMockMessageHandler()
 	agent, _ := NewAgent(config, taskID, handler)

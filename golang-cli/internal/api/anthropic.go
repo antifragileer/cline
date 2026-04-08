@@ -180,7 +180,7 @@ type ImageSource struct {
 
 // AnthropicMessage represents a message in the conversation.
 type AnthropicMessage struct {
-	Role    MessageRole           `json:"role"`
+	Role    MessageRole             `json:"role"`
 	Content []AnthropicContentBlock `json:"content"`
 }
 
@@ -197,18 +197,18 @@ type AnthropicUsage struct {
 
 // AnthropicMessagesRequest represents a request to the Anthropic messages API.
 type AnthropicMessagesRequest struct {
-	Model         ClaudeModel            `json:"model"`
-	MaxTokens     int                    `json:"max_tokens"`
-	Messages      []AnthropicMessage     `json:"messages"`
-	System        string                 `json:"system,omitempty"`
-	Stream        bool                   `json:"stream,omitempty"`
-	Temperature   *float64               `json:"temperature,omitempty"`
-	TopP          *float64               `json:"top_p,omitempty"`
-	TopK          *int                   `json:"top_k,omitempty"`
-	StopSequences []string               `json:"stop_sequences,omitempty"`
-	Metadata      *RequestMetadata       `json:"metadata,omitempty"`
-	Tools         []AnthropicTool        `json:"tools,omitempty"`
-	ToolChoice    *AnthropicToolChoice   `json:"tool_choice,omitempty"`
+	Model         ClaudeModel              `json:"model"`
+	MaxTokens     int                      `json:"max_tokens"`
+	Messages      []AnthropicMessage       `json:"messages"`
+	System        string                   `json:"system,omitempty"`
+	Stream        bool                     `json:"stream,omitempty"`
+	Temperature   *float64                 `json:"temperature,omitempty"`
+	TopP          *float64                 `json:"top_p,omitempty"`
+	TopK          *int                     `json:"top_k,omitempty"`
+	StopSequences []string                 `json:"stop_sequences,omitempty"`
+	Metadata      *RequestMetadata         `json:"metadata,omitempty"`
+	Tools         []AnthropicTool          `json:"tools,omitempty"`
+	ToolChoice    *AnthropicToolChoice     `json:"tool_choice,omitempty"`
 	Thinking      *AnthropicThinkingConfig `json:"thinking,omitempty"`
 
 	// Internal fields for cache control
@@ -245,14 +245,14 @@ type AnthropicToolChoice struct {
 
 // AnthropicMessagesResponse represents a non-streaming response from the Anthropic messages API.
 type AnthropicMessagesResponse struct {
-	ID           string                `json:"id"`
-	Type         string                `json:"type"`
-	Role         MessageRole           `json:"role"`
-	Model        string                `json:"model"`
+	ID           string                  `json:"id"`
+	Type         string                  `json:"type"`
+	Role         MessageRole             `json:"role"`
+	Model        string                  `json:"model"`
 	Content      []AnthropicContentBlock `json:"content"`
-	StopReason   StopReason            `json:"stop_reason"`
-	StopSequence *string               `json:"stop_sequence,omitempty"`
-	Usage        AnthropicUsage        `json:"usage"`
+	StopReason   StopReason              `json:"stop_reason"`
+	StopSequence *string                 `json:"stop_sequence,omitempty"`
+	Usage        AnthropicUsage          `json:"usage"`
 }
 
 // AnthropicStreamEvent represents an event in a streaming response.
@@ -263,7 +263,7 @@ type AnthropicStreamEvent struct {
 	Message *AnthropicMessagesResponse `json:"message,omitempty"`
 
 	// Content block fields
-	Index        int                   `json:"index,omitempty"`
+	Index        int                    `json:"index,omitempty"`
 	ContentBlock *AnthropicContentBlock `json:"content_block,omitempty"`
 	Delta        *AnthropicContentDelta `json:"delta,omitempty"`
 

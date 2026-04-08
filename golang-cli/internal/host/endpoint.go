@@ -90,16 +90,16 @@ func ParseAddress(addr string) (host string, port int, err error) {
 	if len(parts) != 2 {
 		return "", 0, fmt.Errorf("invalid address format: %s", addr)
 	}
-	
+
 	host = parts[0]
 	if host == "" {
 		host = "localhost"
 	}
-	
+
 	_, err = fmt.Sscanf(parts[1], "%d", &port)
 	if err != nil {
 		return "", 0, fmt.Errorf("invalid port: %s", parts[1])
 	}
-	
+
 	return host, port, nil
 }

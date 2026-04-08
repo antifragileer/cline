@@ -42,29 +42,29 @@ type BedrockModel string
 
 const (
 	// Anthropic Claude models
-	BedrockClaude35Sonnet    BedrockModel = "anthropic.claude-3-5-sonnet-20241022-v2:0"
-	BedrockClaude35SonnetV1  BedrockModel = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-	BedrockClaude3Opus       BedrockModel = "anthropic.claude-3-opus-20240229-v1:0"
-	BedrockClaude3Sonnet     BedrockModel = "anthropic.claude-3-sonnet-20240229-v1:0"
-	BedrockClaude3Haiku      BedrockModel = "anthropic.claude-3-haiku-20240307-v1:0"
+	BedrockClaude35Sonnet   BedrockModel = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+	BedrockClaude35SonnetV1 BedrockModel = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+	BedrockClaude3Opus      BedrockModel = "anthropic.claude-3-opus-20240229-v1:0"
+	BedrockClaude3Sonnet    BedrockModel = "anthropic.claude-3-sonnet-20240229-v1:0"
+	BedrockClaude3Haiku     BedrockModel = "anthropic.claude-3-haiku-20240307-v1:0"
 
 	// Amazon Titan models
-	BedrockTitanPremier      BedrockModel = "amazon.titan-text-premier-v1:0"
-	BedrockTitanExpress      BedrockModel = "amazon.titan-text-express-v1"
-	BedrockTitanLite         BedrockModel = "amazon.titan-text-lite-v1"
+	BedrockTitanPremier BedrockModel = "amazon.titan-text-premier-v1:0"
+	BedrockTitanExpress BedrockModel = "amazon.titan-text-express-v1"
+	BedrockTitanLite    BedrockModel = "amazon.titan-text-lite-v1"
 
 	// Meta Llama models
-	BedrockLlama405B         BedrockModel = "meta.llama3-1-405b-instruct-v1:0"
-	BedrockLlama70B          BedrockModel = "meta.llama3-1-70b-instruct-v1:0"
-	BedrockLlama8B           BedrockModel = "meta.llama3-1-8b-instruct-v1:0"
+	BedrockLlama405B BedrockModel = "meta.llama3-1-405b-instruct-v1:0"
+	BedrockLlama70B  BedrockModel = "meta.llama3-1-70b-instruct-v1:0"
+	BedrockLlama8B   BedrockModel = "meta.llama3-1-8b-instruct-v1:0"
 
 	// Mistral models
-	BedrockMistralLarge      BedrockModel = "mistral.mistral-large-2402-v1:0"
-	BedrockMistral7B         BedrockModel = "mistral.mistral-7b-instruct-v0:2"
-	BedrockMixtral8x7B       BedrockModel = "mistral.mixtral-8x7b-instruct-v0:1"
+	BedrockMistralLarge BedrockModel = "mistral.mistral-large-2402-v1:0"
+	BedrockMistral7B    BedrockModel = "mistral.mistral-7b-instruct-v0:2"
+	BedrockMixtral8x7B  BedrockModel = "mistral.mixtral-8x7b-instruct-v0:1"
 
 	// Cohere models
-	BedrockCohereCommandR    BedrockModel = "cohere.command-r-v1:0"
+	BedrockCohereCommandR     BedrockModel = "cohere.command-r-v1:0"
 	BedrockCohereCommandRPlus BedrockModel = "cohere.command-r-plus-v1:0"
 
 	// AI21 models
@@ -464,7 +464,7 @@ func (p *BedrockProvider) prepareMetaBody(req BedrockCompletionRequest) ([]byte,
 	prompt.WriteString("<|start_header_id|>assistant<|end_header_id|>\n\n")
 
 	body := map[string]interface{}{
-		"prompt": prompt.String(),
+		"prompt":      prompt.String(),
 		"max_gen_len": req.MaxTokens,
 		"temperature": req.Temperature,
 		"top_p":       req.TopP,
@@ -570,10 +570,10 @@ func (p *BedrockProvider) prepareAI21Body(req BedrockCompletionRequest) ([]byte,
 	}
 
 	body := map[string]interface{}{
-		"prompt": prompt.String(),
-		"maxTokens": req.MaxTokens,
+		"prompt":      prompt.String(),
+		"maxTokens":   req.MaxTokens,
 		"temperature": req.Temperature,
-		"topP": req.TopP,
+		"topP":        req.TopP,
 	}
 
 	if req.MaxTokens == 0 {
@@ -653,8 +653,8 @@ func (p *BedrockProvider) parseAmazonResponse(body []byte) (*BedrockCompletionRe
 	var response struct {
 		InputTextTokenCount int `json:"inputTextTokenCount"`
 		Results             []struct {
-			TokenCount   int    `json:"tokenCount"`
-			OutputText   string `json:"outputText"`
+			TokenCount       int    `json:"tokenCount"`
+			OutputText       string `json:"outputText"`
 			CompletionReason string `json:"completionReason"`
 		} `json:"results"`
 	}
@@ -682,10 +682,10 @@ func (p *BedrockProvider) parseAmazonResponse(body []byte) (*BedrockCompletionRe
 // parseMetaResponse parses Meta Llama model response
 func (p *BedrockProvider) parseMetaResponse(body []byte) (*BedrockCompletionResponse, error) {
 	var response struct {
-		Generation string `json:"generation"`
-		PromptTokenCount int `json:"prompt_token_count"`
-		GenerationTokenCount int `json:"generation_token_count"`
-		StopReason string `json:"stop_reason"`
+		Generation           string `json:"generation"`
+		PromptTokenCount     int    `json:"prompt_token_count"`
+		GenerationTokenCount int    `json:"generation_token_count"`
+		StopReason           string `json:"stop_reason"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
@@ -732,7 +732,7 @@ func (p *BedrockProvider) parseMistralResponse(body []byte) (*BedrockCompletionR
 // parseCohereResponse parses Cohere model response
 func (p *BedrockProvider) parseCohereResponse(body []byte) (*BedrockCompletionResponse, error) {
 	var response struct {
-		Text       string `json:"text"`
+		Text         string `json:"text"`
 		FinishReason string `json:"finish_reason"`
 	}
 
@@ -838,7 +838,7 @@ func (p *BedrockProvider) parseAnthropicStreamChunk(chunk []byte) (string, strin
 // parseAmazonStreamChunk parses Amazon Titan streaming chunk
 func (p *BedrockProvider) parseAmazonStreamChunk(chunk []byte) (string, string, *BedrockUsage, error) {
 	var event struct {
-		OutputText string `json:"outputText"`
+		OutputText       string `json:"outputText"`
 		CompletionReason string `json:"completionReason"`
 	}
 

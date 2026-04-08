@@ -408,12 +408,12 @@ func TestOutputResultText(t *testing.T) {
 
 	runner := NewYoloModeRunner(config)
 	result := &YoloResult{
-		Success:    true,
-		ExitCode:   0,
-		Actions:    []YoloAction{},
+		Success:      true,
+		ExitCode:     0,
+		Actions:      []YoloAction{},
 		TotalActions: 0,
-		StartTime:  time.Now(),
-		EndTime:    time.Now(),
+		StartTime:    time.Now(),
+		EndTime:      time.Now(),
 	}
 
 	err := runner.OutputResult(result)
@@ -722,4 +722,3 @@ func TestLogWithTextOutput(t *testing.T) {
 		t.Errorf("expected output to contain 'test message', got: %s", output)
 	}
 }
-

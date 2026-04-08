@@ -46,8 +46,8 @@ type PostHogEvent struct {
 
 // PostHogCaptureRequest is the request body for the capture API
 type PostHogCaptureRequest struct {
-	APIKey string        `json:"api_key"`
-	Event  string        `json:"event,omitempty"`
+	APIKey string         `json:"api_key"`
+	Event  string         `json:"event,omitempty"`
 	Batch  []PostHogEvent `json:"batch,omitempty"`
 }
 

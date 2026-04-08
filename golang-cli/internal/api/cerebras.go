@@ -31,32 +31,32 @@ const (
 // CerebrasModels contains information about available Cerebras models.
 var CerebrasModels = map[CerebrasModel]ModelInfo{
 	CerebrasModelZaiGLM47: {
-		MaxTokens:         40000,
-		ContextWindow:     131072,
-		SupportsImages:    false,
+		MaxTokens:           40000,
+		ContextWindow:       131072,
+		SupportsImages:      false,
 		SupportsPromptCache: false,
-		Temperature:       0.9,
-		InputPrice:        0,
-		OutputPrice:       0,
-		Description:       "Highly capable general-purpose model on Cerebras (up to 1,000 tokens/s), competitive with leading proprietary models on coding tasks.",
+		Temperature:         0.9,
+		InputPrice:          0,
+		OutputPrice:         0,
+		Description:         "Highly capable general-purpose model on Cerebras (up to 1,000 tokens/s), competitive with leading proprietary models on coding tasks.",
 	},
 	CerebrasModelGPTOSS120B: {
-		MaxTokens:         65536,
-		ContextWindow:     128000,
-		SupportsImages:    false,
+		MaxTokens:           65536,
+		ContextWindow:       128000,
+		SupportsImages:      false,
 		SupportsPromptCache: false,
-		InputPrice:        0,
-		OutputPrice:       0,
-		Description:       "Intelligent general purpose model with 3,000 tokens/s",
+		InputPrice:          0,
+		OutputPrice:         0,
+		Description:         "Intelligent general purpose model with 3,000 tokens/s",
 	},
 	CerebrasModelQwen3235BA22B: {
-		MaxTokens:         64000,
-		ContextWindow:     64000,
-		SupportsImages:    false,
+		MaxTokens:           64000,
+		ContextWindow:       64000,
+		SupportsImages:      false,
 		SupportsPromptCache: false,
-		InputPrice:        0,
-		OutputPrice:       0,
-		Description:       "Intelligent model with ~1400 tokens/s",
+		InputPrice:          0,
+		OutputPrice:         0,
+		Description:         "Intelligent model with ~1400 tokens/s",
 	},
 }
 
@@ -119,10 +119,10 @@ type CerebrasChatCompletionRequest struct {
 
 // CerebrasChatCompletionResponse represents a response from the Cerebras chat completions API.
 type CerebrasChatCompletionResponse struct {
-	ID      string   `json:"id"`
-	Object  string   `json:"object"`
-	Created int64    `json:"created"`
-	Model   string   `json:"model"`
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
 	Choices []struct {
 		Index   int `json:"index"`
 		Message struct {

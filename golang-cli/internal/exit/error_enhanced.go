@@ -472,13 +472,13 @@ func (er *ErrorRecovery) HandleError(err error, writer io.Writer, verbose bool) 
 // EnhancedExitHandler provides enhanced exit handling with error recovery.
 type EnhancedExitHandler struct {
 	*Handler
-	classifier   *ErrorClassifier
-	recovery     *ErrorRecovery
-	errorLog     []ErrorLogEntry
-	errorLogMu   sync.RWMutex
-	maxErrorLog  int
-	verbose      bool
-	errorWriter  io.Writer
+	classifier  *ErrorClassifier
+	recovery    *ErrorRecovery
+	errorLog    []ErrorLogEntry
+	errorLogMu  sync.RWMutex
+	maxErrorLog int
+	verbose     bool
+	errorWriter io.Writer
 }
 
 // ErrorLogEntry represents a logged error.
@@ -582,9 +582,9 @@ func (eh *EnhancedExitHandler) GetErrorStats() ErrorStats {
 	defer eh.errorLogMu.RUnlock()
 
 	stats := ErrorStats{
-		TotalErrors:   len(eh.errorLog),
-		ByCategory:    make(map[string]int),
-		ByExitCode:    make(map[int]int),
+		TotalErrors:     len(eh.errorLog),
+		ByCategory:      make(map[string]int),
+		ByExitCode:      make(map[int]int),
 		RecoveredErrors: 0,
 	}
 

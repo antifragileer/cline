@@ -52,28 +52,28 @@ func (i CheckpointItem) Title() string {
 
 // Description returns the item description
 func (i CheckpointItem) Description() string {
-	return fmt.Sprintf("%s • %s", 
-		i.checkpoint.ID[:8], 
+	return fmt.Sprintf("%s • %s",
+		i.checkpoint.ID[:8],
 		i.checkpoint.Timestamp.Format("2006-01-02 15:04:05"))
 }
 
 // CheckpointModel is the Bubble Tea model for checkpoint management
 type CheckpointModel struct {
-	width   int
-	height  int
-	list    list.Model
-	
+	width  int
+	height int
+	list   list.Model
+
 	// Styling
-	titleStyle       lipgloss.Style
-	selectedStyle    lipgloss.Style
-	helpStyle        lipgloss.Style
-	
+	titleStyle    lipgloss.Style
+	selectedStyle lipgloss.Style
+	helpStyle     lipgloss.Style
+
 	// State
-	ready      bool
-	done       bool
-	selected   *Checkpoint
-	action     CheckpointAction
-	
+	ready    bool
+	done     bool
+	selected *Checkpoint
+	action   CheckpointAction
+
 	// Checkpoints
 	checkpoints []Checkpoint
 }
@@ -105,15 +105,15 @@ func NewCheckpointModel(checkpoints []Checkpoint) CheckpointModel {
 	return CheckpointModel{
 		checkpoints: checkpoints,
 		list:        l,
-		
+
 		titleStyle: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#7D56F4")),
-		
+
 		selectedStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00D9FF")).
 			Background(lipgloss.Color("#1a1a1a")),
-		
+
 		helpStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#606060")).
 			Italic(true),
@@ -237,26 +237,26 @@ func (m CheckpointModel) GetAction() CheckpointAction {
 // ShowCheckpointMenu shows a checkpoint menu and returns the selection
 func ShowCheckpointMenu(checkpoints []Checkpoint) (*Checkpoint, CheckpointAction, error) {
 	model := NewCheckpointModel(checkpoints)
-	
+
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	m, err := p.Run()
 	if err != nil {
 		return nil, CheckpointActionNone, err
 	}
-	
+
 	cpModel, ok := m.(CheckpointModel)
 	if !ok {
 		return nil, CheckpointActionNone, fmt.Errorf("unexpected model type")
 	}
-	
+
 	return cpModel.GetSelected(), cpModel.GetAction(), nil
 }
 
 // ShowCheckpointMenuWithCurrent shows checkpoint menu with current checkpoint highlighted
 func ShowCheckpointMenuWithCurrent(checkpoints []Checkpoint, currentID string) (*Checkpoint, CheckpointAction, error) {
 	model := NewCheckpointModel(checkpoints)
-	
+
 	// Find and select current checkpoint
 	for i, cp := range checkpoints {
 		if cp.ID == currentID {
@@ -264,25 +264,25 @@ func ShowCheckpointMenuWithCurrent(checkpoints []Checkpoint, currentID string) (
 			break
 		}
 	}
-	
+
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	m, err := p.Run()
 	if err != nil {
 		return nil, CheckpointActionNone, err
 	}
-	
+
 	cpModel, ok := m.(CheckpointModel)
 	if !ok {
 		return nil, CheckpointActionNone, fmt.Errorf("unexpected model type")
 	}
-	
+
 	return cpModel.GetSelected(), cpModel.GetAction(), nil
 }
 
 // FormatCheckpointDescription formats a checkpoint description for display
 func FormatCheckpointDescription(cp Checkpoint) string {
-	return fmt.Sprintf("%s - %s", 
+	return fmt.Sprintf("%s - %s",
 		cp.Timestamp.Format("Jan 02 15:04"),
 		cp.Description)
 }

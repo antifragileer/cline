@@ -26,18 +26,18 @@ func (i SearchableListItem) FilterValue() string {
 
 // SearchableListModel is a reusable searchable list component.
 type SearchableListModel struct {
-	width   int
-	height  int
-	list    list.Model
-	items   []SearchableListItem
-	filter  string
-	styles  SearchableListStyles
-	
+	width  int
+	height int
+	list   list.Model
+	items  []SearchableListItem
+	filter string
+	styles SearchableListStyles
+
 	// State
-	ready      bool
-	done       bool
-	selected   *SearchableListItem
-	showHelp   bool
+	ready    bool
+	done     bool
+	selected *SearchableListItem
+	showHelp bool
 }
 
 // SearchableListStyles holds styling for the searchable list.
@@ -55,18 +55,18 @@ func DefaultSearchableListStyles() SearchableListStyles {
 		TitleStyle: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#7D56F4")),
-		
+
 		SelectedStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00D9FF")).
 			Background(lipgloss.Color("#1a1a1a")),
-		
+
 		FilterStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFD700")),
-		
+
 		HelpStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#606060")).
 			Italic(true),
-		
+
 		DescriptionStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#808080")),
 	}
@@ -93,10 +93,10 @@ func NewSearchableListModel(title string, items []SearchableListItem) Searchable
 		Foreground(lipgloss.Color("#7D56F4"))
 
 	return SearchableListModel{
-		items:      items,
-		list:       l,
-		styles:     DefaultSearchableListStyles(),
-		showHelp:   true,
+		items:    items,
+		list:     l,
+		styles:   DefaultSearchableListStyles(),
+		showHelp: true,
 	}
 }
 
@@ -207,19 +207,19 @@ func (m *SearchableListModel) GetFilter() string {
 // ShowSearchableList displays a searchable list and returns the selected item.
 func ShowSearchableList(title string, items []SearchableListItem) (*SearchableListItem, error) {
 	model := NewSearchableListModel(title, items)
-	
+
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	listModel, ok := finalModel.(SearchableListModel)
 	if !ok {
 		return nil, fmt.Errorf("unexpected model type")
 	}
-	
+
 	return listModel.GetSelected(), nil
 }
 
@@ -233,19 +233,19 @@ type SearchableListResult struct {
 // ShowSearchableListWithCancel displays a searchable list with cancel option.
 func ShowSearchableListWithCancel(title string, items []SearchableListItem, showCancel bool) SearchableListResult {
 	model := NewSearchableListModel(title, items)
-	
+
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	finalModel, err := p.Run()
 	if err != nil {
 		return SearchableListResult{Error: err}
 	}
-	
+
 	listModel, ok := finalModel.(SearchableListModel)
 	if !ok {
 		return SearchableListResult{Error: fmt.Errorf("unexpected model type")}
 	}
-	
+
 	return SearchableListResult{
 		Selected: listModel.GetSelected(),
 		Canceled: listModel.GetSelected() == nil,

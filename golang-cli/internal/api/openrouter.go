@@ -94,10 +94,10 @@ type OpenRouterUsage struct {
 
 // ToolCall represents a tool call in the response
 type ToolCall struct {
-	Index    int             `json:"index"`
-	ID       string          `json:"id"`
-	Type     string          `json:"type"`
-	Function FunctionCall    `json:"function"`
+	Index    int          `json:"index"`
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function FunctionCall `json:"function"`
 }
 
 // FunctionCall represents a function call
@@ -149,31 +149,31 @@ type CompletionRequest struct {
 
 // CompletionResponse represents a response from the completion API
 type CompletionResponse struct {
-	ID           string    `json:"id"`
-	Model        string    `json:"model"`
-	Content      string    `json:"content"`
-	Usage        Usage     `json:"usage"`
-	Reasoning    string    `json:"reasoning,omitempty"`
+	ID           string     `json:"id"`
+	Model        string     `json:"model"`
+	Content      string     `json:"content"`
+	Usage        Usage      `json:"usage"`
+	Reasoning    string     `json:"reasoning,omitempty"`
 	ToolCalls    []ToolCall `json:"tool_calls,omitempty"`
-	FinishReason string    `json:"finish_reason"`
+	FinishReason string     `json:"finish_reason"`
 }
 
 // StreamChunk represents a chunk in a streaming response
 type StreamChunk struct {
-	Delta        string `json:"delta,omitempty"`
-	Content      string `json:"content,omitempty"`
-	Reasoning    string `json:"reasoning,omitempty"`
+	Delta        string     `json:"delta,omitempty"`
+	Content      string     `json:"content,omitempty"`
+	Reasoning    string     `json:"reasoning,omitempty"`
 	ToolCalls    []ToolCall `json:"tool_calls,omitempty"`
-	FinishReason string `json:"finish_reason,omitempty"`
-	Usage        *Usage `json:"usage,omitempty"`
+	FinishReason string     `json:"finish_reason,omitempty"`
+	Usage        *Usage     `json:"usage,omitempty"`
 	// Raw delta for advanced use cases
 	RawDelta map[string]interface{} `json:"-"`
 }
 
 // StreamEvent represents different types of stream events
 type StreamEvent struct {
-	Type    string      `json:"type"`
-	Content string      `json:"content,omitempty"`
+	Type      string    `json:"type"`
+	Content   string    `json:"content,omitempty"`
 	Reasoning string    `json:"reasoning,omitempty"`
 	ToolCall  *ToolCall `json:"tool_call,omitempty"`
 	Usage     *Usage    `json:"usage,omitempty"`
@@ -242,10 +242,10 @@ type openRouterResponse struct {
 	Choices []struct {
 		Index   int `json:"index"`
 		Message struct {
-			Role       string     `json:"role"`
-			Content    string     `json:"content"`
-			Reasoning  string     `json:"reasoning,omitempty"`
-			ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+			Role      string     `json:"role"`
+			Content   string     `json:"content"`
+			Reasoning string     `json:"reasoning,omitempty"`
+			ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
@@ -1033,11 +1033,11 @@ func (p *OpenRouterProvider) GetGenerationDetails(ctx context.Context, generatio
 
 // GenerationDetails represents generation information from OpenRouter
 type GenerationDetails struct {
-	TotalCost            float64 `json:"total_cost"`
-	NativeTokensPrompt   int     `json:"native_tokens_prompt"`
-	NativeTokensCompletion int   `json:"native_tokens_completion"`
-	NativeTokensCached   int     `json:"native_tokens_cached"`
-	NativeTokensCacheWrite int   `json:"native_tokens_cache_write"`
+	TotalCost              float64 `json:"total_cost"`
+	NativeTokensPrompt     int     `json:"native_tokens_prompt"`
+	NativeTokensCompletion int     `json:"native_tokens_completion"`
+	NativeTokensCached     int     `json:"native_tokens_cached"`
+	NativeTokensCacheWrite int     `json:"native_tokens_cache_write"`
 }
 
 // ToUsage converts GenerationDetails to Usage
@@ -1073,7 +1073,7 @@ func ShouldSkipReasoning(modelID string) bool {
 		"x-ai/grok-4-mini",
 		"x-ai/grok-4-turbo",
 	}
-	
+
 	for _, m := range skipModels {
 		if strings.Contains(modelID, m) {
 			return true
@@ -1092,7 +1092,7 @@ func SupportsReasoningEffort(modelID string) bool {
 	supportedModels := []string{
 		"o1", "o3",
 	}
-	
+
 	for _, m := range supportedModels {
 		if strings.Contains(modelID, m) {
 			return true

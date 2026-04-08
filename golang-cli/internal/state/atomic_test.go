@@ -201,7 +201,7 @@ func TestAtomicFileWriter_CopyFile(t *testing.T) {
 		tempDir := t.TempDir()
 		srcFile := filepath.Join(tempDir, "source.txt")
 		_ = os.WriteFile(srcFile, []byte("data"), 0644)
-		
+
 		// Try to copy to an invalid path
 		invalidDst := "/nonexistent_dir_that_cannot_be_created/dest.txt"
 		err := writer.CopyFile(srcFile, invalidDst, 0644)
@@ -395,7 +395,7 @@ func TestFileLock_Lock(t *testing.T) {
 		// Try to lock a file in an invalid path
 		invalidPath := "/nonexistent_dir_that_cannot_be_created/test.lock"
 		lock := NewFileLock(invalidPath)
-		
+
 		err := lock.Lock()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create directory")
@@ -405,7 +405,7 @@ func TestFileLock_Lock(t *testing.T) {
 		// Try to lock a file in an invalid path
 		invalidPath := "/nonexistent_dir_that_cannot_be_created/test.lock"
 		lock := NewFileLock(invalidPath)
-		
+
 		err := lock.TryLock()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create directory")

@@ -235,7 +235,7 @@ func TestCommandPermissionController_matchesPattern_Original(t *testing.T) {
 
 func TestCommandPermissionController_parseCommandSegments(t *testing.T) {
 	controller := NewCommandPermissionControllerWithConfig(&PermissionRules{
-		Allow:     []string{"*"},
+		Allow:      []string{"*"},
 		AllowPipes: false,
 	})
 
@@ -266,7 +266,7 @@ func TestCommandPermissionController_parseCommandSegments(t *testing.T) {
 
 	t.Run("does not split pipes when allowed", func(t *testing.T) {
 		controllerWithPipes := NewCommandPermissionControllerWithConfig(&PermissionRules{
-			Allow:     []string{"*"},
+			Allow:      []string{"*"},
 			AllowPipes: true,
 		})
 		segments := controllerWithPipes.parseCommandSegments("cat file | grep test")
@@ -546,9 +546,9 @@ func TestCommandPermissionController_matchesPattern(t *testing.T) {
 func TestCommandPermissionController_validateSingleCommand(t *testing.T) {
 	t.Run("validates command with dangerous chars outside quotes", func(t *testing.T) {
 		config := &PermissionRules{
-			Allow:        []string{"echo*"},
-			Deny:         []string{},
-			AllowPipes:   false,
+			Allow:          []string{"echo*"},
+			Deny:           []string{},
+			AllowPipes:     false,
 			AllowRedirects: false,
 		}
 		controller := NewCommandPermissionControllerWithConfig(config)

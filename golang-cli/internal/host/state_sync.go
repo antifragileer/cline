@@ -120,9 +120,9 @@ type StateSync struct {
 	config StateSyncConfig
 
 	// Local state storage
-	mu          sync.RWMutex
-	localState  map[string]StateVersion
-	versionGen  atomic.Int64
+	mu         sync.RWMutex
+	localState map[string]StateVersion
+	versionGen atomic.Int64
 
 	// Optimistic updates tracking
 	pendingMu      sync.RWMutex
@@ -133,9 +133,9 @@ type StateSync struct {
 	eventSubs []chan SyncEvent
 
 	// gRPC client for core communication
-	client     *Client
-	grpcConn   *grpc.ClientConn
-	stream     grpc.ClientStream
+	client   *Client
+	grpcConn *grpc.ClientConn
+	stream   grpc.ClientStream
 
 	// Lifecycle
 	ctx    context.Context
@@ -531,10 +531,10 @@ func (ss *StateSync) GetStats() SyncStats {
 	lastSync, _ := ss.lastSyncAt.Load().(time.Time)
 
 	return SyncStats{
-		LocalKeys:       len(ss.localState),
-		PendingUpdates:  pendingCount,
-		LastSyncAt:      lastSync,
-		CurrentVersion:  ss.versionGen.Load(),
+		LocalKeys:      len(ss.localState),
+		PendingUpdates: pendingCount,
+		LastSyncAt:     lastSync,
+		CurrentVersion: ss.versionGen.Load(),
 	}
 }
 

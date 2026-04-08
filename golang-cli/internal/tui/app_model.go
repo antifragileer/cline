@@ -29,10 +29,10 @@ type AppModel struct {
 	state AppState
 
 	// Metadata
-	width   int
-	height  int
-	mode    string // "act" or "plan"
-	yolo    bool
+	width    int
+	height   int
+	mode     string // "act" or "plan"
+	yolo     bool
 	quitting bool
 
 	// Program reference for sending messages
@@ -103,18 +103,18 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle window resize - update all dimensions
 		m.width = msg.Width
 		m.height = msg.Height
-		
+
 		// Update dimensions for all sub-models
 		m.welcome.SetDimensions(msg.Width, msg.Height)
 		m.history.SetDimensions(msg.Width, msg.Height)
 		m.settings.SetDimensions(msg.Width, msg.Height)
 		m.chat.SetDimensions(msg.Width, msg.Height)
-		
+
 		// Update diff model if in diff state
 		if m.state == AppStateDiff {
 			m.diff.SetDimensions(msg.Width, msg.Height)
 		}
-		
+
 		return m, nil
 
 	case WelcomeResultMsg:

@@ -64,7 +64,7 @@ func TestNewPermissionEnforcerWithController(t *testing.T) {
 
 func TestNewPermissionEnforcerWithOptions(t *testing.T) {
 	executor := mockExecutor("output", 0, nil)
-	
+
 	// Use default config which has proper LogDir set
 	config := audit.DefaultConfig()
 	config.Enabled = false

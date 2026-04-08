@@ -150,14 +150,14 @@ func (c *Config) Validate() error {
 
 // Flow manages the OAuth 2.0 authorization flow
 type Flow struct {
-	config       *Config
-	oauth2Config *oauth2.Config
-	state        string
-	codeVerifier string
+	config        *Config
+	oauth2Config  *oauth2.Config
+	state         string
+	codeVerifier  string
 	codeChallenge string
-	token        *Token
-	server       *callbackServer
-	resultChan   chan *authResult
+	token         *Token
+	server        *callbackServer
+	resultChan    chan *authResult
 }
 
 // authResult holds the result of the authorization flow
@@ -272,11 +272,11 @@ func (f *Flow) StartCallbackServer() error {
 	}
 
 	server, err := newCallbackServer(callbackServerConfig{
-		Port:     f.config.CallbackPort,
-		Path:     f.config.CallbackPath,
-		OnCode:   f.handleAuthorizationCode,
-		OnError:  f.handleAuthorizationError,
-		Timeout:  f.config.Timeout,
+		Port:    f.config.CallbackPort,
+		Path:    f.config.CallbackPath,
+		OnCode:  f.handleAuthorizationCode,
+		OnError: f.handleAuthorizationError,
+		Timeout: f.config.Timeout,
 	})
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrCallbackServerFailed, err)

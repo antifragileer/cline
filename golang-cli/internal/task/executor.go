@@ -19,10 +19,10 @@ import (
 
 // Executor handles the full task execution lifecycle
 type Executor struct {
-	taskClient cline.TaskServiceClient
+	taskClient  cline.TaskServiceClient
 	stateClient cline.StateServiceClient
-	uiClient   cline.UiServiceClient
-	conn       *grpc.ClientConn
+	uiClient    cline.UiServiceClient
+	conn        *grpc.ClientConn
 
 	// Execution state
 	taskID       string
@@ -439,7 +439,7 @@ func buildSettingsFromConfig(config TaskConfig) *cline.Settings {
 	if config.Mode == TaskModeAct {
 		mode = cline.PlanActMode_ACT
 	}
-	
+
 	return &cline.Settings{
 		Mode: &mode,
 	}

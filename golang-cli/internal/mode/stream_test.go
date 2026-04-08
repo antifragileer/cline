@@ -1154,8 +1154,8 @@ func TestMetadataHandling(t *testing.T) {
 	streamer.partialMu.Lock()
 	buf2 := &partialBuffer{
 		chunks: []StreamMessage{{
-			Type:     "text",
-			Content:  "test",
+			Type:    "text",
+			Content: "test",
 			Metadata: map[string]interface{}{
 				"key1": "value1",
 				"key2": 42,
@@ -1368,9 +1368,9 @@ func TestStreamStats(t *testing.T) {
 
 // TestFailingWriter is a test helper that fails after N writes
 type failingWriter struct {
-	failAfter   int
-	writeCount  int
-	mu          sync.Mutex
+	failAfter  int
+	writeCount int
+	mu         sync.Mutex
 }
 
 func (w *failingWriter) Write(p []byte) (n int, err error) {

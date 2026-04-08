@@ -215,7 +215,7 @@ func TestJSONFormatter(t *testing.T) {
 		f := NewJSONFormatter(&buf, os.Stderr, false)
 
 		toolInput := map[string]interface{}{
-			"file": "test.txt",
+			"file":    "test.txt",
 			"content": "hello",
 		}
 		err := f.FormatToolUse("write_file", toolInput, false)
@@ -528,7 +528,7 @@ func TestCreateHandler(t *testing.T) {
 	t.Run("JSON handler", func(t *testing.T) {
 		var buf bytes.Buffer
 		handler := CreateHandler(FormatJSON, &buf, false, false)
-		
+
 		if handler == nil {
 			t.Error("expected handler to not be nil")
 		}
@@ -537,7 +537,7 @@ func TestCreateHandler(t *testing.T) {
 	t.Run("Plain handler", func(t *testing.T) {
 		var buf bytes.Buffer
 		handler := CreateHandler(FormatPlain, &buf, false, false)
-		
+
 		if handler == nil {
 			t.Error("expected handler to not be nil")
 		}
@@ -546,7 +546,7 @@ func TestCreateHandler(t *testing.T) {
 	t.Run("Default to plain", func(t *testing.T) {
 		var buf bytes.Buffer
 		handler := CreateHandler("unknown", &buf, false, false)
-		
+
 		if handler == nil {
 			t.Error("expected handler to not be nil")
 		}
@@ -597,7 +597,7 @@ func TestHelperFunctions(t *testing.T) {
 			"float":  42.0,
 			"string": "42",
 		}
-		
+
 		tests := []struct {
 			key      string
 			expected int

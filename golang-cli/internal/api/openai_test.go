@@ -673,14 +673,14 @@ func TestOpenAIProvider_toOpenAIRequest(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		req          OpenAICompletionRequest
-		stream       bool
-		wantModel    string
-		wantStream   bool
-		wantTemp     float64
-		wantMaxTok   int
-		wantTopP     float64
+		name       string
+		req        OpenAICompletionRequest
+		stream     bool
+		wantModel  string
+		wantStream bool
+		wantTemp   float64
+		wantMaxTok int
+		wantTopP   float64
 	}{
 		{
 			name: "default values",

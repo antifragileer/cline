@@ -94,9 +94,9 @@ type InputModel struct {
 // NewInputModel creates a new input model with the specified mode and title.
 func NewInputModel(mode InputMode, title string) *InputModel {
 	m := &InputModel{
-		mode:   mode,
-		keyMap: DefaultInputKeyMap(),
-		title:  title,
+		mode:    mode,
+		keyMap:  DefaultInputKeyMap(),
+		title:   title,
 		history: NewHistory(100),
 	}
 

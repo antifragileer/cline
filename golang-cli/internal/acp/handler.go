@@ -179,10 +179,10 @@ func (h *ClineHandler) CreateSession(ctx context.Context, req *CreateSessionRequ
 
 	// Build task config
 	config := task.TaskConfig{
-		Mode:     mode,
-		Verbose:  h.logger.Enabled(ctx, slog.LevelDebug),
-		Cwd:      "", // Use current directory
-		TaskID:   sessionID,
+		Mode:    mode,
+		Verbose: h.logger.Enabled(ctx, slog.LevelDebug),
+		Cwd:     "", // Use current directory
+		TaskID:  sessionID,
 	}
 
 	// Create task config

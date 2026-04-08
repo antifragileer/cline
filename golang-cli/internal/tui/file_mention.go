@@ -12,18 +12,18 @@ import (
 
 // FileResult represents a file search result
 type FileResult struct {
-	Path     string
-	Score    float64
-	IsFile   bool
+	Path   string
+	Score  float64
+	IsFile bool
 }
 
 // FileMentionMenu displays a menu for file mentions with @
 type FileMentionMenu struct {
 	// State
-	query          string
-	results        []FileResult
-	selectedIndex  int
-	isLoading      bool
+	query              string
+	results            []FileResult
+	selectedIndex      int
+	isLoading          bool
 	showRipgrepWarning bool
 
 	// Dimensions
@@ -31,16 +31,16 @@ type FileMentionMenu struct {
 	height int
 
 	// Styling
-	containerStyle    lipgloss.Style
-	selectedStyle     lipgloss.Style
-	itemStyle         lipgloss.Style
-	queryStyle        lipgloss.Style
-	loadingStyle      lipgloss.Style
-	emptyStyle        lipgloss.Style
-	warningStyle      lipgloss.Style
-	fileIconStyle     lipgloss.Style
-	dirIconStyle      lipgloss.Style
-	pathStyle         lipgloss.Style
+	containerStyle lipgloss.Style
+	selectedStyle  lipgloss.Style
+	itemStyle      lipgloss.Style
+	queryStyle     lipgloss.Style
+	loadingStyle   lipgloss.Style
+	emptyStyle     lipgloss.Style
+	warningStyle   lipgloss.Style
+	fileIconStyle  lipgloss.Style
+	dirIconStyle   lipgloss.Style
+	pathStyle      lipgloss.Style
 }
 
 // NewFileMentionMenu creates a new file mention menu

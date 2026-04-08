@@ -410,34 +410,34 @@ func (a *Agent) parseToolCalls(content string) []ToolCall {
 // This implements proper XML-style tag matching for tool calls
 func findAllMatches(content, pattern string) [][]string {
 	var matches [][]string
-	
+
 	// Match XML-style tags: <tagname>...</tagname>
 	// Go regex doesn't support backreferences, so we need a different approach
 	// We use greedy matching and then validate that opening/closing tags match
 	tagRegex := regexp.MustCompile(`<(\w+)>([\s\S]*)</(\w+)>`)
-	
+
 	// Find all potential matches
 	allMatches := tagRegex.FindAllStringSubmatch(content, -1)
-	
+
 	for _, match := range allMatches {
 		if len(match) >= 4 {
 			openingTag := match[1]
 			closingTag := match[3]
 			innerContent := match[2]
-			
+
 			// Verify opening and closing tags match
 			if openingTag == closingTag {
 				// Valid match - include full match, tag name, and content
 				matches = append(matches, []string{
-					match[0],      // full match
-					openingTag,    // opening tag name
-					innerContent,  // inner content
-					closingTag,    // closing tag name
+					match[0],     // full match
+					openingTag,   // opening tag name
+					innerContent, // inner content
+					closingTag,   // closing tag name
 				})
 			}
 		}
 	}
-	
+
 	return matches
 }
 

@@ -45,10 +45,10 @@ type Service interface {
 type ErrorLevel string
 
 const (
-	ErrorLevelAll    ErrorLevel = "all"
-	ErrorLevelOff    ErrorLevel = "off"
-	ErrorLevelError  ErrorLevel = "error"
-	ErrorLevelCrash  ErrorLevel = "crash"
+	ErrorLevelAll   ErrorLevel = "all"
+	ErrorLevelOff   ErrorLevel = "off"
+	ErrorLevelError ErrorLevel = "error"
+	ErrorLevelCrash ErrorLevel = "crash"
 )
 
 // Settings contains error service settings
@@ -341,10 +341,10 @@ func GetErrorStack(err error) string {
 // GetRuntimeInfo returns runtime information for error context
 func GetRuntimeInfo() map[string]string {
 	return map[string]string{
-		"go_version":   runtime.Version(),
-		"go_os":        runtime.GOOS,
-		"go_arch":      runtime.GOARCH,
-		"num_cpu":      fmt.Sprintf("%d", runtime.NumCPU()),
+		"go_version":    runtime.Version(),
+		"go_os":         runtime.GOOS,
+		"go_arch":       runtime.GOARCH,
+		"num_cpu":       fmt.Sprintf("%d", runtime.NumCPU()),
 		"num_goroutine": fmt.Sprintf("%d", runtime.NumGoroutine()),
 	}
 }

@@ -803,9 +803,9 @@ func TestContextCancellation(t *testing.T) {
 
 func TestAnthropicMessagesResponse_StopReasons(t *testing.T) {
 	tests := []struct {
-		stopReason   StopReason
-		shouldStop   bool
-		description  string
+		stopReason  StopReason
+		shouldStop  bool
+		description string
 	}{
 		{StopReasonEndTurn, true, "natural end"},
 		{StopReasonMaxTokens, true, "max tokens reached"},

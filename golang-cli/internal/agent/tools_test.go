@@ -158,10 +158,10 @@ func TestGetBoolParam(t *testing.T) {
 
 func TestGetIntParam(t *testing.T) {
 	params := map[string]interface{}{
-		"int":     42,
-		"int64":   int64(100),
-		"float":   3.14,
-		"string":  "not a number",
+		"int":    42,
+		"int64":  int64(100),
+		"float":  3.14,
+		"string": "not a number",
 	}
 
 	tests := []struct {

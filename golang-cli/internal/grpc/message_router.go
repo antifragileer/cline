@@ -16,31 +16,31 @@ type MessageType string
 
 const (
 	// Task-related message types
-	MessageTypeTaskStart      MessageType = "task_start"
-	MessageTypeTaskComplete   MessageType = "task_complete"
-	MessageTypeTaskError      MessageType = "task_error"
-	MessageTypeTaskCancelled  MessageType = "task_cancelled"
+	MessageTypeTaskStart     MessageType = "task_start"
+	MessageTypeTaskComplete  MessageType = "task_complete"
+	MessageTypeTaskError     MessageType = "task_error"
+	MessageTypeTaskCancelled MessageType = "task_cancelled"
 
 	// Content message types
-	MessageTypeText           MessageType = "text"
-	MessageTypeCode           MessageType = "code"
-	MessageTypeThinking       MessageType = "thinking"
-	MessageTypeToolUse        MessageType = "tool_use"
-	MessageTypeToolResult     MessageType = "tool_result"
+	MessageTypeText       MessageType = "text"
+	MessageTypeCode       MessageType = "code"
+	MessageTypeThinking   MessageType = "thinking"
+	MessageTypeToolUse    MessageType = "tool_use"
+	MessageTypeToolResult MessageType = "tool_result"
 
 	// UI interaction types
-	MessageTypeAsk            MessageType = "ask"
-	MessageTypeSay            MessageType = "say"
-	MessageTypeApproval       MessageType = "approval"
-	MessageTypeCheckpoint     MessageType = "checkpoint"
+	MessageTypeAsk        MessageType = "ask"
+	MessageTypeSay        MessageType = "say"
+	MessageTypeApproval   MessageType = "approval"
+	MessageTypeCheckpoint MessageType = "checkpoint"
 
 	// System message types
-	MessageTypeSystem         MessageType = "system"
-	MessageTypeError          MessageType = "error"
-	MessageTypeInfo           MessageType = "info"
-	MessageTypeStreamStart    MessageType = "stream_start"
-	MessageTypeStreamEnd      MessageType = "stream_end"
-	MessageTypeStreamChunk    MessageType = "stream_chunk"
+	MessageTypeSystem      MessageType = "system"
+	MessageTypeError       MessageType = "error"
+	MessageTypeInfo        MessageType = "info"
+	MessageTypeStreamStart MessageType = "stream_start"
+	MessageTypeStreamEnd   MessageType = "stream_end"
+	MessageTypeStreamChunk MessageType = "stream_chunk"
 )
 
 // RoutedMessage represents a message that has been routed and typed
@@ -59,10 +59,10 @@ type MessageHandler func(msg *RoutedMessage) error
 
 // MessageRouter routes proto messages to appropriate handlers
 type MessageRouter struct {
-	handlers    map[MessageType][]MessageHandler
+	handlers       map[MessageType][]MessageHandler
 	defaultHandler MessageHandler
-	mu          sync.RWMutex
-	middleware  []MiddlewareFunc
+	mu             sync.RWMutex
+	middleware     []MiddlewareFunc
 }
 
 // MiddlewareFunc is a function that wraps message handling
@@ -279,13 +279,13 @@ func TimingMiddleware(onSlow func(msg *RoutedMessage, duration time.Duration)) M
 
 // BatchRouter batches messages and routes them together
 type BatchRouter struct {
-	router      *MessageRouter
-	batchSize   int
+	router        *MessageRouter
+	batchSize     int
 	flushInterval time.Duration
-	batch       []*RoutedMessage
-	mu          sync.Mutex
-	flushChan   chan struct{}
-	done        chan struct{}
+	batch         []*RoutedMessage
+	mu            sync.Mutex
+	flushChan     chan struct{}
+	done          chan struct{}
 }
 
 // NewBatchRouter creates a new batch router
@@ -361,10 +361,10 @@ func (br *BatchRouter) Stop() {
 
 // RouterStats contains statistics about message routing
 type RouterStats struct {
-	TotalRouted   int64
-	ByType        map[MessageType]int64
+	TotalRouted    int64
+	ByType         map[MessageType]int64
 	AverageLatency time.Duration
-	LastRouteTime time.Time
+	LastRouteTime  time.Time
 }
 
 // Stats returns routing statistics

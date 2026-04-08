@@ -114,8 +114,8 @@ func NewClient(config *ClientConfig) (*Client, error) {
 func (c *Client) setupDialOptions() error {
 	opts := []grpc.DialOption{
 		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(64 * 1024 * 1024), // 64MB
-			grpc.MaxCallSendMsgSize(64 * 1024 * 1024), // 64MB
+			grpc.MaxCallRecvMsgSize(64*1024*1024), // 64MB
+			grpc.MaxCallSendMsgSize(64*1024*1024), // 64MB
 		),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                c.config.KeepaliveInterval,

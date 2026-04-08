@@ -18,11 +18,11 @@ type ChatModel struct {
 	height int
 
 	// Messages
-	messages []Message
+	messages     []Message
 	messageStore *MessageStore
 
 	// Input handling
-	input   textinput.Model
+	input        textinput.Model
 	inputEnabled bool
 
 	// State
@@ -31,17 +31,22 @@ type ChatModel struct {
 	streamBuffer string
 
 	// Approval handling
-	pendingApproval *ApprovalRequest
+	pendingApproval      *ApprovalRequest
 	approvalResponseChan chan string
 
 	// Action buttons
 	actionButtons *ActionButtons
 	buttonConfig  ButtonConfig
 
+	// Static/Dynamic rendering
+	staticRenderer *StaticRenderer
+	staticContent  map[string]string // key -> rendered content
+	userScrolled   bool
+
 	// Metadata
-	taskID   string
-	mode     string // "act" or "plan"
-	yolo     bool
+	taskID string
+	mode   string // "act" or "plan"
+	yolo   bool
 
 	// Styling
 	styles   ChatStyles
@@ -71,15 +76,15 @@ type ApprovalRequest struct {
 
 // ChatStyles holds styling for the chat interface.
 type ChatStyles struct {
-	containerStyle    lipgloss.Style
-	userMsgStyle      lipgloss.Style
-	aiMsgStyle        lipgloss.Style
-	systemMsgStyle    lipgloss.Style
-	errorMsgStyle     lipgloss.Style
-	toolMsgStyle      lipgloss.Style
-	inputStyle        lipgloss.Style
-	statusStyle       lipgloss.Style
-	approvalBoxStyle  lipgloss.Style
+	containerStyle   lipgloss.Style
+	userMsgStyle     lipgloss.Style
+	aiMsgStyle       lipgloss.Style
+	systemMsgStyle   lipgloss.Style
+	errorMsgStyle    lipgloss.Style
+	toolMsgStyle     lipgloss.Style
+	inputStyle       lipgloss.Style
+	statusStyle      lipgloss.Style
+	approvalBoxStyle lipgloss.Style
 }
 
 // DefaultChatStyles returns default chat styles.
@@ -137,18 +142,20 @@ func NewChatModel() *ChatModel {
 	store := NewMessageStore()
 
 	return &ChatModel{
-		messages:     make([]Message, 0),
-		messageStore: store,
-		input:        ti,
-		state:        ChatStateIdle,
-		inputEnabled: true,
-		styles:       DefaultChatStyles(),
-		renderer:     renderer,
-		mode:         "act",
-		yolo:         false,
-		actionButtons: NewActionButtons(ButtonConfig{}, "act", 80),
-		buttonConfig: ButtonConfig{},
+		messages:             make([]Message, 0),
+		messageStore:         store,
+		input:                ti,
+		state:                ChatStateIdle,
+		inputEnabled:         true,
+		styles:               DefaultChatStyles(),
+		renderer:             renderer,
+		mode:                 "act",
+		yolo:                 false,
+		actionButtons:        NewActionButtons(ButtonConfig{}, "act", 80),
+		buttonConfig:         ButtonConfig{},
 		approvalResponseChan: make(chan string, 1),
+		staticRenderer:       NewStaticRenderer(),
+		staticContent:        make(map[string]string),
 	}
 }
 
@@ -361,10 +368,24 @@ func (m *ChatModel) handleUserInput(input string) tea.Cmd {
 func (m ChatModel) View() string {
 	var content strings.Builder
 
-	// Render messages
-	messagesView := m.renderMessages()
-	content.WriteString(messagesView)
-	content.WriteString("\n")
+	// Partition messages into static and dynamic regions
+	partition := m.staticRenderer.PartitionMessages(m.messages, m.userScrolled)
+
+	// Render static content (completed messages)
+	staticView := m.renderStaticContent(partition.StaticItems)
+	if staticView != "" {
+		content.WriteString(staticView)
+		content.WriteString("\n")
+	}
+
+	// Render dynamic content (streaming/current message)
+	if partition.HasDynamic && partition.DynamicItem != nil {
+		dynamicView := m.renderDynamicContent(*partition.DynamicItem)
+		if dynamicView != "" {
+			content.WriteString(dynamicView)
+			content.WriteString("\n")
+		}
+	}
 
 	// Render action buttons if enabled
 	if m.actionButtons != nil && m.actionButtons.ShouldShow() {
@@ -389,7 +410,45 @@ func (m ChatModel) View() string {
 	return m.styles.containerStyle.Render(content.String())
 }
 
-// renderMessages renders all messages.
+// renderStaticContent renders completed messages that have been "logged" to static region.
+func (m ChatModel) renderStaticContent(staticItems []ContentItem) string {
+	if len(staticItems) == 0 {
+		return ""
+	}
+
+	var builder strings.Builder
+
+	for _, item := range staticItems {
+		// Find the message with this key
+		for _, msg := range m.messages {
+			if msg.GetKey() == item.Key {
+				rendered := m.renderMessage(msg)
+				if rendered != "" {
+					if builder.Len() > 0 {
+						builder.WriteString("\n")
+					}
+					builder.WriteString(rendered)
+				}
+				break
+			}
+		}
+	}
+
+	return builder.String()
+}
+
+// renderDynamicContent renders the current streaming message.
+func (m ChatModel) renderDynamicContent(item ContentItem) string {
+	// Find the message with this key
+	for _, msg := range m.messages {
+		if msg.GetKey() == item.Key {
+			return m.renderMessage(msg)
+		}
+	}
+	return ""
+}
+
+// renderMessages renders all messages (legacy method for compatibility).
 func (m ChatModel) renderMessages() string {
 	var content strings.Builder
 
@@ -556,6 +615,15 @@ func (m *ChatModel) SetInput(value string) {
 func (m *ChatModel) ClearMessages() {
 	m.messages = make([]Message, 0)
 	m.messageStore.Clear()
+	if m.staticRenderer != nil {
+		m.staticRenderer.Clear()
+	}
+	m.staticContent = make(map[string]string)
+}
+
+// SetUserScrolled sets whether the user has scrolled.
+func (m *ChatModel) SetUserScrolled(scrolled bool) {
+	m.userScrolled = scrolled
 }
 
 // IsIdle returns true if the chat is idle.
@@ -627,7 +695,7 @@ func (m *ChatModel) handleStreamMessage(msg Message) {
 	// Add as new message
 	m.messages = append(m.messages, msg)
 	m.messageStore.Add(&msg)
-	
+
 	// Update button config based on new message
 	m.updateButtonConfig()
 }
@@ -645,7 +713,7 @@ func (m *ChatModel) GetMessageHandler() func(Message) {
 func (m *ChatModel) updateButtonConfig() {
 	var msgType, msgSubType string
 	var isPartial bool
-	
+
 	// Get the last message info
 	if len(m.messages) > 0 {
 		lastMsg := m.messages[len(m.messages)-1]

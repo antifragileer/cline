@@ -22,25 +22,25 @@ func TestReadKeyWithFlag(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		flagValue       string
+		name              string
+		flagValue         string
 		interactivePrompt string
-		want            string
-		wantErr         bool
+		want              string
+		wantErr           bool
 	}{
 		{
-			name:            "returns flag value when provided",
-			flagValue:       "sk-test123456789",
+			name:              "returns flag value when provided",
+			flagValue:         "sk-test123456789",
 			interactivePrompt: "Enter key: ",
-			want:            "sk-test123456789",
-			wantErr:         false,
+			want:              "sk-test123456789",
+			wantErr:           false,
 		},
 		{
-			name:            "returns empty string when flag is empty (would trigger interactive)",
-			flagValue:       "",
+			name:              "returns empty string when flag is empty (would trigger interactive)",
+			flagValue:         "",
 			interactivePrompt: "Enter key: ",
-			want:            "",
-			wantErr:         true, // Interactive read will fail in test environment
+			want:              "",
+			wantErr:           true, // Interactive read will fail in test environment
 		},
 	}
 
@@ -49,7 +49,7 @@ func TestReadKeyWithFlag(t *testing.T) {
 			// For the empty flag case, we expect an error from interactive read
 			// since we're not in a terminal
 			got, err := manager.ReadKeyWithFlag(tt.flagValue, tt.interactivePrompt)
-			
+
 			if tt.flagValue != "" {
 				if err != nil {
 					t.Errorf("ReadKeyWithFlag() error = %v, wantErr %v", err, tt.wantErr)
@@ -343,10 +343,10 @@ func TestAPIKeyManager_TestKey(t *testing.T) {
 
 	// Register a test provider with our test server
 	manager.RegisterProvider(ProviderKeyConfig{
-		Name:         "test-provider",
-		DisplayName:  "Test Provider",
+		Name:          "test-provider",
+		DisplayName:   "Test Provider",
 		SecretKeyName: "test_api_key",
-		TestEndpoint: server.URL + "/models",
+		TestEndpoint:  server.URL + "/models",
 		TestHeaders: func(key string) map[string]string {
 			return map[string]string{
 				"Authorization": "Bearer " + key,
@@ -423,10 +423,10 @@ func TestAPIKeyManager_TestStoredKey(t *testing.T) {
 
 	// Override the OpenAI provider's test endpoint
 	manager.providers[ProviderOpenAI] = ProviderKeyConfig{
-		Name:         ProviderOpenAI,
-		DisplayName:  "OpenAI",
+		Name:          ProviderOpenAI,
+		DisplayName:   "OpenAI",
 		SecretKeyName: "openai_api_key",
-		TestEndpoint: server.URL,
+		TestEndpoint:  server.URL,
 		TestHeaders: func(key string) map[string]string {
 			return map[string]string{"Authorization": "Bearer " + key}
 		},
@@ -697,8 +697,8 @@ func TestAPIKeyManager_RegisterProvider(t *testing.T) {
 		{
 			name: "valid provider",
 			config: ProviderKeyConfig{
-				Name:         "custom-provider",
-				SecretKeyName: "custom_key",
+				Name:           "custom-provider",
+				SecretKeyName:  "custom_key",
 				ValidateFormat: func(key string) error { return nil },
 			},
 			wantErr: false,

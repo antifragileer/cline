@@ -99,20 +99,20 @@ func DefaultToolApprovalConfig() *ToolApprovalConfig {
 
 // ToolExecutor handles tool execution with approval workflows.
 type ToolExecutor struct {
-	config      *ToolApprovalConfig
-	approver    ToolApprover
-	grpcConn    *grpc.ClientConn
-	history     []ToolExecutionRecord
-	maxHistory  int
-	mu          chan struct{}
+	config     *ToolApprovalConfig
+	approver   ToolApprover
+	grpcConn   *grpc.ClientConn
+	history    []ToolExecutionRecord
+	maxHistory int
+	mu         chan struct{}
 }
 
 // ToolExecutionRecord records a tool execution for history.
 type ToolExecutionRecord struct {
-	Request   ToolRequest   `json:"request"`
-	Result    ToolResult    `json:"result"`
-	Approved  bool          `json:"approved"`
-	Timestamp time.Time     `json:"timestamp"`
+	Request   ToolRequest `json:"request"`
+	Result    ToolResult  `json:"result"`
+	Approved  bool        `json:"approved"`
+	Timestamp time.Time   `json:"timestamp"`
 }
 
 // ToolApprover defines the interface for tool approval.

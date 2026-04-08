@@ -59,9 +59,9 @@ func (i CheckpointItem) Description() string {
 
 // CheckpointMenu is a Bubble Tea model for checkpoint management
 type CheckpointMenu struct {
-	width   int
-	height  int
-	list    list.Model
+	width  int
+	height int
+	list   list.Model
 
 	// Styling
 	titleStyle    lipgloss.Style

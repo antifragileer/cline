@@ -39,13 +39,13 @@ func DefaultReconnectPolicy() *ReconnectPolicy {
 
 // ConnectionPool manages a pool of gRPC connections with automatic reconnection
 type ConnectionPool struct {
-	config         *ClientConfig
-	policy         *ReconnectPolicy
-	connections    map[string]*PooledConnection
-	mu             sync.RWMutex
-	cleanupTicker  *time.Ticker
-	stopCleanup    chan struct{}
-	wg             sync.WaitGroup
+	config        *ClientConfig
+	policy        *ReconnectPolicy
+	connections   map[string]*PooledConnection
+	mu            sync.RWMutex
+	cleanupTicker *time.Ticker
+	stopCleanup   chan struct{}
+	wg            sync.WaitGroup
 }
 
 // PooledConnection represents a connection in the pool

@@ -330,10 +330,10 @@ func (m *mockGenericProvider) SetModel(model string) {
 // TestProviderFactoryCreatesAllProviders tests that the factory can create all provider types
 func TestProviderFactoryCreatesAllProviders(t *testing.T) {
 	tests := []struct {
-		name           string
-		providerType   ProviderType
-		setupFactory   func() *ProviderFactory
-		validateFunc   func(t *testing.T, provider interface{})
+		name         string
+		providerType ProviderType
+		setupFactory func() *ProviderFactory
+		validateFunc func(t *testing.T, provider interface{})
 	}{
 		{
 			name:         "OpenAI provider",

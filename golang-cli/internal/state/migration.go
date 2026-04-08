@@ -190,14 +190,14 @@ func (m *Migrator) transformStateKey(key string) string {
 
 	// Map known VSCode keys to Go CLI keys
 	keyMap := map[string]string{
-		"apiProvider":        "api_provider",
-		"apiKey":             "api_key",
-		"openRouterApiKey":   "openrouter_api_key",
-		"awsAccessKey":       "aws_access_key",
-		"awsSecretKey":       "aws_secret_key",
-		"awsSessionToken":    "aws_session_token",
-		"awsRegion":          "aws_region",
-		"bedrockModel":       "bedrock_model",
+		"apiProvider":           "api_provider",
+		"apiKey":                "api_key",
+		"openRouterApiKey":      "openrouter_api_key",
+		"awsAccessKey":          "aws_access_key",
+		"awsSecretKey":          "aws_secret_key",
+		"awsSessionToken":       "aws_session_token",
+		"awsRegion":             "aws_region",
+		"bedrockModel":          "bedrock_model",
 		"bedrockUseCrossRegion": "bedrock_use_cross_region",
 	}
 

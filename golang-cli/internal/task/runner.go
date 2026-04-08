@@ -41,7 +41,7 @@ func NewRunner(
 	if config == nil {
 		config = &Config{Mode: TaskModeAct}
 	}
-	
+
 	return &Runner{
 		config:          config,
 		approvalHandler: NewApprovalHandler(config, logger),

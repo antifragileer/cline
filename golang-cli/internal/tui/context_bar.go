@@ -11,12 +11,12 @@ import (
 // ContextBar displays token usage and context window information
 type ContextBar struct {
 	// Styling
-	 filledStyle      lipgloss.Style
-	 emptyStyle       lipgloss.Style
-	 labelStyle       lipgloss.Style
-	 valueStyle       lipgloss.Style
-	 costStyle        lipgloss.Style
-	 separatorStyle   lipgloss.Style
+	filledStyle    lipgloss.Style
+	emptyStyle     lipgloss.Style
+	labelStyle     lipgloss.Style
+	valueStyle     lipgloss.Style
+	costStyle      lipgloss.Style
+	separatorStyle lipgloss.Style
 }
 
 // NewContextBar creates a new context bar
@@ -39,11 +39,11 @@ func NewContextBar() *ContextBar {
 
 // ContextInfo holds context window information
 type ContextInfo struct {
-	UsedTokens   int
-	TotalTokens  int
-	ContextSize  int
-	TotalCost    float64
-	ModelID      string
+	UsedTokens  int
+	TotalTokens int
+	ContextSize int
+	TotalCost   float64
+	ModelID     string
 }
 
 // Render renders the context bar with model info, token usage, and cost
@@ -171,15 +171,15 @@ func formatNumber(n int) string {
 func DefaultContextSize(modelID string) int {
 	// Common model context sizes
 	contextSizes := map[string]int{
-		"claude-sonnet-4":    200000,
-		"claude-opus-4":      200000,
-		"claude-haiku-3":     200000,
-		"gpt-4o":             128000,
-		"gpt-4o-mini":        128000,
-		"gpt-4":              8192,
-		"gpt-4-turbo":        128000,
-		"gemini-1.5-pro":     1000000,
-		"gemini-1.5-flash":   1000000,
+		"claude-sonnet-4":  200000,
+		"claude-opus-4":    200000,
+		"claude-haiku-3":   200000,
+		"gpt-4o":           128000,
+		"gpt-4o-mini":      128000,
+		"gpt-4":            8192,
+		"gpt-4-turbo":      128000,
+		"gemini-1.5-pro":   1000000,
+		"gemini-1.5-flash": 1000000,
 	}
 
 	if size, ok := contextSizes[modelID]; ok {

@@ -221,11 +221,11 @@ func (r *DiffRenderer) countChanges(oldContent, newContent string) (additions, d
 
 // DiffViewer provides an interactive diff viewer.
 type DiffViewer struct {
-	diffs     []FileDiff
-	current   int
-	width     int
-	height    int
-	styles    DiffViewerStyles
+	diffs   []FileDiff
+	current int
+	width   int
+	height  int
+	styles  DiffViewerStyles
 }
 
 // FileDiff represents a diff for a single file.
@@ -247,7 +247,7 @@ type DiffViewerStyles struct {
 // NewDiffViewer creates a new diff viewer.
 func NewDiffViewer() *DiffViewer {
 	return &DiffViewer{
-		diffs:  make([]FileDiff, 0),
+		diffs:   make([]FileDiff, 0),
 		current: 0,
 		styles: DiffViewerStyles{
 			containerStyle: lipgloss.NewStyle().

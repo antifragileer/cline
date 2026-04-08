@@ -73,19 +73,19 @@ func DefaultHistoryViewConfig() HistoryViewConfig {
 
 // HistoryViewKeyMap defines key bindings for the history view.
 type HistoryViewKeyMap struct {
-	Up           key.Binding
-	Down         key.Binding
-	PageUp       key.Binding
-	PageDown     key.Binding
-	Select       key.Binding
-	Search       key.Binding
-	Delete       key.Binding
-	NextPage     key.Binding
-	PrevPage     key.Binding
-	Quit         key.Binding
-	Cancel       key.Binding
-	ConfirmYes   key.Binding
-	ConfirmNo    key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	PageUp     key.Binding
+	PageDown   key.Binding
+	Select     key.Binding
+	Search     key.Binding
+	Delete     key.Binding
+	NextPage   key.Binding
+	PrevPage   key.Binding
+	Quit       key.Binding
+	Cancel     key.Binding
+	ConfirmYes key.Binding
+	ConfirmNo  key.Binding
 }
 
 // DefaultHistoryViewKeyMap returns the default key bindings.
@@ -155,14 +155,14 @@ type HistoryViewResult struct {
 
 // HistoryViewModel is the Bubble Tea model for the history view.
 type HistoryViewModel struct {
-	config     HistoryViewConfig
-	keyMap     HistoryViewKeyMap
-	state      HistoryViewState
-	width      int
-	height     int
+	config HistoryViewConfig
+	keyMap HistoryViewKeyMap
+	state  HistoryViewState
+	width  int
+	height int
 
 	// Data
-	allEntries    []TaskHistoryEntry
+	allEntries      []TaskHistoryEntry
 	filteredEntries []TaskHistoryEntry
 
 	// Pagination
@@ -171,9 +171,9 @@ type HistoryViewModel struct {
 	selectedIndex int
 
 	// Search
-	searchInput   textinput.Model
-	searchQuery   string
-	isSearching   bool
+	searchInput textinput.Model
+	searchQuery string
+	isSearching bool
 
 	// Delete confirmation
 	deleteCandidate *TaskHistoryEntry

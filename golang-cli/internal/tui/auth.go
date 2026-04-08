@@ -160,30 +160,30 @@ type AuthWizardModel struct {
 	height        int
 
 	// Data
-	providers      []auth.ProviderInfo
+	providers        []auth.ProviderInfo
 	selectedProvider auth.ProviderInfo
-	authMethod     auth.AuthMethod
-	apiKey         string
-	model          string
-	baseURL        string
-	errorMessage   string
-	authStatus     AuthStatusInfo
+	authMethod       auth.AuthMethod
+	apiKey           string
+	model            string
+	baseURL          string
+	errorMessage     string
+	authStatus       AuthStatusInfo
 
 	// Menu navigation
-	menuItems      []MenuItem
-	menuIndex      int
-	providerIndex  int
+	menuItems       []MenuItem
+	menuIndex       int
+	providerIndex   int
 	authMethodIndex int
-	modelIndex     int
+	modelIndex      int
 
 	// Input components
-	apiKeyInput    textinput.Model
-	baseURLInput   textinput.Model
-	spinner        spinner.Model
+	apiKeyInput  textinput.Model
+	baseURLInput textinput.Model
+	spinner      spinner.Model
 
 	// Validation
-	validating     bool
-	validationErr  error
+	validating    bool
+	validationErr error
 
 	// Result
 	result AuthResult
@@ -208,17 +208,17 @@ func NewAuthWizardModel(config AuthWizardConfig) *AuthWizardModel {
 	s.Spinner = spinner.Dot
 
 	return &AuthWizardModel{
-		config:         config,
-		keyMap:         DefaultAuthWizardKeyMap(),
-		step:           AuthStepMenu,
-		previousSteps:  make([]AuthStep, 0),
-		width:          80,
-		height:         24,
-		menuItems:      getMainMenuItems(),
-		providers:      make([]auth.ProviderInfo, 0),
-		apiKeyInput:    apiKeyInput,
-		baseURLInput:   baseURLInput,
-		spinner:        s,
+		config:        config,
+		keyMap:        DefaultAuthWizardKeyMap(),
+		step:          AuthStepMenu,
+		previousSteps: make([]AuthStep, 0),
+		width:         80,
+		height:        24,
+		menuItems:     getMainMenuItems(),
+		providers:     make([]auth.ProviderInfo, 0),
+		apiKeyInput:   apiKeyInput,
+		baseURLInput:  baseURLInput,
+		spinner:       s,
 	}
 }
 
@@ -689,7 +689,7 @@ func (m *AuthWizardModel) validateCmd() tea.Cmd {
 		// Create context for validation
 		ctx := context.Background()
 
-	// Use wizard to validate if available
+		// Use wizard to validate if available
 		if m.config.Wizard != nil {
 			// Create temporary flags for validation
 			flags := auth.WizardFlags{

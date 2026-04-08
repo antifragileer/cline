@@ -33,11 +33,11 @@ func NewModelDiscoveryWithClient(client *http.Client) *ModelDiscovery {
 
 // DiscoveredModel represents a model discovered from a provider
 type DiscoveredModel struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	MaxTokens   int     `json:"max_tokens"`
-	ContextWindow int   `json:"context_window"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	MaxTokens     int    `json:"max_tokens"`
+	ContextWindow int    `json:"context_window"`
 }
 
 // ProviderModelResponse represents the response from a provider's models endpoint
@@ -71,10 +71,10 @@ func (md *ModelDiscovery) FetchOpenAIModels(apiKey string) ([]DiscoveredModel, e
 
 	var result struct {
 		Data []struct {
-			ID         string `json:"id"`
-			Object     string `json:"object"`
-			Created    int64  `json:"created"`
-			OwnedBy    string `json:"owned_by"`
+			ID      string `json:"id"`
+			Object  string `json:"object"`
+			Created int64  `json:"created"`
+			OwnedBy string `json:"owned_by"`
 		} `json:"data"`
 	}
 
@@ -162,10 +162,10 @@ func (md *ModelDiscovery) FetchOpenRouterModels(apiKey string) ([]DiscoveredMode
 
 	var result struct {
 		Data []struct {
-			ID          string `json:"id"`
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			ContextLength int `json:"context_length"`
+			ID            string `json:"id"`
+			Name          string `json:"name"`
+			Description   string `json:"description"`
+			ContextLength int    `json:"context_length"`
 		} `json:"data"`
 	}
 
@@ -211,11 +211,11 @@ func (md *ModelDiscovery) FetchGeminiModels(apiKey string) ([]DiscoveredModel, e
 
 	var result struct {
 		Models []struct {
-			Name        string `json:"name"`
-			DisplayName string `json:"displayName"`
-			Description string `json:"description"`
-			InputTokenLimit int `json:"inputTokenLimit"`
-			OutputTokenLimit int `json:"outputTokenLimit"`
+			Name             string `json:"name"`
+			DisplayName      string `json:"displayName"`
+			Description      string `json:"description"`
+			InputTokenLimit  int    `json:"inputTokenLimit"`
+			OutputTokenLimit int    `json:"outputTokenLimit"`
 		} `json:"models"`
 	}
 

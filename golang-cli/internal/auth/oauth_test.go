@@ -176,8 +176,8 @@ func TestNewFlow(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "nil config",
-			config: nil,
+			name:    "nil config",
+			config:  nil,
 			wantErr: true,
 		},
 		{
@@ -230,7 +230,7 @@ func TestNewFlow(t *testing.T) {
 
 func TestFlow_generatePKCE(t *testing.T) {
 	flow := &Flow{}
-	
+
 	err := flow.generatePKCE()
 	if err != nil {
 		t.Fatalf("generatePKCE() error = %v", err)
@@ -261,7 +261,7 @@ func TestFlow_generatePKCE(t *testing.T) {
 
 func TestFlow_generateState(t *testing.T) {
 	flow := &Flow{}
-	
+
 	err := flow.generateState()
 	if err != nil {
 		t.Fatalf("generateState() error = %v", err)
@@ -349,12 +349,12 @@ func TestFlow_StartCallbackServer_AlreadyStarted(t *testing.T) {
 
 func TestFlow_GetAuthURL(t *testing.T) {
 	config := &Config{
-		ClientID: "test-client",
-		AuthURL:  "https://example.com/auth",
-		TokenURL: "https://example.com/token",
-		Scopes:   []string{"read", "write"},
+		ClientID:     "test-client",
+		AuthURL:      "https://example.com/auth",
+		TokenURL:     "https://example.com/token",
+		Scopes:       []string{"read", "write"},
 		CallbackPath: "/callback",
-		Timeout:  5 * time.Second,
+		Timeout:      5 * time.Second,
 		AdditionalParams: map[string]string{
 			"custom_param": "custom_value",
 		},
@@ -694,7 +694,6 @@ func TestJSONTokenStorage_Save(t *testing.T) {
 	filePath := filepath.Join(tmpDir, "token.json")
 	storage := NewJSONTokenStorage(filePath)
 
-
 	// Skip actual save test since writeFileRestricted is not implemented
 	// Just verify the method exists and handles nil
 	err := storage.Save(nil)
@@ -993,7 +992,7 @@ func TestHelperFunctions(t *testing.T) {
 	t.Run("htmlEscape", func(t *testing.T) {
 		input := "<script>alert('xss')</script>"
 		result := htmlEscape(input)
-		
+
 		// Verify special characters are escaped
 		if strings.Contains(result, "<") {
 			t.Error("htmlEscape did not escape <")
@@ -1022,7 +1021,7 @@ func TestServerManager(t *testing.T) {
 
 	// Register server
 	manager.Register("test-server", flow.server)
-	
+
 	if manager.Count() != 1 {
 		t.Errorf("Count() = %d, want 1", manager.Count())
 	}
@@ -1085,11 +1084,11 @@ func TestIsPortAvailable(t *testing.T) {
 // Test parseCallbackURL
 func TestParseCallbackURL(t *testing.T) {
 	tests := []struct {
-		name        string
-		url         string
-		wantPort    int
-		wantPath    string
-		wantErr     bool
+		name     string
+		url      string
+		wantPort int
+		wantPath string
+		wantErr  bool
 	}{
 		{
 			name:     "valid URL with port",

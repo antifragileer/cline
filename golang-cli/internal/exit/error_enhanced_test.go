@@ -128,66 +128,66 @@ func TestErrorClassifier_Classify(t *testing.T) {
 	classifier := NewErrorClassifier()
 
 	tests := []struct {
-		name           string
-		err            error
-		wantCategory   ErrorCategory
-		wantExitCode   Code
-		wantRetryable  bool
+		name          string
+		err           error
+		wantCategory  ErrorCategory
+		wantExitCode  Code
+		wantRetryable bool
 	}{
 		{
-			name:         "validation error",
-			err:          errors.New("invalid argument provided"),
-			wantCategory: ErrorCategoryValidation,
-			wantExitCode: InvalidArguments,
+			name:          "validation error",
+			err:           errors.New("invalid argument provided"),
+			wantCategory:  ErrorCategoryValidation,
+			wantExitCode:  InvalidArguments,
 			wantRetryable: false,
 		},
 		{
-			name:         "connection error",
-			err:          errors.New("connection refused"),
-			wantCategory: ErrorCategoryConnection,
-			wantExitCode: ConnectionError,
+			name:          "connection error",
+			err:           errors.New("connection refused"),
+			wantCategory:  ErrorCategoryConnection,
+			wantExitCode:  ConnectionError,
 			wantRetryable: true,
 		},
 		{
-			name:         "authentication error",
-			err:          errors.New("authentication failed"),
-			wantCategory: ErrorCategoryAuthentication,
-			wantExitCode: PermissionDenied,
+			name:          "authentication error",
+			err:           errors.New("authentication failed"),
+			wantCategory:  ErrorCategoryAuthentication,
+			wantExitCode:  PermissionDenied,
 			wantRetryable: false,
 		},
 		{
-			name:         "timeout error",
-			err:          errors.New("operation timeout"),
-			wantCategory: ErrorCategoryTimeout,
-			wantExitCode: Timeout,
+			name:          "timeout error",
+			err:           errors.New("operation timeout"),
+			wantCategory:  ErrorCategoryTimeout,
+			wantExitCode:  Timeout,
 			wantRetryable: true,
 		},
 		{
-			name:         "configuration error",
-			err:          errors.New("configuration invalid"),
-			wantCategory: ErrorCategoryConfiguration,
-			wantExitCode: ConfigurationError,
+			name:          "configuration error",
+			err:           errors.New("configuration invalid"),
+			wantCategory:  ErrorCategoryConfiguration,
+			wantExitCode:  ConfigurationError,
 			wantRetryable: false,
 		},
 		{
-			name:         "permission error",
-			err:          errors.New("permission denied"),
-			wantCategory: ErrorCategoryAuthorization,
-			wantExitCode: PermissionDenied,
+			name:          "permission error",
+			err:           errors.New("permission denied"),
+			wantCategory:  ErrorCategoryAuthorization,
+			wantExitCode:  PermissionDenied,
 			wantRetryable: false,
 		},
 		{
-			name:         "unknown error",
-			err:          errors.New("something unexpected"),
-			wantCategory: ErrorCategoryUnknown,
-			wantExitCode: GeneralError,
+			name:          "unknown error",
+			err:           errors.New("something unexpected"),
+			wantCategory:  ErrorCategoryUnknown,
+			wantExitCode:  GeneralError,
 			wantRetryable: false,
 		},
 		{
-			name:         "nil error",
-			err:          nil,
-			wantCategory: ErrorCategoryUnknown,
-			wantExitCode: Success,
+			name:          "nil error",
+			err:           nil,
+			wantCategory:  ErrorCategoryUnknown,
+			wantExitCode:  Success,
 			wantRetryable: false,
 		},
 	}
@@ -485,7 +485,7 @@ func TestWrapError(t *testing.T) {
 		assert.Equal(t, Code(InvalidArguments), wrapped.ExitCode)
 	})
 
-		t.Run("maps categories to exit codes", func(t *testing.T) {
+	t.Run("maps categories to exit codes", func(t *testing.T) {
 		tests := []struct {
 			category ErrorCategory
 			wantCode Code

@@ -76,14 +76,14 @@ func TestOAuthToken_String(t *testing.T) {
 func TestBaseOAuthProvider(t *testing.T) {
 	t.Run("Set and Get OAuthToken", func(t *testing.T) {
 		provider := &BaseOAuthProvider{}
-		
+
 		token := &OAuthToken{
 			AccessToken: "test-token",
 			TokenType:   "Bearer",
 		}
-		
+
 		provider.SetOAuthToken(token)
-		
+
 		got := provider.GetOAuthToken()
 		if got == nil {
 			t.Fatal("GetOAuthToken() returned nil")
@@ -107,7 +107,7 @@ func TestBaseOAuthProvider(t *testing.T) {
 			Expiry:      time.Now().Add(time.Hour),
 		}
 		provider.SetOAuthToken(token)
-		
+
 		if !provider.IsOAuthAuthenticated() {
 			t.Error("IsOAuthAuthenticated() should return true with valid token")
 		}
@@ -120,7 +120,7 @@ func TestBaseOAuthProvider(t *testing.T) {
 			Expiry:      time.Now().Add(-time.Hour),
 		}
 		provider.SetOAuthToken(token)
-		
+
 		if provider.IsOAuthAuthenticated() {
 			t.Error("IsOAuthAuthenticated() should return false with expired token")
 		}
@@ -141,7 +141,7 @@ func TestBaseOAuthProvider(t *testing.T) {
 			Expiry:       time.Now().Add(3 * time.Minute), // Less than 5 minute buffer
 		}
 		provider.SetOAuthToken(token)
-		
+
 		if !provider.NeedsTokenRefresh() {
 			t.Error("NeedsTokenRefresh() should return true for token expiring within buffer")
 		}
@@ -161,7 +161,7 @@ func TestBaseOAuthProvider(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		provider.SetOAuthToken(token)
-		
+
 		expected := "Bearer test-token"
 		if got := provider.GetAuthHeader(); got != expected {
 			t.Errorf("GetAuthHeader() = %v, want %v", got, expected)
@@ -183,7 +183,7 @@ func TestBaseOAuthProvider(t *testing.T) {
 			// No refresh token
 		}
 		provider.SetOAuthToken(token)
-		
+
 		err := provider.RefreshOAuthToken(context.Background())
 		if err == nil {
 			t.Error("RefreshOAuthToken() should return error with no refresh token")
@@ -201,9 +201,9 @@ func TestOAuthProviderFactory(t *testing.T) {
 			AuthURL:      "https://test.com/auth",
 			TokenURL:     "https://test.com/token",
 		}
-		
+
 		factory.RegisterConfig("test-provider", config)
-		
+
 		got, ok := factory.GetConfig("test-provider")
 		if !ok {
 			t.Error("GetConfig() should return true for registered provider")
@@ -225,9 +225,9 @@ func TestOAuthProviderFactory(t *testing.T) {
 			AccessToken: "access-token",
 			TokenType:   "Bearer",
 		}
-		
+
 		factory.StoreToken("test-provider", token)
-		
+
 		got, ok := factory.GetToken("test-provider")
 		if !ok {
 			t.Error("GetToken() should return true for stored token")
@@ -240,9 +240,9 @@ func TestOAuthProviderFactory(t *testing.T) {
 	t.Run("Clear Token", func(t *testing.T) {
 		token := &OAuthToken{AccessToken: "token"}
 		factory.StoreToken("clear-test", token)
-		
+
 		factory.ClearToken("clear-test")
-		
+
 		_, ok := factory.GetToken("clear-test")
 		if ok {
 			t.Error("GetToken() should return false after ClearToken()")
@@ -296,7 +296,7 @@ func TestGetDefaultAuthType(t *testing.T) {
 
 func TestGetProviderAuthInfo(t *testing.T) {
 	info := GetProviderAuthInfo()
-	
+
 	// Check that all expected providers are present
 	expectedProviders := map[string]bool{
 		"anthropic":  false,
@@ -307,13 +307,13 @@ func TestGetProviderAuthInfo(t *testing.T) {
 		"ollama":     false,
 		"lmstudio":   false,
 	}
-	
+
 	for _, p := range info {
 		if _, ok := expectedProviders[p.Provider]; ok {
 			expectedProviders[p.Provider] = true
 		}
 	}
-	
+
 	for provider, found := range expectedProviders {
 		if !found {
 			t.Errorf("Provider %s not found in GetProviderAuthInfo()", provider)
@@ -328,16 +328,16 @@ func TestNewOpenAIOAuthProvider(t *testing.T) {
 	oauthConfig := &OAuthConfig{
 		ClientID: "oauth-client",
 	}
-	
+
 	provider, err := NewOpenAIOAuthProvider(config, oauthConfig)
 	if err != nil {
 		t.Fatalf("NewOpenAIOAuthProvider() error = %v", err)
 	}
-	
+
 	if provider == nil {
 		t.Fatal("NewOpenAIOAuthProvider() returned nil")
 	}
-	
+
 	// Check that OAuth config was set
 	if provider.oauthConfig == nil {
 		t.Error("OAuth config should be set")
@@ -352,7 +352,7 @@ func TestNewOpenAIOAuthProvider_InvalidConfig(t *testing.T) {
 		APIKey: "", // Invalid - no API key
 	}
 	oauthConfig := &OAuthConfig{}
-	
+
 	_, err := NewOpenAIOAuthProvider(config, oauthConfig)
 	if err == nil {
 		t.Error("NewOpenAIOAuthProvider() should return error with invalid config")
@@ -366,16 +366,16 @@ func TestNewGeminiOAuthProvider(t *testing.T) {
 	oauthConfig := &OAuthConfig{
 		ClientID: "oauth-client",
 	}
-	
+
 	provider, err := NewGeminiOAuthProvider(config, oauthConfig)
 	if err != nil {
 		t.Fatalf("NewGeminiOAuthProvider() error = %v", err)
 	}
-	
+
 	if provider == nil {
 		t.Fatal("NewGeminiOAuthProvider() returned nil")
 	}
-	
+
 	// Check that OAuth config was set
 	if provider.oauthConfig == nil {
 		t.Error("OAuth config should be set")
@@ -387,7 +387,7 @@ func TestNewGeminiOAuthProvider_InvalidConfig(t *testing.T) {
 		APIKey: "", // Invalid - no API key
 	}
 	oauthConfig := &OAuthConfig{}
-	
+
 	_, err := NewGeminiOAuthProvider(config, oauthConfig)
 	if err == nil {
 		t.Error("NewGeminiOAuthProvider() should return error with invalid config")

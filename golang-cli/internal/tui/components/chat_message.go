@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 )
 
@@ -31,21 +31,21 @@ const (
 
 // ChatMessage represents a single message in the chat
 type ChatMessage struct {
-	ID        string
-	Type      MessageType
-	Content   string
-	Timestamp time.Time
+	ID          string
+	Type        MessageType
+	Content     string
+	Timestamp   time.Time
 	IsStreaming bool
 	IsPartial   bool
-	Metadata  map[string]string
+	Metadata    map[string]string
 }
 
 // NewChatMessage creates a new chat message
 func NewChatMessage(msgType MessageType, content string) *ChatMessage {
 	return &ChatMessage{
-		Type:      msgType,
-		Content:   content,
-		Timestamp: time.Now(),
+		Type:        msgType,
+		Content:     content,
+		Timestamp:   time.Now(),
 		IsStreaming: false,
 		IsPartial:   false,
 	}
@@ -120,18 +120,18 @@ func DefaultMessageStyles() MessageStyles {
 
 // MessageRenderer handles rendering of chat messages
 type MessageRenderer struct {
-	styles      MessageStyles
-	width       int
-	glamour     bool
-	renderer    *glamour.TermRenderer
+	styles   MessageStyles
+	width    int
+	glamour  bool
+	renderer *glamour.TermRenderer
 }
 
 // NewMessageRenderer creates a new message renderer
 func NewMessageRenderer(width int, useGlamour bool) *MessageRenderer {
 	mr := &MessageRenderer{
-		styles:   DefaultMessageStyles(),
-		width:    width,
-		glamour:  useGlamour,
+		styles:  DefaultMessageStyles(),
+		width:   width,
+		glamour: useGlamour,
 	}
 
 	if useGlamour {
@@ -205,7 +205,7 @@ func (mr *MessageRenderer) Render(msg ChatMessage) string {
 	header := fmt.Sprintf("%s %s", timestamp, lipgloss.NewStyle().Bold(true).Render(prefix))
 
 	message := style.Render(content)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Left, header, message)
 }
 
@@ -230,7 +230,7 @@ func (mr *MessageRenderer) renderStreamingIndicator() string {
 	indicators := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	// In a real implementation, this would animate
 	indicator := indicators[0]
-	
+
 	return lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#9B59B6")).
 		Render(indicator + " Thinking...")
@@ -261,7 +261,7 @@ func (mr *MessageRenderer) RenderSimple(content string, msgType MessageType) str
 
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
 	wrapped := wordwrap.String(content, mr.width-10)
-	
+
 	return style.Render(prefix + wrapped)
 }
 
@@ -323,7 +323,7 @@ func (ml *MessageList) GetLastMessage() *ChatMessage {
 // Render renders all messages
 func (ml *MessageList) Render() string {
 	var rendered []string
-	
+
 	for _, msg := range ml.messages {
 		rendered = append(rendered, ml.renderer.Render(msg))
 	}
@@ -339,7 +339,7 @@ func (ml *MessageList) RenderLast(n int) string {
 
 	start := len(ml.messages) - n
 	var rendered []string
-	
+
 	for i := start; i < len(ml.messages); i++ {
 		rendered = append(rendered, ml.renderer.Render(ml.messages[i]))
 	}

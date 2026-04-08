@@ -40,31 +40,31 @@ type Chat struct {
 	height int
 
 	// Components
-	messageList   *ChatMessageList
-	statusBar     *StatusBar
-	input         *ChatInput
-	slashMenu     *SlashCommandMenu
-	fileMenu      *FileMentionMenu
-	askPrompt     *AskPrompt
-	diffView      *DiffView
-	spinner       *Spinner
+	messageList    *ChatMessageList
+	statusBar      *StatusBar
+	input          *ChatInput
+	slashMenu      *SlashCommandMenu
+	fileMenu       *FileMentionMenu
+	askPrompt      *AskPrompt
+	diffView       *DiffView
+	spinner        *Spinner
 	checkpointMenu *CheckpointMenu
 
 	// State
-	mode       ChatMode
-	state      ChatState
-	yolo       bool
-	taskID     string
-	provider   string
-	model      string
+	mode     ChatMode
+	state    ChatState
+	yolo     bool
+	taskID   string
+	provider string
+	model    string
 
 	// Input state
-	inputText     string
-	cursorPos     int
-	inSlashMode   bool
-	inFileMode    bool
-	slashQuery    SlashQueryState
-	fileQuery     FileMentionState
+	inputText   string
+	cursorPos   int
+	inSlashMode bool
+	inFileMode  bool
+	slashQuery  SlashQueryState
+	fileQuery   FileMentionState
 
 	// Message tracking
 	lastMessageTime time.Time
@@ -88,9 +88,9 @@ type ChatInput struct {
 	height    int
 
 	// Styling
-	promptStyle lipgloss.Style
-	textStyle   lipgloss.Style
-	cursorStyle lipgloss.Style
+	promptStyle      lipgloss.Style
+	textStyle        lipgloss.Style
+	cursorStyle      lipgloss.Style
 	placeholderStyle lipgloss.Style
 }
 
@@ -227,18 +227,18 @@ func (ci *ChatInput) Render(mode ChatMode, disabled bool) string {
 // NewChat creates a new chat interface
 func NewChat() *Chat {
 	c := &Chat{
-		mode:       ChatModeAct,
-		state:      ChatStateIdle,
-		width:      120,
-		height:     40,
+		mode:   ChatModeAct,
+		state:  ChatStateIdle,
+		width:  120,
+		height: 40,
 
-		messageList:   NewChatMessageList(),
-		statusBar:     NewStatusBar(120),
-		input:         NewChatInput(),
-		slashMenu:     NewSlashCommandMenu(),
-		fileMenu:      NewFileMentionMenu(),
-		diffView:      NewDiffView(),
-		spinner:       NewSpinner(WithSpinnerText("Thinking...")),
+		messageList: NewChatMessageList(),
+		statusBar:   NewStatusBar(120),
+		input:       NewChatInput(),
+		slashMenu:   NewSlashCommandMenu(),
+		fileMenu:    NewFileMentionMenu(),
+		diffView:    NewDiffView(),
+		spinner:     NewSpinner(WithSpinnerText("Thinking...")),
 
 		containerStyle: lipgloss.NewStyle().
 			Padding(1),

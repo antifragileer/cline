@@ -38,10 +38,10 @@ type ThinkingIndicator struct {
 	height int
 
 	// Styling
-	spinnerStyle    lipgloss.Style
-	textStyle       lipgloss.Style
-	cancelStyle     lipgloss.Style
-	modeStyle       lipgloss.Style
+	spinnerStyle lipgloss.Style
+	textStyle    lipgloss.Style
+	cancelStyle  lipgloss.Style
+	modeStyle    lipgloss.Style
 
 	// Cancel callback
 	onCancel func()
@@ -55,11 +55,11 @@ func NewThinkingIndicator(text, mode string) *ThinkingIndicator {
 	}
 
 	return &ThinkingIndicator{
-		frames:    SpinnerFrames,
+		frames:     SpinnerFrames,
 		frameIndex: 0,
-		text:      text,
-		mode:      mode,
-		startTime: time.Now(),
+		text:       text,
+		mode:       mode,
+		startTime:  time.Now(),
 		spinnerStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(modeColor)).
 			Bold(true),
@@ -163,10 +163,10 @@ func formatDuration(d time.Duration) string {
 
 // ThinkingIndicatorMsg is sent to show/hide the thinking indicator
 type ThinkingIndicatorMsg struct {
-	Show      bool
-	Text      string
-	Mode      string
-	OnCancel  func()
+	Show     bool
+	Text     string
+	Mode     string
+	OnCancel func()
 }
 
 // StaticThinkingIndicator renders a static thinking indicator (no animation)

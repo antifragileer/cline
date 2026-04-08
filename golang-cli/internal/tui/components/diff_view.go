@@ -43,12 +43,12 @@ type FileDiff struct {
 
 // DiffView displays file diffs with syntax highlighting
 type DiffView struct {
-	diffs         []FileDiff
-	currentIndex  int
-	width         int
-	height        int
-	contextLines  int
-	showLineNums  bool
+	diffs        []FileDiff
+	currentIndex int
+	width        int
+	height       int
+	contextLines int
+	showLineNums bool
 }
 
 // NewDiffView creates a new diff view
@@ -290,7 +290,7 @@ func (dv *DiffView) renderDiffContent(lines []DiffLine) string {
 				prefix = fmt.Sprintf(" %4d %4d", line.OldNum, line.NewNum)
 			}
 			content := dv.truncateLine(line.Content, dv.width-12)
-			styled = contextStyle.Render(prefix + " " + content) + lineNumStyle.Render("")
+			styled = contextStyle.Render(prefix+" "+content) + lineNumStyle.Render("")
 		}
 
 		result.WriteString(styled)

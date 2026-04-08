@@ -319,54 +319,126 @@ func (h *DefaultMessageHandler) OnCompletion(success bool, summary string) error
 
 // MockMessageHandler is a mock implementation of MessageHandler for testing
 type MockMessageHandler struct {
-	textCalls       []struct{ content string; isPartial bool }
-	toolCalls       []struct{ toolName string; params map[string]interface{} }
-	toolResults     []struct{ toolName string; result string; success bool }
-	askCalls        []struct{ promptType string; question string }
-	sayCalls        []struct{ sayType string; content string; partial bool }
-	commandCalls    []struct{ command string; requiresApproval bool }
-	commandOutputs  []struct{ output string; isComplete bool }
+	textCalls []struct {
+		content   string
+		isPartial bool
+	}
+	toolCalls []struct {
+		toolName string
+		params   map[string]interface{}
+	}
+	toolResults []struct {
+		toolName string
+		result   string
+		success  bool
+	}
+	askCalls []struct {
+		promptType string
+		question   string
+	}
+	sayCalls []struct {
+		sayType string
+		content string
+		partial bool
+	}
+	commandCalls []struct {
+		command          string
+		requiresApproval bool
+	}
+	commandOutputs []struct {
+		output     string
+		isComplete bool
+	}
 	errors          []error
 	infoMessages    []string
 	statusMessages  []string
 	progressCalls   []struct{ current, total int }
-	checkpointCalls []struct{ checkpointID string; action string }
-	browserCalls    []struct{ action string; url string }
-	mcpCalls        []struct{ server string; tool string; params map[string]interface{} }
-	completionCalls []struct{ success bool; summary string }
+	checkpointCalls []struct {
+		checkpointID string
+		action       string
+	}
+	browserCalls []struct {
+		action string
+		url    string
+	}
+	mcpCalls []struct {
+		server string
+		tool   string
+		params map[string]interface{}
+	}
+	completionCalls []struct {
+		success bool
+		summary string
+	}
 
 	// Response values
-	ToolUseResponse    bool
-	ToolUseError       error
-	AskResponse        string
-	AskError           error
-	CommandResponse    string
-	CommandError       error
-	BrowserResponse    string
-	BrowserError       error
-	MCPResponse        string
-	MCPError           error
-	CompletionError    error
+	ToolUseResponse bool
+	ToolUseError    error
+	AskResponse     string
+	AskError        error
+	CommandResponse string
+	CommandError    error
+	BrowserResponse string
+	BrowserError    error
+	MCPResponse     string
+	MCPError        error
+	CompletionError error
 }
 
 // NewMockMessageHandler creates a new mock message handler for testing
 func NewMockMessageHandler() *MockMessageHandler {
 	return &MockMessageHandler{
-		textCalls:       make([]struct{ content string; isPartial bool }, 0),
-		toolCalls:       make([]struct{ toolName string; params map[string]interface{} }, 0),
-		toolResults:     make([]struct{ toolName string; result string; success bool }, 0),
-		askCalls:        make([]struct{ promptType string; question string }, 0),
-		sayCalls:        make([]struct{ sayType string; content string; partial bool }, 0),
-		commandCalls:    make([]struct{ command string; requiresApproval bool }, 0),
-		commandOutputs:  make([]struct{ output string; isComplete bool }, 0),
-		errors:          make([]error, 0),
-		infoMessages:    make([]string, 0),
-		statusMessages:  make([]string, 0),
-		progressCalls:   make([]struct{ current, total int }, 0),
-		checkpointCalls: make([]struct{ checkpointID string; action string }, 0),
-		browserCalls:    make([]struct{ action string; url string }, 0),
-		mcpCalls:        make([]struct{ server string; tool string; params map[string]interface{} }, 0),
-		completionCalls: make([]struct{ success bool; summary string }, 0),
+		textCalls: make([]struct {
+			content   string
+			isPartial bool
+		}, 0),
+		toolCalls: make([]struct {
+			toolName string
+			params   map[string]interface{}
+		}, 0),
+		toolResults: make([]struct {
+			toolName string
+			result   string
+			success  bool
+		}, 0),
+		askCalls: make([]struct {
+			promptType string
+			question   string
+		}, 0),
+		sayCalls: make([]struct {
+			sayType string
+			content string
+			partial bool
+		}, 0),
+		commandCalls: make([]struct {
+			command          string
+			requiresApproval bool
+		}, 0),
+		commandOutputs: make([]struct {
+			output     string
+			isComplete bool
+		}, 0),
+		errors:         make([]error, 0),
+		infoMessages:   make([]string, 0),
+		statusMessages: make([]string, 0),
+		progressCalls:  make([]struct{ current, total int }, 0),
+		checkpointCalls: make([]struct {
+			checkpointID string
+			action       string
+		}, 0),
+		browserCalls: make([]struct {
+			action string
+			url    string
+		}, 0),
+		mcpCalls: make([]struct {
+			server string
+			tool   string
+			params map[string]interface{}
+		}, 0),
+		completionCalls: make([]struct {
+			success bool
+			summary string
+		}, 0),
 	}
 }
 
@@ -377,43 +449,66 @@ func (m *MockMessageHandler) HandleMessage(msg Message) error {
 
 // OnText implements MessageHandler
 func (m *MockMessageHandler) OnText(content string, isPartial bool) error {
-	m.textCalls = append(m.textCalls, struct{ content string; isPartial bool }{content, isPartial})
+	m.textCalls = append(m.textCalls, struct {
+		content   string
+		isPartial bool
+	}{content, isPartial})
 	return nil
 }
 
 // OnToolUse implements MessageHandler
 func (m *MockMessageHandler) OnToolUse(toolName string, params map[string]interface{}) (bool, error) {
-	m.toolCalls = append(m.toolCalls, struct{ toolName string; params map[string]interface{} }{toolName, params})
+	m.toolCalls = append(m.toolCalls, struct {
+		toolName string
+		params   map[string]interface{}
+	}{toolName, params})
 	return m.ToolUseResponse, m.ToolUseError
 }
 
 // OnToolResult implements MessageHandler
 func (m *MockMessageHandler) OnToolResult(toolName string, result string, success bool) error {
-	m.toolResults = append(m.toolResults, struct{ toolName string; result string; success bool }{toolName, result, success})
+	m.toolResults = append(m.toolResults, struct {
+		toolName string
+		result   string
+		success  bool
+	}{toolName, result, success})
 	return nil
 }
 
 // OnAsk implements MessageHandler
 func (m *MockMessageHandler) OnAsk(promptType string, question string) (string, error) {
-	m.askCalls = append(m.askCalls, struct{ promptType string; question string }{promptType, question})
+	m.askCalls = append(m.askCalls, struct {
+		promptType string
+		question   string
+	}{promptType, question})
 	return m.AskResponse, m.AskError
 }
 
 // OnSay implements MessageHandler
 func (m *MockMessageHandler) OnSay(sayType string, content string, partial bool) error {
-	m.sayCalls = append(m.sayCalls, struct{ sayType string; content string; partial bool }{sayType, content, partial})
+	m.sayCalls = append(m.sayCalls, struct {
+		sayType string
+		content string
+		partial bool
+	}{sayType, content, partial})
 	return nil
 }
 
 // OnCommand implements MessageHandler
 func (m *MockMessageHandler) OnCommand(command string, requiresApproval bool) (string, error) {
-	m.commandCalls = append(m.commandCalls, struct{ command string; requiresApproval bool }{command, requiresApproval})
+	m.commandCalls = append(m.commandCalls, struct {
+		command          string
+		requiresApproval bool
+	}{command, requiresApproval})
 	return m.CommandResponse, m.CommandError
 }
 
 // OnCommandOutput implements MessageHandler
 func (m *MockMessageHandler) OnCommandOutput(output string, isComplete bool) error {
-	m.commandOutputs = append(m.commandOutputs, struct{ output string; isComplete bool }{output, isComplete})
+	m.commandOutputs = append(m.commandOutputs, struct {
+		output     string
+		isComplete bool
+	}{output, isComplete})
 	return nil
 }
 
@@ -443,25 +538,38 @@ func (m *MockMessageHandler) OnProgress(current, total int) error {
 
 // OnCheckpoint implements MessageHandler
 func (m *MockMessageHandler) OnCheckpoint(checkpointID string, action string) error {
-	m.checkpointCalls = append(m.checkpointCalls, struct{ checkpointID string; action string }{checkpointID, action})
+	m.checkpointCalls = append(m.checkpointCalls, struct {
+		checkpointID string
+		action       string
+	}{checkpointID, action})
 	return nil
 }
 
 // OnBrowserAction implements MessageHandler
 func (m *MockMessageHandler) OnBrowserAction(action string, url string) (string, error) {
-	m.browserCalls = append(m.browserCalls, struct{ action string; url string }{action, url})
+	m.browserCalls = append(m.browserCalls, struct {
+		action string
+		url    string
+	}{action, url})
 	return m.BrowserResponse, m.BrowserError
 }
 
 // OnMCPRequest implements MessageHandler
 func (m *MockMessageHandler) OnMCPRequest(server string, tool string, params map[string]interface{}) (string, error) {
-	m.mcpCalls = append(m.mcpCalls, struct{ server string; tool string; params map[string]interface{} }{server, tool, params})
+	m.mcpCalls = append(m.mcpCalls, struct {
+		server string
+		tool   string
+		params map[string]interface{}
+	}{server, tool, params})
 	return m.MCPResponse, m.MCPError
 }
 
 // OnCompletion implements MessageHandler
 func (m *MockMessageHandler) OnCompletion(success bool, summary string) error {
-	m.completionCalls = append(m.completionCalls, struct{ success bool; summary string }{success, summary})
+	m.completionCalls = append(m.completionCalls, struct {
+		success bool
+		summary string
+	}{success, summary})
 	return m.CompletionError
 }
 
@@ -469,7 +577,7 @@ func (m *MockMessageHandler) OnCompletion(success bool, summary string) error {
 func (h *DefaultMessageHandler) handleToolMessage(msg Message) error {
 	toolName, _ := msg.Metadata["tool"].(string)
 	params, _ := msg.Metadata["params"].(map[string]interface{})
-	
+
 	approved, err := h.OnToolUse(toolName, params)
 	if err != nil {
 		return err
@@ -506,7 +614,7 @@ func (h *DefaultMessageHandler) handleSayMessage(msg Message) error {
 func (h *DefaultMessageHandler) handleCommandMessage(msg Message) error {
 	command, _ := msg.Metadata["command"].(string)
 	requiresApproval, _ := msg.Metadata["requires_approval"].(bool)
-	
+
 	output, err := h.OnCommand(command, requiresApproval)
 	if err != nil {
 		return err
@@ -528,7 +636,7 @@ func (h *DefaultMessageHandler) handleCheckpointMessage(msg Message) error {
 func (h *DefaultMessageHandler) handleBrowserMessage(msg Message) error {
 	action, _ := msg.Metadata["action"].(string)
 	url, _ := msg.Metadata["url"].(string)
-	
+
 	result, err := h.OnBrowserAction(action, url)
 	if err != nil {
 		return err
@@ -543,7 +651,7 @@ func (h *DefaultMessageHandler) handleMCPMessage(msg Message) error {
 	server, _ := msg.Metadata["server"].(string)
 	tool, _ := msg.Metadata["tool"].(string)
 	params, _ := msg.Metadata["params"].(map[string]interface{})
-	
+
 	result, err := h.OnMCPRequest(server, tool, params)
 	if err != nil {
 		return err
@@ -576,16 +684,16 @@ func SerializeMessage(msg *Message) ([]byte, error) {
 
 // MessageFilter filters messages based on criteria
 type MessageFilter struct {
-	Types     []MessageType
-	Since     time.Time
-	TaskID    string
-	Contains  string
+	Types    []MessageType
+	Since    time.Time
+	TaskID   string
+	Contains string
 }
 
 // Filter applies the filter to a slice of messages
 func (f *MessageFilter) Filter(messages []Message) []Message {
 	var filtered []Message
-	
+
 	for _, msg := range messages {
 		// Filter by type
 		if len(f.Types) > 0 {
@@ -619,9 +727,9 @@ func (f *MessageFilter) Filter(messages []Message) []Message {
 
 // MessageBuffer buffers messages for batch processing
 type MessageBuffer struct {
-	messages []Message
-	maxSize  int
-	timeout  time.Duration
+	messages  []Message
+	maxSize   int
+	timeout   time.Duration
 	lastFlush time.Time
 }
 
@@ -638,12 +746,12 @@ func NewMessageBuffer(maxSize int, timeout time.Duration) *MessageBuffer {
 // Add adds a message to the buffer
 func (b *MessageBuffer) Add(msg Message) []Message {
 	b.messages = append(b.messages, msg)
-	
+
 	// Check if we need to flush
 	if len(b.messages) >= b.maxSize || time.Since(b.lastFlush) >= b.timeout {
 		return b.Flush()
 	}
-	
+
 	return nil
 }
 

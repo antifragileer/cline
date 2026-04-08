@@ -198,11 +198,11 @@ func TestGeminiProvider_Complete(t *testing.T) {
 
 func TestGeminiProvider_CompleteStream(t *testing.T) {
 	tests := []struct {
-		name           string
-		streamBody     string
-		statusCode     int
-		wantChunks     int
-		wantErr        bool
+		name             string
+		streamBody       string
+		statusCode       int
+		wantChunks       int
+		wantErr          bool
 		wantImmediateErr bool // Error returned directly from CompleteStream, not through channel
 	}{
 		{
@@ -215,11 +215,11 @@ data: [DONE]`,
 			wantErr:    false,
 		},
 		{
-			name:       "API error response",
-			streamBody: `{"error": {"message": "rate limit", "code": 429, "status": "RESOURCE_EXHAUSTED"}}`,
-			statusCode: http.StatusTooManyRequests,
-			wantChunks: 0,
-			wantErr:    true,
+			name:             "API error response",
+			streamBody:       `{"error": {"message": "rate limit", "code": 429, "status": "RESOURCE_EXHAUSTED"}}`,
+			statusCode:       http.StatusTooManyRequests,
+			wantChunks:       0,
+			wantErr:          true,
 			wantImmediateErr: true, // HTTP errors are returned directly from CompleteStream
 		},
 	}
@@ -969,7 +969,7 @@ func TestIsMetaModel(t *testing.T) {
 
 func TestOtherContextCancellation(t *testing.T) {
 	// Test context cancellation for all providers that support it
-	
+
 	t.Run("Gemini", func(t *testing.T) {
 		mockClient := &mockOtherHTTPClient{
 			doFunc: func(req *http.Request) (*http.Response, error) {

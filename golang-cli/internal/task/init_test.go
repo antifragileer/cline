@@ -180,13 +180,13 @@ func TestSetWorkingDirectory(t *testing.T) {
 		errContains string
 	}{
 		{
-			name: "empty cwd uses current directory",
-			cwd:  "",
+			name:    "empty cwd uses current directory",
+			cwd:     "",
 			wantErr: false,
 		},
 		{
-			name: "valid directory",
-			cwd:  tmpDir,
+			name:    "valid directory",
+			cwd:     tmpDir,
 			wantErr: false,
 		},
 		{

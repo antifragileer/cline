@@ -19,10 +19,10 @@ import (
 type ProcessState string
 
 const (
-	ProcessStateStopped   ProcessState = "stopped"
-	ProcessStateStarting  ProcessState = "starting"
-	ProcessStateRunning   ProcessState = "running"
-	ProcessStateError     ProcessState = "error"
+	ProcessStateStopped    ProcessState = "stopped"
+	ProcessStateStarting   ProcessState = "starting"
+	ProcessStateRunning    ProcessState = "running"
+	ProcessStateError      ProcessState = "error"
 	ProcessStateRestarting ProcessState = "restarting"
 )
 
@@ -57,29 +57,29 @@ type ProcessConfig struct {
 type RestartPolicy string
 
 const (
-	RestartNever  RestartPolicy = "never"
+	RestartNever   RestartPolicy = "never"
 	RestartOnError RestartPolicy = "on-error"
 	RestartAlways  RestartPolicy = "always"
 )
 
 // Process represents a running MCP server process
 type Process struct {
-	config    *ProcessConfig
-	cmd       *exec.Cmd
-	state     ProcessState
-	stateMu   sync.RWMutex
-	startTime time.Time
-	stdin     io.WriteCloser
-	stdout    io.ReadCloser
-	stderr    io.ReadCloser
-	outputMu  sync.RWMutex
-	output    []OutputLine
-	listeners []chan OutputLine
+	config     *ProcessConfig
+	cmd        *exec.Cmd
+	state      ProcessState
+	stateMu    sync.RWMutex
+	startTime  time.Time
+	stdin      io.WriteCloser
+	stdout     io.ReadCloser
+	stderr     io.ReadCloser
+	outputMu   sync.RWMutex
+	output     []OutputLine
+	listeners  []chan OutputLine
 	listenerMu sync.RWMutex
-	restarts  int
-	stopCh    chan struct{}
-	wg        sync.WaitGroup
-	lastError error
+	restarts   int
+	stopCh     chan struct{}
+	wg         sync.WaitGroup
+	lastError  error
 }
 
 // OutputLine represents a line of output from the process
@@ -141,7 +141,7 @@ func (p *Process) Start(ctx context.Context) error {
 
 	// Create command
 	p.cmd = exec.CommandContext(ctx, p.config.Command, p.config.Args...)
-	
+
 	// Set working directory
 	if p.config.WorkingDir != "" {
 		p.cmd.Dir = p.config.WorkingDir
@@ -210,7 +210,7 @@ func (p *Process) Stop() error {
 	if p.cmd != nil && p.cmd.Process != nil {
 		// Send SIGTERM (or equivalent on Windows)
 		p.cmd.Process.Signal(syscall.SIGTERM)
-		
+
 		// Wait for graceful shutdown with timeout
 		done := make(chan struct{})
 		go func() {
@@ -236,16 +236,16 @@ func (p *Process) Restart(ctx context.Context) error {
 	if err := p.Stop(); err != nil {
 		return err
 	}
-	
+
 	// Reset state
 	p.stateMu.Lock()
 	p.stopCh = make(chan struct{})
 	p.output = make([]OutputLine, 0)
 	p.stateMu.Unlock()
-	
+
 	// Wait a moment before restarting
 	time.Sleep(100 * time.Millisecond)
-	
+
 	return p.Start(ctx)
 }
 
@@ -266,7 +266,7 @@ func (p *Process) IsRunning() bool {
 func (p *Process) GetPID() int {
 	p.stateMu.RLock()
 	defer p.stateMu.RUnlock()
-	
+
 	if p.cmd != nil && p.cmd.Process != nil {
 		return p.cmd.Process.Pid
 	}
@@ -284,7 +284,7 @@ func (p *Process) GetStartTime() time.Time {
 func (p *Process) GetUptime() time.Duration {
 	p.stateMu.RLock()
 	defer p.stateMu.RUnlock()
-	
+
 	if p.startTime.IsZero() {
 		return 0
 	}
@@ -302,15 +302,15 @@ func (p *Process) GetLastError() error {
 func (p *Process) WriteStdin(data []byte) error {
 	p.stateMu.RLock()
 	defer p.stateMu.RUnlock()
-	
+
 	if p.state != ProcessStateRunning {
 		return fmt.Errorf("process is not running")
 	}
-	
+
 	if p.stdin == nil {
 		return fmt.Errorf("stdin not available")
 	}
-	
+
 	_, err := p.stdin.Write(data)
 	return err
 }
@@ -319,7 +319,7 @@ func (p *Process) WriteStdin(data []byte) error {
 func (p *Process) GetOutput() []OutputLine {
 	p.outputMu.RLock()
 	defer p.outputMu.RUnlock()
-	
+
 	// Return a copy
 	result := make([]OutputLine, len(p.output))
 	copy(result, p.output)
@@ -330,13 +330,13 @@ func (p *Process) GetOutput() []OutputLine {
 func (p *Process) GetRecentOutput(n int) []OutputLine {
 	p.outputMu.RLock()
 	defer p.outputMu.RUnlock()
-	
+
 	if n >= len(p.output) {
 		result := make([]OutputLine, len(p.output))
 		copy(result, p.output)
 		return result
 	}
-	
+
 	result := make([]OutputLine, n)
 	copy(result, p.output[len(p.output)-n:])
 	return result
@@ -346,7 +346,7 @@ func (p *Process) GetRecentOutput(n int) []OutputLine {
 func (p *Process) SubscribeOutput() <-chan OutputLine {
 	p.listenerMu.Lock()
 	defer p.listenerMu.Unlock()
-	
+
 	ch := make(chan OutputLine, 100)
 	p.listeners = append(p.listeners, ch)
 	return ch
@@ -356,7 +356,7 @@ func (p *Process) SubscribeOutput() <-chan OutputLine {
 func (p *Process) UnsubscribeOutput(ch <-chan OutputLine) {
 	p.listenerMu.Lock()
 	defer p.listenerMu.Unlock()
-	
+
 	for i, listener := range p.listeners {
 		if listener == ch {
 			close(listener)
@@ -369,7 +369,7 @@ func (p *Process) UnsubscribeOutput(ch <-chan OutputLine) {
 // readOutput reads from a stream and captures output
 func (p *Process) readOutput(reader io.ReadCloser, stream string) {
 	defer p.wg.Done()
-	
+
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		select {
@@ -377,13 +377,13 @@ func (p *Process) readOutput(reader io.ReadCloser, stream string) {
 			return
 		default:
 		}
-		
+
 		line := OutputLine{
 			Timestamp: time.Now(),
 			Stream:    stream,
 			Content:   scanner.Text(),
 		}
-		
+
 		// Store output
 		p.outputMu.Lock()
 		p.output = append(p.output, line)
@@ -392,7 +392,7 @@ func (p *Process) readOutput(reader io.ReadCloser, stream string) {
 			p.output = p.output[len(p.output)-5000:]
 		}
 		p.outputMu.Unlock()
-		
+
 		// Notify listeners
 		p.listenerMu.RLock()
 		for _, ch := range p.listeners {
@@ -411,12 +411,12 @@ func (p *Process) monitor() {
 	if p.cmd == nil {
 		return
 	}
-	
+
 	err := p.cmd.Wait()
-	
+
 	p.stateMu.Lock()
 	defer p.stateMu.Unlock()
-	
+
 	// Check if we were stopped intentionally
 	select {
 	case <-p.stopCh:
@@ -424,12 +424,12 @@ func (p *Process) monitor() {
 		return
 	default:
 	}
-	
+
 	// Process exited unexpectedly
 	if err != nil {
 		p.lastError = err
 	}
-	
+
 	// Handle restart policy
 	if p.shouldRestart() {
 		p.state = ProcessStateRestarting
@@ -445,15 +445,15 @@ func (p *Process) shouldRestart() bool {
 	if p.config.RestartPolicy == RestartNever {
 		return false
 	}
-	
+
 	if p.restarts >= p.config.MaxRestarts {
 		return false
 	}
-	
+
 	if p.config.RestartPolicy == RestartAlways {
 		return true
 	}
-	
+
 	// RestartOnError - check if there was an error
 	return p.lastError != nil
 }
@@ -465,9 +465,9 @@ func (p *Process) attemptRestart() {
 	if backoff > 30*time.Second {
 		backoff = 30 * time.Second
 	}
-	
+
 	time.Sleep(backoff)
-	
+
 	ctx := context.Background()
 	if err := p.Restart(ctx); err != nil {
 		p.stateMu.Lock()
@@ -490,19 +490,19 @@ func (pm *ProcessManager) RemoveProcess(name string) error {
 	pm.mu.Lock()
 	process, exists := pm.processes[name]
 	pm.mu.Unlock()
-	
+
 	if !exists {
 		return fmt.Errorf("process '%s' not found", name)
 	}
-	
+
 	if err := process.Stop(); err != nil {
 		return err
 	}
-	
+
 	pm.mu.Lock()
 	delete(pm.processes, name)
 	pm.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -518,7 +518,7 @@ func (pm *ProcessManager) GetProcess(name string) (*Process, bool) {
 func (pm *ProcessManager) ListProcesses() map[string]*Process {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	
+
 	result := make(map[string]*Process)
 	for name, process := range pm.processes {
 		result[name] = process
@@ -534,18 +534,18 @@ func (pm *ProcessManager) StartAll(ctx context.Context) error {
 		processes = append(processes, p)
 	}
 	pm.mu.RUnlock()
-	
+
 	var errs []string
 	for _, p := range processes {
 		if err := p.Start(ctx); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", p.config.Name, err))
 		}
 	}
-	
+
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to start some processes: %s", strings.Join(errs, "; "))
 	}
-	
+
 	return nil
 }
 
@@ -557,18 +557,18 @@ func (pm *ProcessManager) StopAll() error {
 		processes = append(processes, p)
 	}
 	pm.mu.RUnlock()
-	
+
 	var errs []string
 	for _, p := range processes {
 		if err := p.Stop(); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", p.config.Name, err))
 		}
 	}
-	
+
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to stop some processes: %s", strings.Join(errs, "; "))
 	}
-	
+
 	return nil
 }
 
@@ -576,7 +576,7 @@ func (pm *ProcessManager) StopAll() error {
 func (pm *ProcessManager) GetRunningProcesses() map[string]*Process {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	
+
 	result := make(map[string]*Process)
 	for name, process := range pm.processes {
 		if process.IsRunning() {

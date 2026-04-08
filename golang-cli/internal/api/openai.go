@@ -17,9 +17,9 @@ type OpenAIModel string
 
 const (
 	// GPT-4 models
-	GPT4o         OpenAIModel = "gpt-4o"
-	GPT4Turbo     OpenAIModel = "gpt-4-turbo"
-	GPT4          OpenAIModel = "gpt-4"
+	GPT4o     OpenAIModel = "gpt-4o"
+	GPT4Turbo OpenAIModel = "gpt-4-turbo"
+	GPT4      OpenAIModel = "gpt-4"
 
 	// GPT-3.5 models
 	GPT35Turbo    OpenAIModel = "gpt-3.5-turbo"

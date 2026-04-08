@@ -57,7 +57,7 @@ type Formatter struct {
 	errOut   io.Writer
 	useColor bool
 	verbose  bool
-	
+
 	// New formatters
 	jsonFormatter  *JSONFormatter
 	plainFormatter *PlainFormatter

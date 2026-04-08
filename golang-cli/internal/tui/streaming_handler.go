@@ -20,14 +20,14 @@ type StreamingMessage struct {
 
 // StreamingHandler manages streaming message state
 type StreamingHandler struct {
-	mu           sync.RWMutex
-	streamingID  string
-	buffer       strings.Builder
-	updateChan   chan tea.Msg
-	isStreaming  bool
-	lastUpdate   time.Time
-	flushTimer   *time.Timer
-	flushDelay   time.Duration
+	mu          sync.RWMutex
+	streamingID string
+	buffer      strings.Builder
+	updateChan  chan tea.Msg
+	isStreaming bool
+	lastUpdate  time.Time
+	flushTimer  *time.Timer
+	flushDelay  time.Duration
 }
 
 // NewStreamingHandler creates a new streaming handler

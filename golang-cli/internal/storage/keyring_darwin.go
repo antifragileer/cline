@@ -46,7 +46,7 @@ func (m *macOSKeyring) Get(service, key string) (string, error) {
 func (m *macOSKeyring) Set(service, key, value string) error {
 	// Use NewGenericPassword which creates an item with proper accessibility
 	item := keychain.NewGenericPassword(service, sanitizeKey(key), "", []byte(value), "")
-	
+
 	// Try to add the item
 	err := keychain.AddItem(item)
 	if err == nil {

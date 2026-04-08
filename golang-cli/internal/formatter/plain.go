@@ -21,7 +21,7 @@ type PlainFormatter struct {
 	useColor    bool
 	verbose     bool
 	exitHandler *exit.Handler
-	
+
 	// Track state for proper formatting
 	inProgress  bool
 	lastWasSame bool
@@ -142,7 +142,7 @@ func (f *PlainFormatter) FormatSayMessage(sayType string, text string, partial b
 func (f *PlainFormatter) FormatAskMessage(askType string, text string) (string, error) {
 	// Print the question/prompt
 	fmt.Fprintln(f.output)
-	
+
 	switch askType {
 	case "command":
 		f.printPrompt(fmt.Sprintf("Approve command execution?\n%s", text))
@@ -172,7 +172,7 @@ func (f *PlainFormatter) FormatAskMessage(askType string, text string) (string, 
 
 	// Read response from user
 	fmt.Fprint(f.output, "Response (y/n/a): ")
-	
+
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
 	if err != nil {
@@ -181,7 +181,7 @@ func (f *PlainFormatter) FormatAskMessage(askType string, text string) (string, 
 	}
 
 	response = strings.ToLower(strings.TrimSpace(response))
-	
+
 	switch response {
 	case "y", "yes", "":
 		return "yesButtonClicked", nil

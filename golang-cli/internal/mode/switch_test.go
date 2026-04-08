@@ -700,7 +700,7 @@ func TestInteractiveHandler_ReadInput(t *testing.T) {
 	// The handler uses fmt.Fscanln which expects actual input
 	result, err := handler.ReadInput()
 	// May fail in test environment due to newline handling
-	_ = result // Use the variable
+	_ = result                               // Use the variable
 	assert.True(t, err == nil || err != nil) // Just to show we called it
 }
 

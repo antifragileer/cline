@@ -24,18 +24,18 @@ const JSONRPCVersion = "2.0"
 // Message types
 const (
 	// Request methods
-	MethodInitialize      = "initialize"
-	MethodCreateSession   = "createSession"
-	MethodCloseSession    = "closeSession"
-	MethodSendMessage     = "sendMessage"
+	MethodInitialize        = "initialize"
+	MethodCreateSession     = "createSession"
+	MethodCloseSession      = "closeSession"
+	MethodSendMessage       = "sendMessage"
 	MethodRequestPermission = "requestPermission"
-	MethodExecuteTool     = "executeTool"
-	MethodGetCapabilities = "getCapabilities"
+	MethodExecuteTool       = "executeTool"
+	MethodGetCapabilities   = "getCapabilities"
 
 	// Notification methods
-	MethodSessionUpdate   = "sessionUpdate"
-	MethodToolCall        = "toolCall"
-	MethodLog             = "log"
+	MethodSessionUpdate = "sessionUpdate"
+	MethodToolCall      = "toolCall"
+	MethodLog           = "log"
 )
 
 // JSONRPCRequest represents a JSON-RPC request
@@ -63,8 +63,8 @@ type JSONRPCNotification struct {
 
 // JSONRPCError represents a JSON-RPC error
 type JSONRPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
@@ -80,16 +80,16 @@ const (
 
 // AgentCapabilities represents the capabilities of the agent
 type AgentCapabilities struct {
-	Tools           []ToolCapability    `json:"tools,omitempty"`
-	SupportsStreaming bool              `json:"supportsStreaming"`
-	SupportsPlanning  bool              `json:"supportsPlanning"`
-	SupportsImages    bool              `json:"supportsImages"`
+	Tools             []ToolCapability `json:"tools,omitempty"`
+	SupportsStreaming bool             `json:"supportsStreaming"`
+	SupportsPlanning  bool             `json:"supportsPlanning"`
+	SupportsImages    bool             `json:"supportsImages"`
 }
 
 // ToolCapability represents a tool the agent can use
 type ToolCapability struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
 	InputSchema interface{} `json:"inputSchema,omitempty"`
 }
 
@@ -103,7 +103,7 @@ type ClientCapabilities struct {
 
 // InitializeRequest represents an initialize request
 type InitializeRequest struct {
-	ClientInfo      ClientInfo         `json:"clientInfo"`
+	ClientInfo         ClientInfo         `json:"clientInfo"`
 	ClientCapabilities ClientCapabilities `json:"clientCapabilities,omitempty"`
 }
 
@@ -115,9 +115,9 @@ type ClientInfo struct {
 
 // InitializeResult represents the result of initialize
 type InitializeResult struct {
-	ServerInfo       AgentInfo          `json:"serverInfo"`
+	ServerInfo        AgentInfo         `json:"serverInfo"`
 	AgentCapabilities AgentCapabilities `json:"agentCapabilities"`
-	ProtocolVersion  string             `json:"protocolVersion"`
+	ProtocolVersion   string            `json:"protocolVersion"`
 }
 
 // AgentInfo represents information about the agent
@@ -128,20 +128,20 @@ type AgentInfo struct {
 
 // Session represents an ACP session
 type Session struct {
-	ID            string                 `json:"id"`
-	State         SessionState           `json:"state"`
-	CreatedAt     int64                  `json:"createdAt"`
-	Context       map[string]interface{} `json:"context,omitempty"`
+	ID        string                 `json:"id"`
+	State     SessionState           `json:"state"`
+	CreatedAt int64                  `json:"createdAt"`
+	Context   map[string]interface{} `json:"context,omitempty"`
 }
 
 // SessionState represents the state of a session
 type SessionState string
 
 const (
-	SessionStateActive    SessionState = "active"
-	SessionStatePaused    SessionState = "paused"
-	SessionStateClosing   SessionState = "closing"
-	SessionStateClosed    SessionState = "closed"
+	SessionStateActive  SessionState = "active"
+	SessionStatePaused  SessionState = "paused"
+	SessionStateClosing SessionState = "closing"
+	SessionStateClosed  SessionState = "closed"
 )
 
 // CreateSessionRequest represents a request to create a session
@@ -152,7 +152,7 @@ type CreateSessionRequest struct {
 
 // CreateSessionResult represents the result of createSession
 type CreateSessionResult struct {
-	SessionID string `json:"sessionId"`
+	SessionID string       `json:"sessionId"`
 	State     SessionState `json:"state"`
 }
 
@@ -213,25 +213,25 @@ type ExecuteToolResult struct {
 type Handler interface {
 	// Initialize is called when the client initializes the connection
 	Initialize(ctx context.Context, req *InitializeRequest) (*InitializeResult, error)
-	
+
 	// CreateSession creates a new session
 	CreateSession(ctx context.Context, req *CreateSessionRequest) (*CreateSessionResult, error)
-	
+
 	// CloseSession closes a session
 	CloseSession(ctx context.Context, sessionID string) error
-	
+
 	// SendMessage sends a message in a session
 	SendMessage(ctx context.Context, req *SendMessageRequest) (*SendMessageResult, error)
-	
+
 	// RequestPermission requests permission for a tool call
 	RequestPermission(ctx context.Context, req *PermissionRequest) (*PermissionResponse, error)
-	
+
 	// ExecuteTool executes a tool
 	ExecuteTool(ctx context.Context, req *ExecuteToolRequest) (*ExecuteToolResult, error)
-	
+
 	// GetCapabilities returns agent capabilities
 	GetCapabilities(ctx context.Context) (*AgentCapabilities, error)
-	
+
 	// Shutdown is called when the connection is closing
 	Shutdown(ctx context.Context) error
 }

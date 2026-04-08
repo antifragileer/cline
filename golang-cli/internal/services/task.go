@@ -18,9 +18,9 @@ import (
 // TaskService implements the TaskService gRPC interface
 type TaskService struct {
 	cline.UnimplementedTaskServiceServer
-	state          *storage.ClineFileStorage
-	taskHistory    *storage.ClineFileStorage
-	activeTasks    map[string]*ActiveTask
+	state       *storage.ClineFileStorage
+	taskHistory *storage.ClineFileStorage
+	activeTasks map[string]*ActiveTask
 }
 
 // ActiveTask represents a running task
@@ -34,9 +34,9 @@ type ActiveTask struct {
 // NewTaskService creates a new TaskService instance
 func NewTaskService(state, taskHistory *storage.ClineFileStorage) *TaskService {
 	return &TaskService{
-		state:          state,
-		taskHistory:    taskHistory,
-		activeTasks:    make(map[string]*ActiveTask),
+		state:       state,
+		taskHistory: taskHistory,
+		activeTasks: make(map[string]*ActiveTask),
 	}
 }
 
@@ -67,7 +67,7 @@ func (s *TaskService) ClearTask(ctx context.Context, req *cline.EmptyRequest) (*
 // GetTotalTasksSize gets the total size of all tasks
 func (s *TaskService) GetTotalTasksSize(ctx context.Context, req *cline.EmptyRequest) (*cline.Int64, error) {
 	tasksDir := filepath.Join(getDataDir(), "tasks")
-	
+
 	var totalSize int64
 	err := filepath.Walk(tasksDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -81,7 +81,7 @@ func (s *TaskService) GetTotalTasksSize(ctx context.Context, req *cline.EmptyReq
 	if err != nil {
 		return &cline.Int64{Value: 0}, nil
 	}
-	
+
 	return &cline.Int64{Value: totalSize}, nil
 }
 
@@ -90,12 +90,12 @@ func (s *TaskService) DeleteTasksWithIds(ctx context.Context, req *cline.StringA
 	for _, id := range req.Value {
 		// Remove from active tasks
 		delete(s.activeTasks, id)
-		
+
 		// Remove task directory
 		taskDir := filepath.Join(getDataDir(), "tasks", id)
 		_ = os.RemoveAll(taskDir)
 	}
-	
+
 	// Update task history
 	entries, _ := s.loadTaskHistory()
 	var newEntries []map[string]interface{}
@@ -114,7 +114,7 @@ func (s *TaskService) DeleteTasksWithIds(ctx context.Context, req *cline.StringA
 		}
 	}
 	_ = s.saveTaskHistory(newEntries)
-	
+
 	return &cline.Empty{}, nil
 }
 
@@ -122,7 +122,7 @@ func (s *TaskService) DeleteTasksWithIds(ctx context.Context, req *cline.StringA
 func (s *TaskService) NewTask(ctx context.Context, req *cline.NewTaskRequest) (*cline.String, error) {
 	// Generate task ID
 	taskID := generateTaskID()
-	
+
 	// Store task info
 	task := &ActiveTask{
 		ID:        taskID,
@@ -131,24 +131,24 @@ func (s *TaskService) NewTask(ctx context.Context, req *cline.NewTaskRequest) (*
 		StartTime: time.Now(),
 	}
 	s.activeTasks[taskID] = task
-	
+
 	// Save current task ID
 	_ = s.state.Set("current_task_id", taskID)
-	
+
 	// Create task directory
 	taskDir := filepath.Join(getDataDir(), "tasks", taskID)
 	_ = os.MkdirAll(taskDir, 0755)
-	
+
 	// Add to history
 	s.addToHistory(taskID, req.GetText())
-	
+
 	return &cline.String{Value: taskID}, nil
 }
 
 // ShowTaskWithId shows a task with the specified ID
 func (s *TaskService) ShowTaskWithId(ctx context.Context, req *cline.StringRequest) (*cline.TaskResponse, error) {
 	taskID := req.GetValue()
-	
+
 	// Load task from history
 	entries, _ := s.loadTaskHistory()
 	var taskText string
@@ -164,7 +164,7 @@ func (s *TaskService) ShowTaskWithId(ctx context.Context, req *cline.StringReque
 			break
 		}
 	}
-	
+
 	return &cline.TaskResponse{
 		Id:   taskID,
 		Task: taskText,
@@ -191,7 +191,7 @@ func (s *TaskService) ToggleTaskFavorite(ctx context.Context, req *cline.TaskFav
 			}
 		}
 	}
-	
+
 	// Toggle
 	taskID := req.GetTaskId()
 	found := false
@@ -205,7 +205,7 @@ func (s *TaskService) ToggleTaskFavorite(ctx context.Context, req *cline.TaskFav
 	if !found {
 		favorites = append(favorites, taskID)
 	}
-	
+
 	_ = s.state.Set("favorite_tasks", favorites)
 	return &cline.Empty{}, nil
 }
@@ -216,7 +216,7 @@ func (s *TaskService) GetTaskHistory(ctx context.Context, req *cline.GetTaskHist
 	if err != nil {
 		return &cline.TaskHistoryArray{Tasks: []*cline.TaskItem{}}, nil
 	}
-	
+
 	// Apply search filter
 	if req.SearchQuery != "" {
 		search := strings.ToLower(req.SearchQuery)
@@ -228,12 +228,12 @@ func (s *TaskService) GetTaskHistory(ctx context.Context, req *cline.GetTaskHist
 		}
 		entries = filtered
 	}
-	
+
 	// Convert to proto format
 	var tasks []*cline.TaskItem
 	for _, entry := range entries {
 		item := &cline.TaskItem{}
-		
+
 		if id, ok := entry["id"].(string); ok {
 			item.Id = id
 		}
@@ -245,7 +245,7 @@ func (s *TaskService) GetTaskHistory(ctx context.Context, req *cline.GetTaskHist
 		}
 		tasks = append(tasks, item)
 	}
-	
+
 	return &cline.TaskHistoryArray{Tasks: tasks}, nil
 }
 
@@ -262,14 +262,14 @@ func (s *TaskService) AskResponse(ctx context.Context, req *cline.AskResponseReq
 			respMap, _ = responses.(map[string]interface{})
 		}
 		respMap[currentTaskID.(string)] = map[string]interface{}{
-			"type":    req.GetResponseType(),
-			"text":    req.GetText(),
-			"images":  req.GetImages(),
-			"files":   req.GetFiles(),
+			"type":   req.GetResponseType(),
+			"text":   req.GetText(),
+			"images": req.GetImages(),
+			"files":  req.GetFiles(),
 		}
 		_ = s.state.Set("pending_responses", respMap)
 	}
-	
+
 	return &cline.Empty{}, nil
 }
 
@@ -297,19 +297,19 @@ func (s *TaskService) ExecuteQuickWin(ctx context.Context, req *cline.ExecuteQui
 func (s *TaskService) DeleteAllTaskHistory(ctx context.Context, req *cline.EmptyRequest) (*cline.DeleteAllTaskHistoryCount, error) {
 	// Clear all tasks
 	s.activeTasks = make(map[string]*ActiveTask)
-	
+
 	// Clear history file
 	_ = s.saveTaskHistory([]map[string]interface{}{})
-	
+
 	// Remove task directories
 	tasksDir := filepath.Join(getDataDir(), "tasks")
 	entries, _ := os.ReadDir(tasksDir)
 	count := int64(len(entries))
-	
+
 	for _, entry := range entries {
 		_ = os.RemoveAll(filepath.Join(tasksDir, entry.Name()))
 	}
-	
+
 	return &cline.DeleteAllTaskHistoryCount{TasksDeleted: int32(count)}, nil
 }
 
@@ -326,25 +326,25 @@ func (s *TaskService) loadTaskHistory() ([]map[string]interface{}, error) {
 	if !ok || val == nil {
 		return []map[string]interface{}{}, nil
 	}
-	
+
 	// Convert to []map[string]interface{}
 	data, err := json.Marshal(val)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var entries []map[string]interface{}
 	if err := json.Unmarshal(data, &entries); err != nil {
 		return nil, err
 	}
-	
+
 	// Sort by timestamp (newest first)
 	sort.Slice(entries, func(i, j int) bool {
 		ti, _ := entries[i]["ts"].(float64)
 		tj, _ := entries[j]["ts"].(float64)
 		return ti > tj
 	})
-	
+
 	return entries, nil
 }
 
@@ -354,13 +354,13 @@ func (s *TaskService) saveTaskHistory(entries []map[string]interface{}) error {
 
 func (s *TaskService) addToHistory(taskID, task string) {
 	entries, _ := s.loadTaskHistory()
-	
+
 	entry := map[string]interface{}{
 		"id":   taskID,
 		"task": task,
 		"ts":   time.Now().UnixMilli(),
 	}
-	
+
 	entries = append([]map[string]interface{}{entry}, entries...)
 	_ = s.saveTaskHistory(entries)
 }

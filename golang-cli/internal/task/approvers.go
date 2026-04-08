@@ -131,7 +131,7 @@ func (l *LoggingApprover) RequestApproval(ctx context.Context, req ToolRequest) 
 	l.logger(fmt.Sprintf("Approval requested for %s (type: %s)", req.ToolName, req.Type))
 
 	approved, err := l.inner.RequestApproval(ctx, req)
-	
+
 	status := "rejected"
 	if approved {
 		status = "approved"
@@ -139,9 +139,9 @@ func (l *LoggingApprover) RequestApproval(ctx context.Context, req ToolRequest) 
 	if err != nil {
 		status = fmt.Sprintf("error: %v", err)
 	}
-	
+
 	l.logger(fmt.Sprintf("Tool %s: %s", req.ToolName, status))
-	
+
 	return approved, err
 }
 

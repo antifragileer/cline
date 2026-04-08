@@ -47,7 +47,7 @@ func LoadFromString(jsonStr string) (*CommandValidator, error) {
 	// Trim whitespace and quotes
 	jsonStr = strings.TrimSpace(jsonStr)
 	jsonStr = strings.Trim(jsonStr, "'\"")
-	
+
 	if err := json.Unmarshal([]byte(jsonStr), &permissions); err != nil {
 		return nil, fmt.Errorf("invalid %s format: %w", EnvVarName, err)
 	}
@@ -92,14 +92,14 @@ func ValidateCommand(command string) (bool, string) {
 	if err != nil {
 		return false, fmt.Sprintf("failed to load permissions: %v", err)
 	}
-	
+
 	if validator == nil {
 		// No permissions set, allow by default
 		return true, "no permissions configured"
 	}
-	
+
 	defer validator.Close()
-	
+
 	result := validator.Validate(nil, command)
 	return result.Allowed, result.Reason
 }

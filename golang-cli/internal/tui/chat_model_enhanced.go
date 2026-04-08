@@ -47,10 +47,10 @@ type EnhancedChatModel struct {
 	showSlashMenu    bool
 
 	// Phase 2: Info displays
-	gitStats      *GitStats
-	gitDisplay    *GitStatsDisplay
-	contextInfo   *ContextInfo
-	contextBar    *ContextBar
+	gitStats    *GitStats
+	gitDisplay  *GitStatsDisplay
+	contextInfo *ContextInfo
+	contextBar  *ContextBar
 
 	// Phase 2: Mode toggle
 	modeToggleExpanded bool
@@ -66,7 +66,7 @@ type EnhancedChatModel struct {
 	renderer *MarkdownRenderer
 
 	// Callbacks
-	onSubmit   func(string)
+	onSubmit     func(string)
 	onModeToggle func()
 }
 
@@ -580,8 +580,8 @@ func (m *EnhancedChatModel) renderMessages() string {
 	var content strings.Builder
 
 	// Calculate available height for messages
-	headerHeight := 4  // header + separator
-	footerHeight := 6  // input + status + padding
+	headerHeight := 4 // header + separator
+	footerHeight := 6 // input + status + padding
 	menuHeight := 0
 	if m.showFileMenu || m.showSlashMenu {
 		menuHeight = 12

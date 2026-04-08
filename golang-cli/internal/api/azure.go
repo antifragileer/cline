@@ -79,10 +79,10 @@ type AzureOpenAIChatCompletionRequest struct {
 
 // AzureOpenAIChatCompletionResponse represents a response from the Azure OpenAI chat completions API.
 type AzureOpenAIChatCompletionResponse struct {
-	ID      string   `json:"id"`
-	Object  string   `json:"object"`
-	Created int64    `json:"created"`
-	Model   string   `json:"model"`
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
 	Choices []struct {
 		Index   int `json:"index"`
 		Message struct {

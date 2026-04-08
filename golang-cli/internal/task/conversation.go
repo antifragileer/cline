@@ -728,9 +728,9 @@ func (cm *ConversationManager) GetStats() ConversationStats {
 	defer cm.mu.RUnlock()
 
 	stats := ConversationStats{
-		TotalMessages: len(cm.messages),
+		TotalMessages:    len(cm.messages),
 		FirstMessageTime: 0,
-		LastMessageTime: 0,
+		LastMessageTime:  0,
 	}
 
 	if len(cm.messages) > 0 {
@@ -922,10 +922,10 @@ func (cm *ConversationManager) truncateWithLimit(limit int) error {
 // exportJSON exports conversation as JSON
 func (cm *ConversationManager) exportJSON() ([]byte, error) {
 	export := struct {
-		TaskID     string                  `json:"task_id"`
-		ExportedAt int64                   `json:"exported_at"`
-		Stats      ConversationStats       `json:"stats"`
-		Messages   []*ConversationMessage  `json:"messages"`
+		TaskID     string                 `json:"task_id"`
+		ExportedAt int64                  `json:"exported_at"`
+		Stats      ConversationStats      `json:"stats"`
+		Messages   []*ConversationMessage `json:"messages"`
 	}{
 		TaskID:     cm.taskID,
 		ExportedAt: time.Now().UnixMilli(),

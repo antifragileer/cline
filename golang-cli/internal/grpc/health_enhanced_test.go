@@ -392,13 +392,13 @@ func TestConnectionHealthReport_String(t *testing.T) {
 		Status:          HealthStatusHealthy,
 		ConnectionState: connectivity.Ready,
 		Metrics: HealthMetrics{
-			PingCount:        10,
-			FailedPingCount:  1,
-			MessagesSent:     100,
-			MessagesReceived: 95,
-			MessagesDropped:  5,
+			PingCount:         10,
+			FailedPingCount:   1,
+			MessagesSent:      100,
+			MessagesReceived:  95,
+			MessagesDropped:   5,
 			ConsecutiveErrors: 0,
-			TotalErrors:      2,
+			TotalErrors:       2,
 		},
 		LastCheckTime: time.Now(),
 	}
@@ -560,19 +560,19 @@ func TestHealthMonitor_determineStatus_ServingHealthy(t *testing.T) {
 
 func TestHealthMetrics_Struct(t *testing.T) {
 	metrics := HealthMetrics{
-		LastPingTime:     time.Now(),
-		LastPingDuration: 50 * time.Millisecond,
-		AveragePingTime:  75 * time.Millisecond,
-		PingCount:        100,
-		FailedPingCount:  5,
-		MessagesSent:     1000,
-		MessagesReceived: 950,
-		MessagesDropped:  50,
-		AverageLatency:   25 * time.Millisecond,
+		LastPingTime:      time.Now(),
+		LastPingDuration:  50 * time.Millisecond,
+		AveragePingTime:   75 * time.Millisecond,
+		PingCount:         100,
+		FailedPingCount:   5,
+		MessagesSent:      1000,
+		MessagesReceived:  950,
+		MessagesDropped:   50,
+		AverageLatency:    25 * time.Millisecond,
 		ConsecutiveErrors: 3,
-		LastErrorTime:    time.Now(),
-		TotalErrors:      10,
-		RecordedAt:       time.Now(),
+		LastErrorTime:     time.Now(),
+		TotalErrors:       10,
+		RecordedAt:        time.Now(),
 	}
 
 	// Just verify the struct can be created and accessed

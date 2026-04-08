@@ -18,11 +18,11 @@ import (
 
 // mockFileStorage is a mock implementation of storage.FileStorage for testing
 type mockFileStorage struct {
-	data      map[string]interface{}
-	mu        sync.RWMutex
-	closed    bool
-	getCalls  int
-	setCalls  int
+	data     map[string]interface{}
+	mu       sync.RWMutex
+	closed   bool
+	getCalls int
+	setCalls int
 }
 
 func newMockFileStorage() *mockFileStorage {
@@ -239,7 +239,7 @@ func TestGetMessage(t *testing.T) {
 		found, ok := cm.GetMessage("test-msg-123")
 		require.True(t, ok)
 		found.Content = "Modified"
-		
+
 		original, _ := cm.GetMessage("test-msg-123")
 		assert.Equal(t, "Test message", original.Content)
 	})
@@ -849,7 +849,7 @@ func TestAutoTruncation(t *testing.T) {
 	}
 
 	assert.Equal(t, 5, cm.GetMessageCount())
-	
+
 	// Verify first message is preserved
 	all, _ := cm.GetAllMessages()
 	require.GreaterOrEqual(t, len(all), 1)
@@ -911,7 +911,7 @@ func TestConversationStore(t *testing.T) {
 		defer store.Close()
 
 		cm1, _ := store.GetOrCreateManager("task-2")
-		
+
 		cm2, ok := store.GetManager("task-2")
 		assert.True(t, ok)
 		assert.Equal(t, cm1, cm2)
@@ -1039,7 +1039,7 @@ func TestClose(t *testing.T) {
 	require.NoError(t, err)
 
 	cm.AddMessage(&ConversationMessage{Type: "user", Content: "Test"})
-	
+
 	err = cm.Close()
 	require.NoError(t, err)
 	assert.True(t, mockStorage.closed)

@@ -204,7 +204,7 @@ func fileExists(path string) bool {
 		_, err := exec.LookPath(path)
 		return err == nil
 	}
-	
+
 	// For full paths, try to stat the file
 	cmd := exec.Command("test", "-f", path)
 	err := cmd.Run()

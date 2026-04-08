@@ -292,7 +292,7 @@ func (m *HistoryModel) LoadFromStorage(storageCtx *storage.StorageContext) error
 
 	// Parse the task history
 	var historyData []map[string]interface{}
-	
+
 	switch v := val.(type) {
 	case []interface{}:
 		for _, item := range v {

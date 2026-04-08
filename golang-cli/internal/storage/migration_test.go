@@ -1120,7 +1120,7 @@ func TestMigratableStorage_atomicWriteErrors(t *testing.T) {
 	t.Run("atomic write fails with invalid directory", func(t *testing.T) {
 		// Try to write to a directory that doesn't exist and can't be created
 		storage, _ := NewMigratableStorage("/nonexistent/path/file.json", NewMigrationRegistry())
-		
+
 		storage.Set("key", "value")
 		err := storage.Save()
 		if err == nil {
@@ -1133,7 +1133,7 @@ func TestMigratableStorage_readFileErrors(t *testing.T) {
 	t.Run("readFile fails with non-existent file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		storage, _ := NewMigratableStorage(filepath.Join(tmpDir, "nonexistent.json"), NewMigrationRegistry())
-		
+
 		_, err := storage.readFile("/nonexistent/path/file.json")
 		if err == nil {
 			t.Error("Expected error reading non-existent file")
@@ -1143,12 +1143,12 @@ func TestMigratableStorage_readFileErrors(t *testing.T) {
 	t.Run("readFile fails with invalid JSON", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		filePath := filepath.Join(tmpDir, "invalid.json")
-		
+
 		// Create file with invalid JSON
 		os.WriteFile(filePath, []byte("invalid json"), 0644)
 
 		storage, _ := NewMigratableStorage(filePath, NewMigrationRegistry())
-		
+
 		_, err := storage.readFile(filePath)
 		if err == nil {
 			t.Error("Expected error reading invalid JSON")
@@ -1236,7 +1236,7 @@ func TestMigratableStorage_createBackup(t *testing.T) {
 		tmpDir := t.TempDir()
 		filePath := filepath.Join(tmpDir, "file.json")
 		backupDir := filepath.Join(tmpDir, "readonly")
-		
+
 		// Create read-only directory
 		os.MkdirAll(backupDir, 0755)
 		storage, _ := NewMigratableStorage(filePath, NewMigrationRegistry(), WithBackupDir(backupDir))

@@ -20,11 +20,11 @@ type WelcomeModel struct {
 	selected WelcomeAction
 	styles   WelcomeStyles
 	// Quick task input
-	showInput    bool
-	inputValue   string
+	showInput  bool
+	inputValue string
 	// Metadata
-	hasHistory   bool
-	recentTask   string
+	hasHistory bool
+	recentTask string
 }
 
 // WelcomeActionItem represents an action item on the welcome screen.
@@ -485,6 +485,16 @@ func getTaskHistoryPath() string {
 
 // WelcomeResultMsg is sent when the welcome screen completes.
 type WelcomeResultMsg struct {
-	Action      WelcomeAction
-	InputValue  string
+	Action     WelcomeAction
+	InputValue string
+}
+
+// SelectedIndex returns the currently selected index.
+func (m WelcomeModel) SelectedIndex() int {
+	return m.cursor
+}
+
+// ShouldQuit returns whether the user wants to quit.
+func (m WelcomeModel) ShouldQuit() bool {
+	return m.selected == ActionQuit
 }

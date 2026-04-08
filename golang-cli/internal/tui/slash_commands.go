@@ -31,16 +31,16 @@ type SlashCommandMenu struct {
 	height int
 
 	// Styling
-	containerStyle   lipgloss.Style
-	selectedStyle    lipgloss.Style
-	itemStyle        lipgloss.Style
-	queryStyle       lipgloss.Style
-	emptyStyle       lipgloss.Style
-	categoryStyle    lipgloss.Style
-	nameStyle        lipgloss.Style
-	descStyle        lipgloss.Style
-	workflowStyle    lipgloss.Style
-	shortcutStyle    lipgloss.Style
+	containerStyle lipgloss.Style
+	selectedStyle  lipgloss.Style
+	itemStyle      lipgloss.Style
+	queryStyle     lipgloss.Style
+	emptyStyle     lipgloss.Style
+	categoryStyle  lipgloss.Style
+	nameStyle      lipgloss.Style
+	descStyle      lipgloss.Style
+	workflowStyle  lipgloss.Style
+	shortcutStyle  lipgloss.Style
 }
 
 // NewSlashCommandMenu creates a new slash command menu

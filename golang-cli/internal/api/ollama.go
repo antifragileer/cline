@@ -16,14 +16,14 @@ import (
 
 // Ollama errors
 var (
-	ErrOllamaInvalidURL         = errors.New("invalid Ollama URL")
-	ErrOllamaModelNotFound      = errors.New("Ollama model not found")
-	ErrOllamaModelNotRunning    = errors.New("Ollama model not running")
-	ErrOllamaInvalidRequest     = errors.New("invalid Ollama request")
-	ErrOllamaInvalidResponse    = errors.New("invalid response from Ollama API")
-	ErrOllamaProviderError      = errors.New("Ollama provider error")
-	ErrOllamaContextCanceled    = errors.New("Ollama request canceled")
-	ErrOllamaConnectionFailed   = errors.New("failed to connect to Ollama")
+	ErrOllamaInvalidURL       = errors.New("invalid Ollama URL")
+	ErrOllamaModelNotFound    = errors.New("Ollama model not found")
+	ErrOllamaModelNotRunning  = errors.New("Ollama model not running")
+	ErrOllamaInvalidRequest   = errors.New("invalid Ollama request")
+	ErrOllamaInvalidResponse  = errors.New("invalid response from Ollama API")
+	ErrOllamaProviderError    = errors.New("Ollama provider error")
+	ErrOllamaContextCanceled  = errors.New("Ollama request canceled")
+	ErrOllamaConnectionFailed = errors.New("failed to connect to Ollama")
 )
 
 // Default settings for Ollama
@@ -106,10 +106,10 @@ type OllamaStreamChunk struct {
 
 // ollamaChatRequest represents the request body for Ollama chat API
 type ollamaChatRequest struct {
-	Model    string            `json:"model"`
-	Messages []ollamaMessage   `json:"messages"`
-	Stream   bool              `json:"stream"`
-	Options  *ollamaOptions    `json:"options,omitempty"`
+	Model    string          `json:"model"`
+	Messages []ollamaMessage `json:"messages"`
+	Stream   bool            `json:"stream"`
+	Options  *ollamaOptions  `json:"options,omitempty"`
 }
 
 // ollamaMessage represents a message in Ollama format
@@ -134,13 +134,13 @@ type ollamaChatResponse struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	} `json:"message"`
-	Done               bool `json:"done"`
-	TotalDuration    int64 `json:"total_duration"`
-	LoadDuration     int64 `json:"load_duration"`
-	PromptEvalCount  int   `json:"prompt_eval_count"`
+	Done               bool  `json:"done"`
+	TotalDuration      int64 `json:"total_duration"`
+	LoadDuration       int64 `json:"load_duration"`
+	PromptEvalCount    int   `json:"prompt_eval_count"`
 	PromptEvalDuration int64 `json:"prompt_eval_duration"`
-	EvalCount        int   `json:"eval_count"`
-	EvalDuration     int64 `json:"eval_duration"`
+	EvalCount          int   `json:"eval_count"`
+	EvalDuration       int64 `json:"eval_duration"`
 }
 
 // ollamaStreamResponse represents a streaming chunk from Ollama
@@ -167,9 +167,9 @@ type ollamaListResponse struct {
 
 // ollamaGenerateRequest represents a request to the generate endpoint
 type ollamaGenerateRequest struct {
-	Model  string         `json:"model"`
-	Prompt string         `json:"prompt"`
-	Stream bool           `json:"stream"`
+	Model   string         `json:"model"`
+	Prompt  string         `json:"prompt"`
+	Stream  bool           `json:"stream"`
 	Options *ollamaOptions `json:"options,omitempty"`
 }
 

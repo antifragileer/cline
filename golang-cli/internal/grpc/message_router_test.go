@@ -390,7 +390,7 @@ func TestBatchRouter_Flush(t *testing.T) {
 	router.RegisterDefaultHandler(handler)
 
 	batchRouter := NewBatchRouter(router, 10, 1*time.Second)
-	
+
 	// Add messages
 	batchRouter.Add(&RoutedMessage{Type: MessageTypeText})
 	batchRouter.Add(&RoutedMessage{Type: MessageTypeText})
@@ -450,7 +450,7 @@ func BenchmarkMessageRouter_Route(b *testing.B) {
 
 func BenchmarkMessageRouter_RouteWithMiddleware(b *testing.B) {
 	router := NewMessageRouter()
-	
+
 	middleware := func(next MessageHandler) MessageHandler {
 		return func(msg *RoutedMessage) error {
 			return next(msg)
@@ -496,7 +496,7 @@ func TestRoutedMessage_Struct(t *testing.T) {
 
 func TestParseMessage_InvalidJSON(t *testing.T) {
 	router := NewMessageRouter()
-	
+
 	// Message with invalid JSON payload (starts with { but is invalid)
 	msg := &Message{
 		Type:      string(MessageTypeText),
@@ -591,7 +591,7 @@ func TestBatchRouter_ConcurrentAdd(t *testing.T) {
 	}
 
 	wg.Wait()
-	
+
 	// Give time for processing
 	time.Sleep(100 * time.Millisecond)
 }

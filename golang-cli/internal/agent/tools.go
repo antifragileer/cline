@@ -33,10 +33,10 @@ type Tool interface {
 
 // ToolParameter represents a parameter for a tool
 type ToolParameter struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-	Required    bool   `json:"required"`
+	Name        string      `json:"name"`
+	Type        string      `json:"type"`
+	Description string      `json:"description"`
+	Required    bool        `json:"required"`
 	Default     interface{} `json:"default,omitempty"`
 }
 

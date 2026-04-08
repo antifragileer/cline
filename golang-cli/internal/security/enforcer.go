@@ -117,7 +117,7 @@ func (pe *PermissionEnforcer) Execute(ctx context.Context, command string, args 
 	// Block if not allowed
 	if !validationResult.Allowed {
 		blockReason := pe.controller.FormatErrorMessage(validationResult, fullCommand)
-		
+
 		if pe.auditor != nil {
 			pe.logBlockedExecution(ctx, fullCommand, blockReason)
 		}
@@ -211,10 +211,10 @@ func (pe *PermissionEnforcer) logExecutionAttempt(ctx context.Context, command s
 		sessionID,
 		fmt.Sprintf("Command execution attempt: %s", command),
 		map[string]interface{}{
-			"command":   command,
-			"allowed":   result.Allowed,
-			"reason":    result.Reason,
-			"enforced":  pe.IsEnabled(),
+			"command":  command,
+			"allowed":  result.Allowed,
+			"reason":   result.Reason,
+			"enforced": pe.IsEnabled(),
 		},
 	)
 }
@@ -257,9 +257,9 @@ func (pe *PermissionEnforcer) logExecutionSuccess(ctx context.Context, command s
 		sessionID,
 		fmt.Sprintf("Command executed: %s (exit code: %d)", command, exitCode),
 		map[string]interface{}{
-			"command":      command,
-			"exit_code":    exitCode,
-			"output_size":  len(output),
+			"command":        command,
+			"exit_code":      exitCode,
+			"output_size":    len(output),
 			"output_preview": outputPreview,
 		},
 	)
@@ -316,5 +316,3 @@ func getSessionIDFromCtx(ctx context.Context) string {
 	}
 	return ""
 }
-
-

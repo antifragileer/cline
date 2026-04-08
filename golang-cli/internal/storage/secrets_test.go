@@ -12,7 +12,7 @@ func TestSecretsManager_RecoverFromFallback(t *testing.T) {
 	t.Run("AlreadyUsingKeyring", func(t *testing.T) {
 		// Create temp directory
 		tempDir := t.TempDir()
-		
+
 		// Create secrets manager with no keyring available (force fallback)
 		sm, err := NewSecretsManager(SecretsManagerOptions{
 			ConfigDir: tempDir,
@@ -24,7 +24,7 @@ func TestSecretsManager_RecoverFromFallback(t *testing.T) {
 
 		// Simulate already using keyring - should return nil
 		sm.useKeyring = true
-		
+
 		err = sm.RecoverFromFallback()
 		if err != nil {
 			t.Errorf("Expected nil error when already using keyring, got: %v", err)
@@ -33,7 +33,7 @@ func TestSecretsManager_RecoverFromFallback(t *testing.T) {
 
 	t.Run("NoFallbackFile", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		sm, err := NewSecretsManager(SecretsManagerOptions{
 			ConfigDir: tempDir,
 		})
@@ -44,7 +44,7 @@ func TestSecretsManager_RecoverFromFallback(t *testing.T) {
 
 		// Ensure we're not using keyring
 		sm.useKeyring = false
-		
+
 		err = sm.RecoverFromFallback()
 		if err != nil {
 			t.Errorf("Expected nil error when no fallback file, got: %v", err)
@@ -53,7 +53,7 @@ func TestSecretsManager_RecoverFromFallback(t *testing.T) {
 
 	t.Run("KeyringUnavailable", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		sm, err := NewSecretsManager(SecretsManagerOptions{
 			ConfigDir: tempDir,
 		})
@@ -64,7 +64,7 @@ func TestSecretsManager_RecoverFromFallback(t *testing.T) {
 
 		// Ensure we're not using keyring
 		sm.useKeyring = false
-		
+
 		// Create a fallback file
 		fallbackData := &fallbackData{
 			Secrets: map[string]string{
@@ -72,13 +72,13 @@ func TestSecretsManager_RecoverFromFallback(t *testing.T) {
 			},
 			Version: 1,
 		}
-		
+
 		// Create a mock encrypted value (it won't decrypt properly but that's ok)
 		sm.writeFallbackFile(fallbackData)
-		
+
 		// Ensure provider is nil to simulate unavailable keyring
 		sm.provider = nil
-		
+
 		err = sm.RecoverFromFallback()
 		// The actual behavior may vary based on platform keyring availability
 		// so we just ensure it doesn't panic
@@ -93,16 +93,16 @@ func TestSecretsManager_WriteFallbackFile_Errors(t *testing.T) {
 		sm := &SecretsManager{
 			fallbackPath: filepath.Join(tempDir, "secrets.enc"),
 		}
-		
+
 		// Make directory read-only (on supported systems)
 		os.Chmod(tempDir, 0555)
 		defer os.Chmod(tempDir, 0755) // Restore for cleanup
-		
+
 		data := &fallbackData{
 			Secrets: map[string]string{"key": "value"},
 			Version: 1,
 		}
-		
+
 		err := sm.writeFallbackFile(data)
 		if err == nil {
 			t.Error("Expected error when creating temp file in read-only directory")
@@ -116,7 +116,7 @@ func TestSecretsManager_WriteFallbackFile_Errors(t *testing.T) {
 
 	t.Run("EncodeFailure", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		sm, err := NewSecretsManager(SecretsManagerOptions{
 			ConfigDir: tempDir,
 		})
@@ -130,7 +130,7 @@ func TestSecretsManager_WriteFallbackFile_Errors(t *testing.T) {
 			Secrets: map[string]string{"key": "value"},
 			Version: 1,
 		}
-		
+
 		// Normal data should encode successfully
 		err = sm.writeFallbackFile(data)
 		if err != nil {
@@ -141,7 +141,7 @@ func TestSecretsManager_WriteFallbackFile_Errors(t *testing.T) {
 
 func TestSecretsManager_SetEmptyKey(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm, err := NewSecretsManager(SecretsManagerOptions{
 		ConfigDir: tempDir,
 	})
@@ -159,7 +159,7 @@ func TestSecretsManager_SetEmptyKey(t *testing.T) {
 
 func TestSecretsManager_GetEmptyKey(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm, err := NewSecretsManager(SecretsManagerOptions{
 		ConfigDir: tempDir,
 	})
@@ -177,7 +177,7 @@ func TestSecretsManager_GetEmptyKey(t *testing.T) {
 
 func TestSecretsManager_DeleteEmptyKey(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm, err := NewSecretsManager(SecretsManagerOptions{
 		ConfigDir: tempDir,
 	})
@@ -195,7 +195,7 @@ func TestSecretsManager_DeleteEmptyKey(t *testing.T) {
 
 func TestSecretsManager_DecryptInvalidCiphertext(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm, err := NewSecretsManager(SecretsManagerOptions{
 		ConfigDir: tempDir,
 	})
@@ -219,7 +219,7 @@ func TestSecretsManager_DecryptInvalidCiphertext(t *testing.T) {
 
 func TestSecretsManager_ReadFallbackFile_NonExistent(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm := &SecretsManager{
 		fallbackPath: filepath.Join(tempDir, "non-existent.enc"),
 	}
@@ -238,7 +238,7 @@ func TestSecretsManager_ReadFallbackFile_NonExistent(t *testing.T) {
 
 func TestSecretsManager_ReadFallbackFile_InvalidJSON(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm := &SecretsManager{
 		fallbackPath: filepath.Join(tempDir, "secrets.enc"),
 	}
@@ -257,7 +257,7 @@ func TestSecretsManager_ReadFallbackFile_InvalidJSON(t *testing.T) {
 
 func TestSecretsManager_ReadFallbackFile_PermissionDenied(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm := &SecretsManager{
 		fallbackPath: filepath.Join(tempDir, "secrets.enc"),
 	}
@@ -280,7 +280,7 @@ func TestSecretsManager_ReadFallbackFile_PermissionDenied(t *testing.T) {
 
 func TestSecretsManager_GetFromFile_NotFound(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm := &SecretsManager{
 		fallbackPath: filepath.Join(tempDir, "secrets.enc"),
 	}
@@ -293,7 +293,7 @@ func TestSecretsManager_GetFromFile_NotFound(t *testing.T) {
 
 func TestSecretsManager_DeleteFromFile_NotFound(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm := &SecretsManager{
 		fallbackPath: filepath.Join(tempDir, "secrets.enc"),
 	}
@@ -306,7 +306,7 @@ func TestSecretsManager_DeleteFromFile_NotFound(t *testing.T) {
 
 func TestSecretsManager_DeleteFromFile_FileNotExist(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm := &SecretsManager{
 		fallbackPath: filepath.Join(tempDir, "secrets.enc"),
 	}
@@ -319,7 +319,7 @@ func TestSecretsManager_DeleteFromFile_FileNotExist(t *testing.T) {
 
 func TestSecretsManager_ListFromFile_Empty(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm := &SecretsManager{
 		fallbackPath: filepath.Join(tempDir, "secrets.enc"),
 	}
@@ -335,7 +335,7 @@ func TestSecretsManager_ListFromFile_Empty(t *testing.T) {
 
 func TestSecretsManager_SetGetDelete_Fallback(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm, err := NewSecretsManager(SecretsManagerOptions{
 		ConfigDir: tempDir,
 	})
@@ -386,7 +386,7 @@ func TestSecretsManager_SetGetDelete_Fallback(t *testing.T) {
 
 func TestSecretsManager_FallbackEncryptionKey_Consistency(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm1, err := NewSecretsManager(SecretsManagerOptions{
 		ConfigDir: tempDir,
 	})
@@ -426,7 +426,7 @@ func TestSecretsManager_FallbackEncryptionKey_Consistency(t *testing.T) {
 
 func TestSecretsManager_ConcurrentAccess(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	sm, err := NewSecretsManager(SecretsManagerOptions{
 		ConfigDir: tempDir,
 	})

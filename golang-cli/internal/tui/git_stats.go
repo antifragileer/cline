@@ -13,23 +13,23 @@ import (
 
 // GitStats holds git repository statistics
 type GitStats struct {
-	Branch     string
-	Files      int
-	Additions  int
-	Deletions  int
-	IsRepo     bool
-	RepoName   string
+	Branch    string
+	Files     int
+	Additions int
+	Deletions int
+	IsRepo    bool
+	RepoName  string
 }
 
 // GitStatsDisplay displays git statistics in the UI
 type GitStatsDisplay struct {
 	// Styling
-	branchStyle     lipgloss.Style
-	repoStyle       lipgloss.Style
-	filesStyle      lipgloss.Style
-	additionsStyle  lipgloss.Style
-	deletionsStyle  lipgloss.Style
-	separatorStyle  lipgloss.Style
+	branchStyle    lipgloss.Style
+	repoStyle      lipgloss.Style
+	filesStyle     lipgloss.Style
+	additionsStyle lipgloss.Style
+	deletionsStyle lipgloss.Style
+	separatorStyle lipgloss.Style
 }
 
 // NewGitStatsDisplay creates a new git stats display
@@ -212,7 +212,6 @@ func getGitDiffStats(cwd string) (*DiffStats, error) {
 
 	return stats, nil
 }
-
 
 // GitStatsMsg is sent when git stats are updated
 type GitStatsMsg struct {

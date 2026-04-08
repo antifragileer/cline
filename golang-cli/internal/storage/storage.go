@@ -159,15 +159,15 @@ func GetWorkspaceHash(workspacePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	
+
 	// Simple hash: replace path separators and encode
 	// In production, this could use a proper hash function
 	hash := strings.ReplaceAll(absPath, string(filepath.Separator), "_")
 	hash = strings.ReplaceAll(hash, ":", "_") // For Windows
-	
+
 	// Sanitize for filesystem
 	hash = sanitizeFilename(hash)
-	
+
 	return hash, nil
 }
 
@@ -189,12 +189,12 @@ func CloneValue(v interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal value: %w", err)
 	}
-	
+
 	var result interface{}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal value: %w", err)
 	}
-	
+
 	return result, nil
 }
 
@@ -204,16 +204,16 @@ func GetTyped(s FileStorage, key string, dest interface{}) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	
+
 	// Marshal and unmarshal to convert types
 	data, err := json.Marshal(val)
 	if err != nil {
 		return false, fmt.Errorf("failed to marshal value: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(data, dest); err != nil {
 		return false, fmt.Errorf("failed to unmarshal value: %w", err)
 	}
-	
+
 	return true, nil
 }

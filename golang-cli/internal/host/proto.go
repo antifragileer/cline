@@ -81,67 +81,67 @@ const (
 type ClineAsk int32
 
 const (
-	ClineAsk_FOLLOWUP             ClineAsk = 0
-	ClineAsk_PLAN_MODE_RESPOND    ClineAsk = 1
-	ClineAsk_COMMAND              ClineAsk = 2
-	ClineAsk_COMMAND_OUTPUT       ClineAsk = 3
-	ClineAsk_COMPLETION_RESULT    ClineAsk = 4
-	ClineAsk_TOOL                 ClineAsk = 5
-	ClineAsk_API_REQ_FAILED       ClineAsk = 6
-	ClineAsk_RESUME_TASK          ClineAsk = 7
+	ClineAsk_FOLLOWUP              ClineAsk = 0
+	ClineAsk_PLAN_MODE_RESPOND     ClineAsk = 1
+	ClineAsk_COMMAND               ClineAsk = 2
+	ClineAsk_COMMAND_OUTPUT        ClineAsk = 3
+	ClineAsk_COMPLETION_RESULT     ClineAsk = 4
+	ClineAsk_TOOL                  ClineAsk = 5
+	ClineAsk_API_REQ_FAILED        ClineAsk = 6
+	ClineAsk_RESUME_TASK           ClineAsk = 7
 	ClineAsk_RESUME_COMPLETED_TASK ClineAsk = 8
 	ClineAsk_MISTAKE_LIMIT_REACHED ClineAsk = 9
 	ClineAsk_BROWSER_ACTION_LAUNCH ClineAsk = 10
-	ClineAsk_USE_MCP_SERVER       ClineAsk = 11
-	ClineAsk_NEW_TASK             ClineAsk = 12
-	ClineAsk_CONDENSE             ClineAsk = 13
-	ClineAsk_REPORT_BUG           ClineAsk = 14
-	ClineAsk_SUMMARIZE_TASK       ClineAsk = 15
-	ClineAsk_ACT_MODE_RESPOND     ClineAsk = 16
-	ClineAsk_USE_SUBAGENTS        ClineAsk = 17
+	ClineAsk_USE_MCP_SERVER        ClineAsk = 11
+	ClineAsk_NEW_TASK              ClineAsk = 12
+	ClineAsk_CONDENSE              ClineAsk = 13
+	ClineAsk_REPORT_BUG            ClineAsk = 14
+	ClineAsk_SUMMARIZE_TASK        ClineAsk = 15
+	ClineAsk_ACT_MODE_RESPOND      ClineAsk = 16
+	ClineAsk_USE_SUBAGENTS         ClineAsk = 17
 )
 
 // ClineSay represents say types
 type ClineSay int32
 
 const (
-	ClineSay_TASK                      ClineSay = 0
-	ClineSay_ERROR                     ClineSay = 1
-	ClineSay_API_REQ_STARTED           ClineSay = 2
-	ClineSay_API_REQ_FINISHED          ClineSay = 3
-	ClineSay_TEXT                      ClineSay = 4
-	ClineSay_REASONING                 ClineSay = 5
-	ClineSay_COMPLETION_RESULT_SAY     ClineSay = 6
-	ClineSay_USER_FEEDBACK             ClineSay = 7
-	ClineSay_USER_FEEDBACK_DIFF        ClineSay = 8
-	ClineSay_API_REQ_RETRIED           ClineSay = 9
-	ClineSay_COMMAND_SAY               ClineSay = 10
-	ClineSay_COMMAND_OUTPUT_SAY        ClineSay = 11
-	ClineSay_TOOL_SAY                  ClineSay = 12
-	ClineSay_SHELL_INTEGRATION_WARNING ClineSay = 13
-	ClineSay_BROWSER_ACTION_LAUNCH_SAY ClineSay = 14
-	ClineSay_BROWSER_ACTION            ClineSay = 15
-	ClineSay_BROWSER_ACTION_RESULT     ClineSay = 16
+	ClineSay_TASK                       ClineSay = 0
+	ClineSay_ERROR                      ClineSay = 1
+	ClineSay_API_REQ_STARTED            ClineSay = 2
+	ClineSay_API_REQ_FINISHED           ClineSay = 3
+	ClineSay_TEXT                       ClineSay = 4
+	ClineSay_REASONING                  ClineSay = 5
+	ClineSay_COMPLETION_RESULT_SAY      ClineSay = 6
+	ClineSay_USER_FEEDBACK              ClineSay = 7
+	ClineSay_USER_FEEDBACK_DIFF         ClineSay = 8
+	ClineSay_API_REQ_RETRIED            ClineSay = 9
+	ClineSay_COMMAND_SAY                ClineSay = 10
+	ClineSay_COMMAND_OUTPUT_SAY         ClineSay = 11
+	ClineSay_TOOL_SAY                   ClineSay = 12
+	ClineSay_SHELL_INTEGRATION_WARNING  ClineSay = 13
+	ClineSay_BROWSER_ACTION_LAUNCH_SAY  ClineSay = 14
+	ClineSay_BROWSER_ACTION             ClineSay = 15
+	ClineSay_BROWSER_ACTION_RESULT      ClineSay = 16
 	ClineSay_MCP_SERVER_REQUEST_STARTED ClineSay = 17
-	ClineSay_MCP_SERVER_RESPONSE       ClineSay = 18
-	ClineSay_MCP_NOTIFICATION          ClineSay = 19
-	ClineSay_USE_MCP_SERVER_SAY        ClineSay = 20
-	ClineSay_DIFF_ERROR                ClineSay = 21
-	ClineSay_DELETED_API_REQS          ClineSay = 22
-	ClineSay_CLINEIGNORE_ERROR         ClineSay = 23
-	ClineSay_CHECKPOINT_CREATED        ClineSay = 24
-	ClineSay_LOAD_MCP_DOCUMENTATION    ClineSay = 25
-	ClineSay_INFO                      ClineSay = 26
-	ClineSay_TASK_PROGRESS             ClineSay = 27
-	ClineSay_ERROR_RETRY               ClineSay = 28
-	ClineSay_GENERATE_EXPLANATION      ClineSay = 29
-	ClineSay_HOOK_STATUS               ClineSay = 30
-	ClineSay_HOOK_OUTPUT_STREAM        ClineSay = 31
-	ClineSay_COMMAND_PERMISSION_DENIED ClineSay = 32
-	ClineSay_CONDITIONAL_RULES_APPLIED ClineSay = 33
-	ClineSay_SUBAGENT_STATUS           ClineSay = 34
-	ClineSay_USE_SUBAGENTS_SAY         ClineSay = 35
-	ClineSay_SUBAGENT_USAGE            ClineSay = 36
+	ClineSay_MCP_SERVER_RESPONSE        ClineSay = 18
+	ClineSay_MCP_NOTIFICATION           ClineSay = 19
+	ClineSay_USE_MCP_SERVER_SAY         ClineSay = 20
+	ClineSay_DIFF_ERROR                 ClineSay = 21
+	ClineSay_DELETED_API_REQS           ClineSay = 22
+	ClineSay_CLINEIGNORE_ERROR          ClineSay = 23
+	ClineSay_CHECKPOINT_CREATED         ClineSay = 24
+	ClineSay_LOAD_MCP_DOCUMENTATION     ClineSay = 25
+	ClineSay_INFO                       ClineSay = 26
+	ClineSay_TASK_PROGRESS              ClineSay = 27
+	ClineSay_ERROR_RETRY                ClineSay = 28
+	ClineSay_GENERATE_EXPLANATION       ClineSay = 29
+	ClineSay_HOOK_STATUS                ClineSay = 30
+	ClineSay_HOOK_OUTPUT_STREAM         ClineSay = 31
+	ClineSay_COMMAND_PERMISSION_DENIED  ClineSay = 32
+	ClineSay_CONDITIONAL_RULES_APPLIED  ClineSay = 33
+	ClineSay_SUBAGENT_STATUS            ClineSay = 34
+	ClineSay_USE_SUBAGENTS_SAY          ClineSay = 35
+	ClineSay_SUBAGENT_USAGE             ClineSay = 36
 )
 
 // ClineSayToolType represents tool types for ClineSayTool
@@ -175,7 +175,7 @@ const (
 type McpServerRequestType int32
 
 const (
-	McpServerRequestType_USE_MCP_TOOL       McpServerRequestType = 0
+	McpServerRequestType_USE_MCP_TOOL        McpServerRequestType = 0
 	McpServerRequestType_ACCESS_MCP_RESOURCE McpServerRequestType = 1
 )
 
@@ -183,9 +183,9 @@ const (
 type ClineApiReqCancelReason int32
 
 const (
-	ClineApiReqCancelReason_STREAMING_FAILED     ClineApiReqCancelReason = 0
-	ClineApiReqCancelReason_USER_CANCELLED       ClineApiReqCancelReason = 1
-	ClineApiReqCancelReason_RETRIES_EXHAUSTED    ClineApiReqCancelReason = 2
+	ClineApiReqCancelReason_STREAMING_FAILED  ClineApiReqCancelReason = 0
+	ClineApiReqCancelReason_USER_CANCELLED    ClineApiReqCancelReason = 1
+	ClineApiReqCancelReason_RETRIES_EXHAUSTED ClineApiReqCancelReason = 2
 )
 
 // ConversationHistoryDeletedRange represents a deleted range in conversation history
@@ -196,27 +196,27 @@ type ConversationHistoryDeletedRange struct {
 
 // ClineSayTool represents a tool execution message
 type ClineSayTool struct {
-	Tool                      ClineSayToolType `protobuf:"varint,1,opt,name=tool,proto3,enum=cline.ClineSayToolType" json:"tool,omitempty"`
-	Path                      string           `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	Diff                      string           `protobuf:"bytes,3,opt,name=diff,proto3" json:"diff,omitempty"`
-	Content                   string           `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
-	Regex                     string           `protobuf:"bytes,5,opt,name=regex,proto3" json:"regex,omitempty"`
-	FilePattern               string           `protobuf:"bytes,6,opt,name=file_pattern,json=filePattern,proto3" json:"file_pattern,omitempty"`
-	OperationIsLocatedInWorkspace bool         `protobuf:"varint,7,opt,name=operation_is_located_in_workspace,json=operationIsLocatedInWorkspace,proto3" json:"operation_is_located_in_workspace,omitempty"`
+	Tool                          ClineSayToolType `protobuf:"varint,1,opt,name=tool,proto3,enum=cline.ClineSayToolType" json:"tool,omitempty"`
+	Path                          string           `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Diff                          string           `protobuf:"bytes,3,opt,name=diff,proto3" json:"diff,omitempty"`
+	Content                       string           `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
+	Regex                         string           `protobuf:"bytes,5,opt,name=regex,proto3" json:"regex,omitempty"`
+	FilePattern                   string           `protobuf:"bytes,6,opt,name=file_pattern,json=filePattern,proto3" json:"file_pattern,omitempty"`
+	OperationIsLocatedInWorkspace bool             `protobuf:"varint,7,opt,name=operation_is_located_in_workspace,json=operationIsLocatedInWorkspace,proto3" json:"operation_is_located_in_workspace,omitempty"`
 }
 
 // ClineSayBrowserAction represents a browser action message
 type ClineSayBrowserAction struct {
-	Action    BrowserAction `protobuf:"varint,1,opt,name=action,proto3,enum=cline.BrowserAction" json:"action,omitempty"`
-	Coordinate string       `protobuf:"bytes,2,opt,name=coordinate,proto3" json:"coordinate,omitempty"`
+	Action     BrowserAction `protobuf:"varint,1,opt,name=action,proto3,enum=cline.BrowserAction" json:"action,omitempty"`
+	Coordinate string        `protobuf:"bytes,2,opt,name=coordinate,proto3" json:"coordinate,omitempty"`
 	Text       string        `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
 }
 
 // BrowserActionResult represents the result of a browser action
 type BrowserActionResult struct {
-	Screenshot         string `protobuf:"bytes,1,opt,name=screenshot,proto3" json:"screenshot,omitempty"`
-	Logs               string `protobuf:"bytes,2,opt,name=logs,proto3" json:"logs,omitempty"`
-	CurrentUrl         string `protobuf:"bytes,3,opt,name=current_url,json=currentUrl,proto3" json:"current_url,omitempty"`
+	Screenshot           string `protobuf:"bytes,1,opt,name=screenshot,proto3" json:"screenshot,omitempty"`
+	Logs                 string `protobuf:"bytes,2,opt,name=logs,proto3" json:"logs,omitempty"`
+	CurrentUrl           string `protobuf:"bytes,3,opt,name=current_url,json=currentUrl,proto3" json:"current_url,omitempty"`
 	CurrentMousePosition string `protobuf:"bytes,4,opt,name=current_mouse_position,json=currentMousePosition,proto3" json:"current_mouse_position,omitempty"`
 }
 
@@ -250,23 +250,23 @@ type ClineAskNewTask struct {
 
 // ApiReqRetryStatus represents API request retry status
 type ApiReqRetryStatus struct {
-	Attempt    int32  `protobuf:"varint,1,opt,name=attempt,proto3" json:"attempt,omitempty"`
-	MaxAttempts int32 `protobuf:"varint,2,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`
-	DelaySec   int32  `protobuf:"varint,3,opt,name=delay_sec,json=delaySec,proto3" json:"delay_sec,omitempty"`
+	Attempt      int32  `protobuf:"varint,1,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	MaxAttempts  int32  `protobuf:"varint,2,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`
+	DelaySec     int32  `protobuf:"varint,3,opt,name=delay_sec,json=delaySec,proto3" json:"delay_sec,omitempty"`
 	ErrorSnippet string `protobuf:"bytes,4,opt,name=error_snippet,json=errorSnippet,proto3" json:"error_snippet,omitempty"`
 }
 
 // ClineApiReqInfo represents API request information
 type ClineApiReqInfo struct {
-	Request           string                  `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
-	TokensIn          int32                   `protobuf:"varint,2,opt,name=tokens_in,json=tokensIn,proto3" json:"tokens_in,omitempty"`
-	TokensOut         int32                   `protobuf:"varint,3,opt,name=tokens_out,json=tokensOut,proto3" json:"tokens_out,omitempty"`
-	CacheWrites       int32                   `protobuf:"varint,4,opt,name=cache_writes,json=cacheWrites,proto3" json:"cache_writes,omitempty"`
-	CacheReads        int32                   `protobuf:"varint,5,opt,name=cache_reads,json=cacheReads,proto3" json:"cache_reads,omitempty"`
-	Cost              float64                 `protobuf:"fixed64,6,opt,name=cost,proto3" json:"cost,omitempty"`
-	CancelReason      ClineApiReqCancelReason `protobuf:"varint,7,opt,name=cancel_reason,json=cancelReason,proto3,enum=cline.ClineApiReqCancelReason" json:"cancel_reason,omitempty"`
-	StreamingFailedMessage string             `protobuf:"bytes,8,opt,name=streaming_failed_message,json=streamingFailedMessage,proto3" json:"streaming_failed_message,omitempty"`
-	RetryStatus       *ApiReqRetryStatus      `protobuf:"bytes,9,opt,name=retry_status,json=retryStatus,proto3" json:"retry_status,omitempty"`
+	Request                string                  `protobuf:"bytes,1,opt,name=request,proto3" json:"request,omitempty"`
+	TokensIn               int32                   `protobuf:"varint,2,opt,name=tokens_in,json=tokensIn,proto3" json:"tokens_in,omitempty"`
+	TokensOut              int32                   `protobuf:"varint,3,opt,name=tokens_out,json=tokensOut,proto3" json:"tokens_out,omitempty"`
+	CacheWrites            int32                   `protobuf:"varint,4,opt,name=cache_writes,json=cacheWrites,proto3" json:"cache_writes,omitempty"`
+	CacheReads             int32                   `protobuf:"varint,5,opt,name=cache_reads,json=cacheReads,proto3" json:"cache_reads,omitempty"`
+	Cost                   float64                 `protobuf:"fixed64,6,opt,name=cost,proto3" json:"cost,omitempty"`
+	CancelReason           ClineApiReqCancelReason `protobuf:"varint,7,opt,name=cancel_reason,json=cancelReason,proto3,enum=cline.ClineApiReqCancelReason" json:"cancel_reason,omitempty"`
+	StreamingFailedMessage string                  `protobuf:"bytes,8,opt,name=streaming_failed_message,json=streamingFailedMessage,proto3" json:"streaming_failed_message,omitempty"`
+	RetryStatus            *ApiReqRetryStatus      `protobuf:"bytes,9,opt,name=retry_status,json=retryStatus,proto3" json:"retry_status,omitempty"`
 }
 
 // ClineModelInfo represents model information
@@ -277,29 +277,29 @@ type ClineModelInfo struct {
 
 // ClineMessage represents the main message type for task communication
 type ClineMessage struct {
-	Ts                                 int64                            `protobuf:"varint,1,opt,name=ts,proto3" json:"ts,omitempty"`
-	Type                               ClineMessageType                 `protobuf:"varint,2,opt,name=type,proto3,enum=cline.ClineMessageType" json:"type,omitempty"`
-	Ask                                ClineAsk                         `protobuf:"varint,3,opt,name=ask,proto3,enum=cline.ClineAsk" json:"ask,omitempty"`
-	Say                                ClineSay                         `protobuf:"varint,4,opt,name=say,proto3,enum=cline.ClineSay" json:"say,omitempty"`
-	Text                               string                           `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
-	Reasoning                          string                           `protobuf:"bytes,6,opt,name=reasoning,proto3" json:"reasoning,omitempty"`
-	Images                             []string                         `protobuf:"bytes,7,rep,name=images,proto3" json:"images,omitempty"`
-	Files                              []string                         `protobuf:"bytes,8,rep,name=files,proto3" json:"files,omitempty"`
-	Partial                            bool                             `protobuf:"varint,9,opt,name=partial,proto3" json:"partial,omitempty"`
-	LastCheckpointHash                 string                           `protobuf:"bytes,10,opt,name=last_checkpoint_hash,json=lastCheckpointHash,proto3" json:"last_checkpoint_hash,omitempty"`
-	IsCheckpointCheckedOut             bool                             `protobuf:"varint,11,opt,name=is_checkpoint_checked_out,json=isCheckpointCheckedOut,proto3" json:"is_checkpoint_checked_out,omitempty"`
-	IsOperationOutsideWorkspace        bool                             `protobuf:"varint,12,opt,name=is_operation_outside_workspace,json=isOperationOutsideWorkspace,proto3" json:"is_operation_outside_workspace,omitempty"`
-	ConversationHistoryIndex           int32                            `protobuf:"varint,13,opt,name=conversation_history_index,json=conversationHistoryIndex,proto3" json:"conversation_history_index,omitempty"`
-	ConversationHistoryDeletedRange    *ConversationHistoryDeletedRange `protobuf:"bytes,14,opt,name=conversation_history_deleted_range,json=conversationHistoryDeletedRange,proto3" json:"conversation_history_deleted_range,omitempty"`
-	SayTool                            *ClineSayTool                    `protobuf:"bytes,15,opt,name=say_tool,json=sayTool,proto3" json:"say_tool,omitempty"`
-	SayBrowserAction                   *ClineSayBrowserAction           `protobuf:"bytes,16,opt,name=say_browser_action,json=sayBrowserAction,proto3" json:"say_browser_action,omitempty"`
-	BrowserActionResult                *BrowserActionResult             `protobuf:"bytes,17,opt,name=browser_action_result,json=browserActionResult,proto3" json:"browser_action_result,omitempty"`
-	AskUseMcpServer                    *ClineAskUseMcpServer            `protobuf:"bytes,18,opt,name=ask_use_mcp_server,json=askUseMcpServer,proto3" json:"ask_use_mcp_server,omitempty"`
-	PlanModeResponse                   *ClinePlanModeResponse           `protobuf:"bytes,19,opt,name=plan_mode_response,json=planModeResponse,proto3" json:"plan_mode_response,omitempty"`
-	AskQuestion                        *ClineAskQuestion                `protobuf:"bytes,20,opt,name=ask_question,json=askQuestion,proto3" json:"ask_question,omitempty"`
-	AskNewTask                         *ClineAskNewTask                 `protobuf:"bytes,21,opt,name=ask_new_task,json=askNewTask,proto3" json:"ask_new_task,omitempty"`
-	ApiReqInfo                         *ClineApiReqInfo                 `protobuf:"bytes,22,opt,name=api_req_info,json=apiReqInfo,proto3" json:"api_req_info,omitempty"`
-	ModelInfo                          *ClineModelInfo                  `protobuf:"bytes,23,opt,name=model_info,json=modelInfo,proto3" json:"model_info,omitempty"`
+	Ts                              int64                            `protobuf:"varint,1,opt,name=ts,proto3" json:"ts,omitempty"`
+	Type                            ClineMessageType                 `protobuf:"varint,2,opt,name=type,proto3,enum=cline.ClineMessageType" json:"type,omitempty"`
+	Ask                             ClineAsk                         `protobuf:"varint,3,opt,name=ask,proto3,enum=cline.ClineAsk" json:"ask,omitempty"`
+	Say                             ClineSay                         `protobuf:"varint,4,opt,name=say,proto3,enum=cline.ClineSay" json:"say,omitempty"`
+	Text                            string                           `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	Reasoning                       string                           `protobuf:"bytes,6,opt,name=reasoning,proto3" json:"reasoning,omitempty"`
+	Images                          []string                         `protobuf:"bytes,7,rep,name=images,proto3" json:"images,omitempty"`
+	Files                           []string                         `protobuf:"bytes,8,rep,name=files,proto3" json:"files,omitempty"`
+	Partial                         bool                             `protobuf:"varint,9,opt,name=partial,proto3" json:"partial,omitempty"`
+	LastCheckpointHash              string                           `protobuf:"bytes,10,opt,name=last_checkpoint_hash,json=lastCheckpointHash,proto3" json:"last_checkpoint_hash,omitempty"`
+	IsCheckpointCheckedOut          bool                             `protobuf:"varint,11,opt,name=is_checkpoint_checked_out,json=isCheckpointCheckedOut,proto3" json:"is_checkpoint_checked_out,omitempty"`
+	IsOperationOutsideWorkspace     bool                             `protobuf:"varint,12,opt,name=is_operation_outside_workspace,json=isOperationOutsideWorkspace,proto3" json:"is_operation_outside_workspace,omitempty"`
+	ConversationHistoryIndex        int32                            `protobuf:"varint,13,opt,name=conversation_history_index,json=conversationHistoryIndex,proto3" json:"conversation_history_index,omitempty"`
+	ConversationHistoryDeletedRange *ConversationHistoryDeletedRange `protobuf:"bytes,14,opt,name=conversation_history_deleted_range,json=conversationHistoryDeletedRange,proto3" json:"conversation_history_deleted_range,omitempty"`
+	SayTool                         *ClineSayTool                    `protobuf:"bytes,15,opt,name=say_tool,json=sayTool,proto3" json:"say_tool,omitempty"`
+	SayBrowserAction                *ClineSayBrowserAction           `protobuf:"bytes,16,opt,name=say_browser_action,json=sayBrowserAction,proto3" json:"say_browser_action,omitempty"`
+	BrowserActionResult             *BrowserActionResult             `protobuf:"bytes,17,opt,name=browser_action_result,json=browserActionResult,proto3" json:"browser_action_result,omitempty"`
+	AskUseMcpServer                 *ClineAskUseMcpServer            `protobuf:"bytes,18,opt,name=ask_use_mcp_server,json=askUseMcpServer,proto3" json:"ask_use_mcp_server,omitempty"`
+	PlanModeResponse                *ClinePlanModeResponse           `protobuf:"bytes,19,opt,name=plan_mode_response,json=planModeResponse,proto3" json:"plan_mode_response,omitempty"`
+	AskQuestion                     *ClineAskQuestion                `protobuf:"bytes,20,opt,name=ask_question,json=askQuestion,proto3" json:"ask_question,omitempty"`
+	AskNewTask                      *ClineAskNewTask                 `protobuf:"bytes,21,opt,name=ask_new_task,json=askNewTask,proto3" json:"ask_new_task,omitempty"`
+	ApiReqInfo                      *ClineApiReqInfo                 `protobuf:"bytes,22,opt,name=api_req_info,json=apiReqInfo,proto3" json:"api_req_info,omitempty"`
+	ModelInfo                       *ClineModelInfo                  `protobuf:"bytes,23,opt,name=model_info,json=modelInfo,proto3" json:"model_info,omitempty"`
 }
 
 // ProtoMessage is an interface for proto messages
@@ -315,11 +315,11 @@ type ProtoMessage interface {
 
 // NewTaskRequest represents a request to create a new task
 type NewTaskRequest struct {
-	Metadata      *Metadata `protobuf:"bytes,1,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	Text          string    `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
-	Images        []string  `protobuf:"bytes,3,rep,name=images,proto3" json:"images,omitempty"`
-	Files         []string  `protobuf:"bytes,4,rep,name=files,proto3" json:"files,omitempty"`
-	TaskSettings  *Settings `protobuf:"bytes,5,opt,name=task_settings,json=taskSettings,proto3" json:"task_settings,omitempty"`
+	Metadata     *Metadata `protobuf:"bytes,1,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Text         string    `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	Images       []string  `protobuf:"bytes,3,rep,name=images,proto3" json:"images,omitempty"`
+	Files        []string  `protobuf:"bytes,4,rep,name=files,proto3" json:"files,omitempty"`
+	TaskSettings *Settings `protobuf:"bytes,5,opt,name=task_settings,json=taskSettings,proto3" json:"task_settings,omitempty"`
 }
 
 // Settings represents task settings
@@ -329,11 +329,11 @@ type Settings struct {
 
 // AskResponseRequest represents a request to respond to an ask
 type AskResponseRequest struct {
-	Metadata      *Metadata `protobuf:"bytes,1,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	ResponseType  string    `protobuf:"bytes,2,opt,name=response_type,json=responseType,proto3" json:"response_type,omitempty"`
-	Text          string    `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
-	Images        []string  `protobuf:"bytes,4,rep,name=images,proto3" json:"images,omitempty"`
-	Files         []string  `protobuf:"bytes,5,rep,name=files,proto3" json:"files,omitempty"`
+	Metadata     *Metadata `protobuf:"bytes,1,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	ResponseType string    `protobuf:"bytes,2,opt,name=response_type,json=responseType,proto3" json:"response_type,omitempty"`
+	Text         string    `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	Images       []string  `protobuf:"bytes,4,rep,name=images,proto3" json:"images,omitempty"`
+	Files        []string  `protobuf:"bytes,5,rep,name=files,proto3" json:"files,omitempty"`
 }
 
 // ============================================================================
@@ -357,7 +357,7 @@ func (m *ClineMessageProto) String() string {
 	if m.ClineMessage == nil {
 		return ""
 	}
-	return fmt.Sprintf("ClineMessage{ts: %d, type: %v, ask: %v, say: %v, text: %s}", 
+	return fmt.Sprintf("ClineMessage{ts: %d, type: %v, ask: %v, say: %v, text: %s}",
 		m.Ts, m.Type, m.Ask, m.Say, m.Text)
 }
 

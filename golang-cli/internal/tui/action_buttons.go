@@ -25,18 +25,18 @@ const (
 
 // ButtonConfig defines the configuration for action buttons
 type ButtonConfig struct {
-	SendingDisabled  bool
-	EnableButtons    bool
-	PrimaryText      string
-	SecondaryText    string
-	PrimaryAction    ButtonActionType
-	SecondaryAction  ButtonActionType
+	SendingDisabled bool
+	EnableButtons   bool
+	PrimaryText     string
+	SecondaryText   string
+	PrimaryAction   ButtonActionType
+	SecondaryAction ButtonActionType
 }
 
 // ActionButtons renders action buttons based on configuration
 type ActionButtons struct {
-	config     ButtonConfig
-	mode       string // "act" or "plan"
+	config        ButtonConfig
+	mode          string // "act" or "plan"
 	terminalWidth int
 }
 

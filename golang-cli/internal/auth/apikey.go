@@ -87,7 +87,6 @@ var (
 	ErrKeyTestFailed        = errors.New("API key test failed")
 )
 
-
 // NewAPIKeyManager creates a new API key manager with the given secrets manager
 func NewAPIKeyManager(secretsManager storage.SecretsStore) (*APIKeyManager, error) {
 	if secretsManager == nil {

@@ -217,7 +217,7 @@ func (s *ClineFileStorage) load() error {
 	// Acquire file lock for reading with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	locked, err := s.fileLock.TryLockContext(ctx, 100*time.Millisecond)
 	if err != nil {
 		return fmt.Errorf("failed to acquire file lock: %w", err)

@@ -9,23 +9,23 @@ import (
 
 func TestNewJSONFormatter(t *testing.T) {
 	tests := []struct {
-		name     string
-		opts     []JSONOption
+		name       string
+		opts       []JSONOption
 		wantPretty bool
 	}{
 		{
-			name:     "default formatter",
-			opts:     nil,
+			name:       "default formatter",
+			opts:       nil,
 			wantPretty: false,
 		},
 		{
-			name:     "pretty formatter",
-			opts:     []JSONOption{WithPretty(true)},
+			name:       "pretty formatter",
+			opts:       []JSONOption{WithPretty(true)},
 			wantPretty: true,
 		},
 		{
-			name:     "non-pretty formatter",
-			opts:     []JSONOption{WithPretty(false)},
+			name:       "non-pretty formatter",
+			opts:       []JSONOption{WithPretty(false)},
 			wantPretty: false,
 		},
 	}
@@ -517,11 +517,11 @@ func TestMarshalSorted(t *testing.T) {
 		{
 			name: "various types",
 			m: map[string]interface{}{
-				"string":  "value",
-				"number":  42,
-				"bool":    true,
-				"array":   []string{"a", "b"},
-				"null":    nil,
+				"string": "value",
+				"number": 42,
+				"bool":   true,
+				"array":  []string{"a", "b"},
+				"null":   nil,
 			},
 			want: `{"array":["a","b"],"bool":true,"null":null,"number":42,"string":"value"}`,
 		},
@@ -544,7 +544,7 @@ func TestMarshalSorted(t *testing.T) {
 func TestMarshalSorted_Escaping(t *testing.T) {
 	// Test that keys and values are properly escaped
 	m := map[string]interface{}{
-		`key"with"quotes`: `value"with"quotes`,
+		`key"with"quotes`:     `value"with"quotes`,
 		`key\nwith\nnewlines`: "value\nwith\nnewlines",
 	}
 

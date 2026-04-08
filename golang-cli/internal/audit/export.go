@@ -546,9 +546,9 @@ func (rg *ReportGenerator) generateSummaryStream(w io.Writer, filter ReportFilte
 	summary := rg.generateSummary(events)
 
 	report := struct {
-		GeneratedAt time.Time     `json:"generated_at"`
-		Filter      ReportFilter  `json:"filter"`
-		TotalEvents int           `json:"total_events"`
+		GeneratedAt time.Time      `json:"generated_at"`
+		Filter      ReportFilter   `json:"filter"`
+		TotalEvents int            `json:"total_events"`
 		Summary     *ReportSummary `json:"summary"`
 	}{
 		GeneratedAt: time.Now().UTC(),

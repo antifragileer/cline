@@ -33,9 +33,9 @@ type Service interface {
 
 // DefaultService implements the Service interface
 type DefaultService struct {
-	storage    *storage.StorageContext
-	logger     *slog.Logger
-	enabled    bool
+	storage     *storage.StorageContext
+	logger      *slog.Logger
+	enabled     bool
 	initialized bool
 }
 

@@ -62,10 +62,10 @@ type WizardResult struct {
 
 // Wizard manages the provider configuration wizard
 type Wizard struct {
-	providers      map[string]ProviderInfo
-	apiKeyManager  *APIKeyManager
-	input          terminal.FileReader
-	output         terminal.FileWriter
+	providers     map[string]ProviderInfo
+	apiKeyManager *APIKeyManager
+	input         terminal.FileReader
+	output        terminal.FileWriter
 }
 
 // NewWizard creates a new configuration wizard

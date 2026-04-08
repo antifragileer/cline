@@ -38,7 +38,7 @@ func TestNewClineFileStorage(t *testing.T) {
 
 	t.Run("loads existing file", func(t *testing.T) {
 		filePath := filepath.Join(tempDir, "existing-storage.json")
-		
+
 		// Create file with initial data
 		initialData := map[string]interface{}{
 			"existingKey": "existingValue",
@@ -114,7 +114,7 @@ func TestNewClineFileStorage(t *testing.T) {
 		// Try to create storage in a path where we can't create directories
 		// On most systems, this would be a read-only root or similar
 		invalidPath := "/nonexistent_root_dir/storage.json"
-		
+
 		_, err := NewClineFileStorage(invalidPath, 0644)
 		if err == nil {
 			t.Skip("System allows creating directories anywhere, skipping")
@@ -245,7 +245,7 @@ func TestClineFileStorage_Set(t *testing.T) {
 
 		retrieved, _ := storage.Get("complex")
 		retrievedMap := retrieved.(map[string]interface{})
-		
+
 		arr := retrievedMap["array"].([]interface{})
 		if len(arr) != 3 || arr[0] != float64(1) {
 			t.Error("Array not stored correctly")
@@ -399,7 +399,7 @@ func TestClineFileStorage_Delete(t *testing.T) {
 
 	t.Run("deletes existing key", func(t *testing.T) {
 		storage.Set("key1", "value1")
-		
+
 		if err := storage.Delete("key1"); err != nil {
 			t.Fatalf("Delete failed: %v", err)
 		}
@@ -446,7 +446,7 @@ func TestClineFileStorage_GetAll(t *testing.T) {
 		storage.Set("key2", "value2")
 
 		all := storage.GetAll()
-		
+
 		if len(all) != 2 {
 			t.Errorf("Got %d entries, want 2", len(all))
 		}
@@ -460,7 +460,7 @@ func TestClineFileStorage_GetAll(t *testing.T) {
 
 	t.Run("returns deep copy", func(t *testing.T) {
 		storage.Set("key", map[string]interface{}{"nested": "value"})
-		
+
 		all := storage.GetAll()
 		all["key"].(map[string]interface{})["nested"] = "modified"
 
@@ -506,7 +506,7 @@ func TestClineFileStorage_Persistence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClineFileStorage failed: %v", err)
 		}
-		
+
 		storage1.Set("key1", "value1")
 		storage1.Set("key2", map[string]interface{}{"nested": "data"})
 		storage1.Close()
@@ -719,7 +719,7 @@ func TestClineFileStorage_IsDirty(t *testing.T) {
 		// Note: Set() also calls flush(), so dirty might be false immediately after
 		// The implementation detail is that dirty is set during modification
 		// and cleared after flush
-		
+
 		// Before any operation
 		if storage.IsDirty() {
 			t.Log("Storage is dirty before any operation (unexpected but implementation-dependent)")
@@ -743,7 +743,7 @@ func TestClineFileStorage_Reload(t *testing.T) {
 
 		// Create new storage and reload to ensure we read from disk
 		storage2, _ := NewClineFileStorage(filePath, 0644)
-		
+
 		// Verify initial load
 		val, _ := storage2.Get("key")
 		if val != "original" {
@@ -752,7 +752,7 @@ func TestClineFileStorage_Reload(t *testing.T) {
 
 		// Modify in memory (don't save)
 		storage2.data["key"] = "modified"
-		
+
 		// Reload should discard in-memory changes
 		if err := storage2.Reload(); err != nil {
 			t.Fatalf("Reload failed: %v", err)
@@ -988,7 +988,7 @@ func TestClineFileStorage_Close(t *testing.T) {
 		storage, _ := NewClineFileStorage(filePath, 0644)
 
 		storage.Set("key", "value")
-		
+
 		// Close should persist
 		if err := storage.Close(); err != nil {
 			t.Fatalf("Close failed: %v", err)

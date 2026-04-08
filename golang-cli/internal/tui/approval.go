@@ -42,26 +42,26 @@ type ApprovalModel struct {
 	title       string
 	message     string
 	details     string // command, tool params, or diff preview
-	
+
 	// UI state
 	width       int
 	height      int
 	selected    int // 0=Yes, 1=No, 2=Always
 	options     []string
 	showDetails bool
-	
+
 	// Styling
-	modalStyle      lipgloss.Style
-	titleStyle      lipgloss.Style
-	messageStyle    lipgloss.Style
-	detailsStyle    lipgloss.Style
-	buttonStyle     lipgloss.Style
-	selectedStyle   lipgloss.Style
-	highlightStyle  lipgloss.Style
-	
+	modalStyle     lipgloss.Style
+	titleStyle     lipgloss.Style
+	messageStyle   lipgloss.Style
+	detailsStyle   lipgloss.Style
+	buttonStyle    lipgloss.Style
+	selectedStyle  lipgloss.Style
+	highlightStyle lipgloss.Style
+
 	// Response channel
 	responseChan chan ApprovalResponse
-	
+
 	// State
 	done   bool
 	result ApprovalResponse
@@ -77,44 +77,44 @@ type ApprovalResult struct {
 // NewApprovalModel creates a new approval model
 func NewApprovalModel(reqType ApprovalType, title, message, details string) ApprovalModel {
 	options := []string{"Yes (y)", "No (n)", "Always (a)"}
-	
+
 	return ApprovalModel{
-		requestType: reqType,
-		title:       title,
-		message:     message,
-		details:     details,
-		selected:    0,
-		options:     options,
-		showDetails: true,
+		requestType:  reqType,
+		title:        title,
+		message:      message,
+		details:      details,
+		selected:     0,
+		options:      options,
+		showDetails:  true,
 		responseChan: make(chan ApprovalResponse, 1),
-		
+
 		modalStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#7D56F4")).
 			Padding(1, 2).
 			Width(70),
-		
+
 		titleStyle: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#7D56F4")),
-		
+
 		messageStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#E0E0E0")),
-		
+
 		detailsStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#A0A0A0")).
 			Background(lipgloss.Color("#2a2a2a")).
 			Padding(1, 1),
-		
+
 		buttonStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#808080")),
-		
+
 		selectedStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00D9FF")).
 			Bold(true).
 			Background(lipgloss.Color("#1a1a1a")).
 			Padding(0, 1),
-		
+
 		highlightStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF6B6B")).
 			Bold(true),
@@ -231,7 +231,7 @@ func (m ApprovalModel) View() string {
 		detailsLabel := m.highlightStyle.Render("Details (d to toggle):")
 		content.WriteString(detailsLabel)
 		content.WriteString("\n")
-		
+
 		// Truncate details if too long
 		details := m.details
 		maxDetailsLen := 300
@@ -256,7 +256,7 @@ func (m ApprovalModel) View() string {
 
 	// Apply modal styling
 	modalContent := content.String()
-	
+
 	// Center the modal
 	centered := lipgloss.Place(
 		m.width,
@@ -344,19 +344,19 @@ func (m ApprovalModel) GetError() error {
 // ShowApprovalPrompt shows an approval prompt and returns the user's response
 func ShowApprovalPrompt(reqType ApprovalType, title, message, details string) (ApprovalResponse, error) {
 	model := NewApprovalModel(reqType, title, message, details)
-	
+
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	m, err := p.Run()
 	if err != nil {
 		return ApprovalNo, err
 	}
-	
+
 	approvalModel, ok := m.(ApprovalModel)
 	if !ok {
 		return ApprovalNo, fmt.Errorf("unexpected model type")
 	}
-	
+
 	return approvalModel.GetResult(), nil
 }
 
@@ -364,13 +364,13 @@ func ShowApprovalPrompt(reqType ApprovalType, title, message, details string) (A
 func CommandApprovalPrompt(command string, isDangerous bool) (ApprovalResponse, error) {
 	title := "Command Approval"
 	message := "Cline wants to execute a command:"
-	
+
 	details := fmt.Sprintf("Command: %s", command)
 	if isDangerous {
 		message = "⚠️ Cline wants to execute a potentially dangerous command:"
 		details += "\n\nWarning: This command may modify files or system state."
 	}
-	
+
 	return ShowApprovalPrompt(ApprovalTypeCommand, title, message, details)
 }
 
@@ -378,14 +378,14 @@ func CommandApprovalPrompt(command string, isDangerous bool) (ApprovalResponse, 
 func ToolApprovalPrompt(toolName string, params map[string]interface{}) (ApprovalResponse, error) {
 	title := "Tool Approval"
 	message := fmt.Sprintf("Cline wants to use the %s tool:", toolName)
-	
+
 	// Format params
 	var paramStrs []string
 	for key, value := range params {
 		paramStrs = append(paramStrs, fmt.Sprintf("  %s: %v", key, value))
 	}
 	details := strings.Join(paramStrs, "\n")
-	
+
 	return ShowApprovalPrompt(ApprovalTypeTool, title, message, details)
 }
 
@@ -393,7 +393,7 @@ func ToolApprovalPrompt(toolName string, params map[string]interface{}) (Approva
 func EditApprovalPrompt(filename string, diff string) (ApprovalResponse, error) {
 	title := "Edit Approval"
 	message := fmt.Sprintf("Cline wants to edit %s:", filename)
-	
+
 	return ShowApprovalPrompt(ApprovalTypeEdit, title, message, diff)
 }
 
@@ -402,6 +402,6 @@ func BrowserApprovalPrompt(action, url string) (ApprovalResponse, error) {
 	title := "Browser Action Approval"
 	message := fmt.Sprintf("Cline wants to %s in the browser:", action)
 	details := fmt.Sprintf("URL: %s", url)
-	
+
 	return ShowApprovalPrompt(ApprovalTypeBrowser, title, message, details)
 }

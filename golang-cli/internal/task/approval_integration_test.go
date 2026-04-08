@@ -316,7 +316,7 @@ func TestTimeoutApproverIntegration(t *testing.T) {
 			// If no context, just return true immediately
 			return true
 		}
-		
+
 		select {
 		case <-ctx.Done():
 			return false // Context cancelled

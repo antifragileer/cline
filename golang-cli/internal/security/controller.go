@@ -100,10 +100,10 @@ func (c *CommandPermissionController) ValidateCommand(command string) Permission
 			// Only use segment-specific reasons for multi-segment commands
 			if isMultiSegment {
 				return PermissionValidationResult{
-					Allowed:       false,
+					Allowed:        false,
 					MatchedPattern: result.MatchedPattern,
-					Reason:        c.mapSegmentReason(result.Reason),
-					FailedSegment: segment,
+					Reason:         c.mapSegmentReason(result.Reason),
+					FailedSegment:  segment,
 				}
 			}
 			return result

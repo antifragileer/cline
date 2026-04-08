@@ -644,7 +644,7 @@ func TestRecoveryManager_SetRecoveryCallbacks(t *testing.T) {
 	if rm.onRecoveryStart == nil || rm.onRecoveryEnd == nil {
 		t.Error("Callbacks should be set")
 	}
-	
+
 	// Silence unused warning - callbacks were set
 	_ = callbackSet
 }

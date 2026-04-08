@@ -243,7 +243,7 @@ func (mh *ModeHandler) SwitchMode(request ModeSwitchRequest) ModeSwitchResult {
 	mh.mode = request.TargetMode
 
 	return ModeSwitchResult{
-		Success:     true,
+		Success:      true,
 		PreviousMode: previousMode,
 		CurrentMode:  mh.mode,
 		Message: fmt.Sprintf("Switched from %s to %s mode%s",
@@ -333,9 +333,9 @@ func (mh *ModeHandler) GetCapabilities() ModeCapabilities {
 
 // ModeSummary provides a summary of mode behavior
 type ModeSummary struct {
-	Mode         TaskMode           `json:"mode"`
-	Description  string             `json:"description"`
-	Capabilities ModeCapabilities   `json:"capabilities"`
+	Mode         TaskMode         `json:"mode"`
+	Description  string           `json:"description"`
+	Capabilities ModeCapabilities `json:"capabilities"`
 }
 
 // GetModeSummary returns a summary of the current mode

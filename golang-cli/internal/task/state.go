@@ -410,14 +410,14 @@ func copyState(state *TaskState) *TaskState {
 	}
 
 	stateCopy := &TaskState{
-		TaskID:        state.TaskID,
-		Status:        state.Status,
-		StartedAt:     state.StartedAt,
-		LastActivity:  state.LastActivity,
-		CurrentPrompt: state.CurrentPrompt,
-		Mode:          state.Mode,
+		TaskID:         state.TaskID,
+		Status:         state.Status,
+		StartedAt:      state.StartedAt,
+		LastActivity:   state.LastActivity,
+		CurrentPrompt:  state.CurrentPrompt,
+		Mode:           state.Mode,
 		CheckpointHash: state.CheckpointHash,
-		Metadata:      make(map[string]interface{}),
+		Metadata:       make(map[string]interface{}),
 	}
 
 	// Deep copy metadata

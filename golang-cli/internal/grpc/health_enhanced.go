@@ -42,17 +42,17 @@ func (h HealthStatus) String() string {
 // HealthMetrics contains health-related metrics
 type HealthMetrics struct {
 	// Connection metrics
-	LastPingTime      time.Time
-	LastPingDuration  time.Duration
-	AveragePingTime   time.Duration
-	PingCount         int64
-	FailedPingCount   int64
+	LastPingTime     time.Time
+	LastPingDuration time.Duration
+	AveragePingTime  time.Duration
+	PingCount        int64
+	FailedPingCount  int64
 
 	// Message metrics
-	MessagesSent      int64
-	MessagesReceived  int64
-	MessagesDropped   int64
-	AverageLatency    time.Duration
+	MessagesSent     int64
+	MessagesReceived int64
+	MessagesDropped  int64
+	AverageLatency   time.Duration
 
 	// Error metrics
 	ConsecutiveErrors int
@@ -60,22 +60,22 @@ type HealthMetrics struct {
 	TotalErrors       int64
 
 	// Timestamp
-	RecordedAt        time.Time
+	RecordedAt time.Time
 }
 
 // HealthMonitor monitors the health of a gRPC connection
 type HealthMonitor struct {
-	conn           *grpc.ClientConn
-	healthClient   grpc_health_v1.HealthClient
-	checkInterval  time.Duration
-	timeout        time.Duration
+	conn          *grpc.ClientConn
+	healthClient  grpc_health_v1.HealthClient
+	checkInterval time.Duration
+	timeout       time.Duration
 
 	// State
-	status         HealthStatus
-	statusMu       sync.RWMutex
-	metrics        HealthMetrics
-	metricsMu      sync.RWMutex
-	lastCheckTime  time.Time
+	status        HealthStatus
+	statusMu      sync.RWMutex
+	metrics       HealthMetrics
+	metricsMu     sync.RWMutex
+	lastCheckTime time.Time
 
 	// Callbacks
 	onStatusChange func(HealthStatus, HealthStatus)
@@ -314,11 +314,11 @@ func (h *HealthMonitor) WaitForHealthy(ctx context.Context) error {
 
 // ConnectionHealthReport provides a comprehensive health report
 type ConnectionHealthReport struct {
-	Status           HealthStatus
-	ConnectionState  connectivity.State
-	Metrics          HealthMetrics
-	LastCheckTime    time.Time
-	Recommendations  []string
+	Status          HealthStatus
+	ConnectionState connectivity.State
+	Metrics         HealthMetrics
+	LastCheckTime   time.Time
+	Recommendations []string
 }
 
 // GenerateReport generates a comprehensive health report

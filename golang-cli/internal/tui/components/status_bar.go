@@ -26,19 +26,19 @@ const (
 
 // StatusBar displays the current application status
 type StatusBar struct {
-	status       StatusType
-	message      string
-	taskID       string
-	mode         string
-	connection   string
-	provider     string
-	model        string
-	yolo         bool
-	streaming    bool
-	messageCount int
-	pendingChanges int
+	status           StatusType
+	message          string
+	taskID           string
+	mode             string
+	connection       string
+	provider         string
+	model            string
+	yolo             bool
+	streaming        bool
+	messageCount     int
+	pendingChanges   int
 	pendingApprovals int
-	width        int
+	width            int
 }
 
 // NewStatusBar creates a new status bar
