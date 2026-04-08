@@ -25,6 +25,13 @@ type PlainFormatter struct {
 	// Track state for proper formatting
 	inProgress  bool
 	lastWasSame bool
+
+	// YOLO mode settings
+	yoloMode          bool
+	autoApproveRead   bool
+	autoApproveEdit   bool
+	autoApproveRunCmd bool
+	autoApproveMCP    bool
 }
 
 // NewPlainFormatter creates a new plain text formatter
@@ -47,6 +54,59 @@ func NewPlainFormatter(output, errOutput io.Writer, useColor, verbose bool) *Pla
 // SetExitHandler sets the exit handler for proper exit code management
 func (f *PlainFormatter) SetExitHandler(handler *exit.Handler) {
 	f.exitHandler = handler
+}
+
+// SetYOLOMode enables YOLO mode with auto-approval for all tools
+func (f *PlainFormatter) SetYOLOMode(enabled bool) {
+	f.yoloMode = enabled
+	if enabled {
+		// Enable all auto-approval settings when YOLO mode is on
+		f.autoApproveRead = true
+		f.autoApproveEdit = true
+		f.autoApproveRunCmd = true
+		f.autoApproveMCP = true
+	}
+}
+
+// SetAutoApproveSettings configures individual auto-approval settings
+func (f *PlainFormatter) SetAutoApproveSettings(read, edit, runCmd, mcp bool) {
+	f.autoApproveRead = read
+	f.autoApproveEdit = edit
+	f.autoApproveRunCmd = runCmd
+	f.autoApproveMCP = mcp
+}
+
+// ShouldAutoApprove returns true if the given tool/operation should be auto-approved
+func (f *PlainFormatter) ShouldAutoApprove(toolName string, isRead bool, isWrite bool, isCommand bool, isMCP bool) bool {
+	// YOLO mode auto-approves everything
+	if f.yoloMode {
+		return true
+	}
+
+	// Check specific auto-approval settings
+	switch {
+	case isRead && f.autoApproveRead:
+		return true
+	case isWrite && f.autoApproveEdit:
+		return true
+	case isCommand && f.autoApproveRunCmd:
+		return true
+	case isMCP && f.autoApproveMCP:
+		return true
+	}
+
+	return false
+}
+
+// GetYOLOIndicator returns a visual indicator for YOLO mode
+func (f *PlainFormatter) GetYOLOIndicator() string {
+	if f.yoloMode {
+		if !f.useColor {
+			return "[YOLO] "
+		}
+		return f.styleSuccess("[YOLO] ")
+	}
+	return ""
 }
 
 // FormatSayMessage formats a SAY message in plain text
@@ -458,7 +518,21 @@ func (h *PlainHandler) OnSay(sayType string, text string, partial bool) error {
 
 // OnAsk handles ASK messages
 func (h *PlainHandler) OnAsk(askType string, text string) (string, error) {
-	// Auto-approve if enabled
+	// Check for YOLO mode auto-approval first
+	isRead := askType == "tool" && strings.Contains(text, "read_file")
+	isWrite := askType == "tool" && (strings.Contains(text, "write_to_file") || strings.Contains(text, "replace_in_file"))
+	isCommand := askType == "command"
+	isMCP := askType == "use_mcp_server"
+
+	if h.formatter.ShouldAutoApprove("", isRead, isWrite, isCommand, isMCP) {
+		// In YOLO mode, auto-approve and show indicator
+		if h.verbose {
+			h.formatter.printInfo(fmt.Sprintf("Auto-approved %s (YOLO mode)", askType))
+		}
+		return "yesButtonClicked", nil
+	}
+
+	// Auto-approve if enabled via autoApprove flag
 	if h.autoApprove {
 		if h.verbose {
 			h.formatter.printInfo(fmt.Sprintf("Auto-approved: %s", askType))

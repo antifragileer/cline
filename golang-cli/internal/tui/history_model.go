@@ -28,10 +28,29 @@ type HistoryModel struct {
 	width    int
 	height   int
 	items    []HistoryItem
+	filtered []HistoryItem // Filtered items when search is active
 	cursor   int
 	selected string
 	goBack   bool
 	styles   HistoryStyles
+
+	// Search functionality
+	searchMode    bool
+	searchQuery   string
+	searchInput   string
+	isSearching   bool
+
+	// Pagination
+	page       int
+	pageSize   int
+	totalPages int
+
+	// Task preview
+	previewMode   bool
+	previewTask   *HistoryItem
+
+	// Selection callback
+	onSelectTask func(string)
 }
 
 // HistoryStyles holds styling for the history screen.
@@ -48,7 +67,7 @@ type HistoryStyles struct {
 func DefaultHistoryStyles() HistoryStyles {
 	return HistoryStyles{
 		containerStyle: lipgloss.NewStyle().
-			Padding(2, 4),
+			Padding(1, 2),
 
 		titleStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(PrimaryBlue)).
@@ -77,9 +96,13 @@ func DefaultHistoryStyles() HistoryStyles {
 // NewHistoryModel creates a new history model.
 func NewHistoryModel() *HistoryModel {
 	return &HistoryModel{
-		items:  make([]HistoryItem, 0),
-		cursor: 0,
-		styles: DefaultHistoryStyles(),
+		items:      make([]HistoryItem, 0),
+		filtered:   make([]HistoryItem, 0),
+		cursor:     0,
+		page:       1,
+		pageSize:   10,
+		styles:     DefaultHistoryStyles(),
+		searchMode: false,
 	}
 }
 
@@ -96,105 +119,360 @@ func (m HistoryModel) Init() tea.Cmd {
 
 // Update handles messages and updates the model.
 func (m *HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle search mode input first
+	if m.searchMode {
+		return m.handleSearchInput(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
+			if m.previewMode {
+				m.previewMode = false
+				m.previewTask = nil
+				return m, nil
+			}
 			m.goBack = true
 			return m, nil
 
 		case tea.KeyUp:
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			m.moveUp()
 			return m, nil
 
 		case tea.KeyDown:
-			if m.cursor < len(m.items)-1 {
-				m.cursor++
+			m.moveDown()
+			return m, nil
+
+		case tea.KeyLeft:
+			if m.page > 1 {
+				m.page--
+				m.cursor = 0
+			}
+			return m, nil
+
+		case tea.KeyRight:
+			if m.page < m.totalPages {
+				m.page++
+				m.cursor = 0
 			}
 			return m, nil
 
 		case tea.KeyEnter:
-			if m.cursor < len(m.items) {
-				m.selected = m.items[m.cursor].ID
-			}
+			m.handleEnter()
 			return m, nil
 
 		case tea.KeyRunes:
-			switch msg.String() {
-			case "q", "Q":
-				m.goBack = true
-				return m, nil
-			case "r", "R":
-				m.Refresh()
-				return m, nil
-			}
+			return m.handleRuneInput(msg.String())
 		}
 	}
 
 	return m, nil
 }
 
+// handleSearchInput handles input when in search mode
+func (m *HistoryModel) handleSearchInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			m.searchMode = false
+			m.searchQuery = ""
+			m.searchInput = ""
+			m.applyFilter()
+			return m, nil
+
+		case tea.KeyEnter:
+			m.searchMode = false
+			m.searchQuery = m.searchInput
+			m.applyFilter()
+			return m, nil
+
+		case tea.KeyBackspace:
+			if len(m.searchInput) > 0 {
+				m.searchInput = m.searchInput[:len(m.searchInput)-1]
+			}
+			return m, nil
+
+		case tea.KeyRunes:
+			m.searchInput += msg.String()
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+// handleRuneInput handles character input for shortcuts
+func (m *HistoryModel) handleRuneInput(input string) (tea.Model, tea.Cmd) {
+	switch input {
+	case "q", "Q":
+		m.goBack = true
+		return m, nil
+	case "r", "R":
+		m.Refresh()
+		return m, nil
+	case "j":
+		m.moveDown()
+		return m, nil
+	case "k":
+		m.moveUp()
+		return m, nil
+	case "/", "?":
+		m.searchMode = true
+		m.searchInput = m.searchQuery
+		return m, nil
+	case "n":
+		if m.page < m.totalPages {
+			m.page++
+			m.cursor = 0
+		}
+		return m, nil
+	case "p":
+		if m.page > 1 {
+			m.page--
+			m.cursor = 0
+		}
+		return m, nil
+	case " ", "v":
+		// Toggle preview mode
+		m.togglePreview()
+		return m, nil
+	}
+	return m, nil
+}
+
+// moveUp moves the cursor up
+func (m *HistoryModel) moveUp() {
+	if m.cursor > 0 {
+		m.cursor--
+	} else if m.page > 1 {
+		m.page--
+		items := m.getCurrentPageItems()
+		m.cursor = len(items) - 1
+	}
+}
+
+// moveDown moves the cursor down
+func (m *HistoryModel) moveDown() {
+	items := m.getCurrentPageItems()
+	if m.cursor < len(items)-1 {
+		m.cursor++
+	} else if m.page < m.totalPages {
+		m.page++
+		m.cursor = 0
+	}
+}
+
+// handleEnter handles enter key press
+func (m *HistoryModel) handleEnter() {
+	items := m.getCurrentPageItems()
+	if m.cursor < len(items) {
+		task := items[m.cursor]
+		m.selected = task.ID
+		if m.onSelectTask != nil {
+			m.onSelectTask(task.ID)
+		}
+	}
+}
+
+// togglePreview toggles preview mode for the selected task
+func (m *HistoryModel) togglePreview() {
+	if m.previewMode {
+		m.previewMode = false
+		m.previewTask = nil
+	} else {
+		items := m.getCurrentPageItems()
+		if m.cursor < len(items) {
+			m.previewMode = true
+			task := items[m.cursor]
+			m.previewTask = &task
+		}
+	}
+}
+
+// applyFilter applies the search filter to items
+func (m *HistoryModel) applyFilter() {
+	if m.searchQuery == "" {
+		m.filtered = m.items
+	} else {
+		query := strings.ToLower(m.searchQuery)
+		m.filtered = make([]HistoryItem, 0)
+		for _, item := range m.items {
+			if strings.Contains(strings.ToLower(item.Task), query) ||
+				strings.Contains(strings.ToLower(item.ID), query) ||
+				strings.Contains(strings.ToLower(item.Model), query) {
+				m.filtered = append(m.filtered, item)
+			}
+		}
+	}
+	m.page = 1
+	m.cursor = 0
+	m.calculateTotalPages()
+}
+
 // View renders the history screen.
 func (m HistoryModel) View() string {
 	var content strings.Builder
 
-	// Title
-	content.WriteString(m.styles.titleStyle.Render("Task History"))
-	content.WriteString("\n\n")
-
-	if len(m.items) == 0 {
-		content.WriteString(m.styles.dimStyle.Render("No task history found."))
-		content.WriteString("\n")
-		content.WriteString(m.styles.helpStyle.Render("Press Esc or q to go back"))
-		return m.styles.containerStyle.Render(content.String())
+	// Title with count
+	totalCount := len(m.items)
+	filteredCount := len(m.filtered)
+	title := "Task History"
+	if filteredCount != totalCount {
+		title = fmt.Sprintf("Task History (%d of %d)", filteredCount, totalCount)
+	} else {
+		title = fmt.Sprintf("Task History (%d total)", totalCount)
 	}
-
-	// Calculate visible range
-	maxVisible := m.height - 8
-	startIdx := 0
-	endIdx := len(m.items)
-
-	if m.cursor >= maxVisible {
-		startIdx = m.cursor - maxVisible + 1
-		endIdx = startIdx + maxVisible
-		if endIdx > len(m.items) {
-			endIdx = len(m.items)
-			startIdx = endIdx - maxVisible
-			if startIdx < 0 {
-				startIdx = 0
-			}
-		}
-	}
-
-	// Items
-	for i := startIdx; i < endIdx && i < len(m.items); i++ {
-		item := m.items[i]
-		isSelected := i == m.cursor
-
-		line := m.formatItem(item, isSelected)
-		if isSelected {
-			content.WriteString(m.styles.selectedStyle.Render(line))
-		} else {
-			content.WriteString(m.styles.itemStyle.Render(line))
-		}
-		content.WriteString("\n")
-	}
-
-	// Scroll indicator
-	if len(m.items) > maxVisible {
-		content.WriteString("\n")
-		scrollInfo := fmt.Sprintf("Showing %d-%d of %d", startIdx+1, endIdx, len(m.items))
-		content.WriteString(m.styles.dimStyle.Render(scrollInfo))
-		content.WriteString("\n")
-	}
-
-	// Help
+	content.WriteString(m.styles.titleStyle.Render("📜 " + title))
 	content.WriteString("\n")
-	content.WriteString(m.styles.helpStyle.Render("↑↓ to navigate • Enter to select • R to refresh • Esc/q to go back"))
+
+	// Search mode indicator
+	if m.searchMode {
+		content.WriteString(m.styles.dimStyle.Render("Search: " + m.searchInput + "▌"))
+		content.WriteString("\n")
+	} else if m.searchQuery != "" {
+		content.WriteString(m.styles.dimStyle.Render("Filter: " + m.searchQuery + " [/ to search]"))
+		content.WriteString("\n")
+	} else {
+		content.WriteString(m.styles.dimStyle.Render("Use ↑↓/j/k to navigate, Enter to select, / to search"))
+		content.WriteString("\n")
+	}
+
+	// Pagination info
+	if m.totalPages > 1 {
+		content.WriteString(m.styles.dimStyle.Render(fmt.Sprintf("Page %d of %d", m.page, m.totalPages)))
+		if m.page > 1 {
+			content.WriteString(m.styles.dimStyle.Render(" [←/p prev]"))
+		}
+		if m.page < m.totalPages {
+			content.WriteString(m.styles.dimStyle.Render(" [next/n →]"))
+		}
+		content.WriteString("\n")
+	}
+
+	// Separator
+	separatorWidth := m.width - 4
+	if separatorWidth < 0 {
+		separatorWidth = 0
+	}
+	content.WriteString(m.styles.dimStyle.Render(strings.Repeat("─", separatorWidth)))
+	content.WriteString("\n")
+
+	// Get current page items
+	items := m.getCurrentPageItems()
+
+	if len(items) == 0 {
+		if m.searchQuery != "" {
+			content.WriteString(m.styles.dimStyle.Render("No tasks match your search."))
+		} else {
+			content.WriteString(m.styles.dimStyle.Render("No task history found."))
+		}
+		content.WriteString("\n")
+	} else {
+		// Items
+		for i, item := range items {
+			isSelected := i == m.cursor
+			line := m.formatItem(item, isSelected)
+
+			if isSelected {
+				content.WriteString(m.styles.selectedStyle.Render(line))
+			} else {
+				content.WriteString(m.styles.itemStyle.Render(line))
+			}
+			content.WriteString("\n")
+		}
+	}
+
+	// Preview mode
+	if m.previewMode && m.previewTask != nil {
+		content.WriteString("\n")
+		previewSepWidth := m.width - 4
+		if previewSepWidth < 0 {
+			previewSepWidth = 0
+		}
+		content.WriteString(m.styles.dimStyle.Render(strings.Repeat("─", previewSepWidth)))
+		content.WriteString("\n")
+		content.WriteString(m.renderPreview())
+	}
+
+	// Separator and help
+	helpSepWidth := m.width - 4
+	if helpSepWidth < 0 {
+		helpSepWidth = 0
+	}
+	content.WriteString(m.styles.dimStyle.Render(strings.Repeat("─", helpSepWidth)))
+	content.WriteString("\n")
+	
+	if m.previewMode {
+		content.WriteString(m.styles.helpStyle.Render("Space/v: close preview • Enter: select task • Esc/q: back"))
+	} else if m.searchMode {
+		content.WriteString(m.styles.helpStyle.Render("Enter: search • Esc: cancel • Type to filter"))
+	} else {
+		content.WriteString(m.styles.helpStyle.Render("↑↓/j/k: navigate • /: search • Space/v: preview • Enter: select • Esc/q: back"))
+	}
 
 	return m.styles.containerStyle.Render(content.String())
+}
+
+// renderPreview renders the task preview
+func (m *HistoryModel) renderPreview() string {
+	if m.previewTask == nil {
+		return ""
+	}
+
+	var content strings.Builder
+	
+	// Task preview header
+	content.WriteString(m.styles.titleStyle.Render("Task Preview"))
+	content.WriteString("\n\n")
+	
+	// Task details
+	task := m.previewTask
+	content.WriteString(fmt.Sprintf("ID: %s\n", task.ID))
+	content.WriteString(fmt.Sprintf("Date: %s\n", task.Timestamp.Format("2006-01-02 15:04:05")))
+	if task.Model != "" {
+		content.WriteString(fmt.Sprintf("Model: %s\n", task.Model))
+	}
+	if task.Cost > 0 {
+		content.WriteString(fmt.Sprintf("Cost: $%.4f\n", task.Cost))
+	}
+	content.WriteString(fmt.Sprintf("Tokens: %d\n", task.Tokens))
+	content.WriteString("\n")
+	
+	// Task description
+	content.WriteString("Task:\n")
+	taskText := task.Task
+	if len(taskText) > 200 {
+		taskText = taskText[:200] + "..."
+	}
+	content.WriteString(taskText)
+
+	return content.String()
+}
+
+// getCurrentPageItems returns items for the current page
+func (m *HistoryModel) getCurrentPageItems() []HistoryItem {
+	start := (m.page - 1) * m.pageSize
+	end := start + m.pageSize
+	if start > len(m.filtered) {
+		return []HistoryItem{}
+	}
+	if end > len(m.filtered) {
+		end = len(m.filtered)
+	}
+	return m.filtered[start:end]
+}
+
+// calculateTotalPages calculates the total number of pages
+func (m *HistoryModel) calculateTotalPages() {
+	if m.pageSize <= 0 {
+		m.totalPages = 1
+		return
+	}
+	m.totalPages = (len(m.filtered) + m.pageSize - 1) / m.pageSize
+	if m.totalPages < 1 {
+		m.totalPages = 1
+	}
 }
 
 // formatItem formats a history item for display.
@@ -255,25 +533,28 @@ func (m *HistoryModel) formatTime(t time.Time) string {
 // Refresh reloads the history from storage.
 func (m *HistoryModel) Refresh() {
 	// This will be implemented to load from storage
-	// For now, use placeholder data
-	m.items = []HistoryItem{
-		{
-			ID:        "task-001",
-			Timestamp: time.Now().Add(-time.Hour),
-			Task:      "Fix bug in authentication module",
-			Model:     "claude-sonnet-4",
-			Cost:      0.023,
-			Tokens:    1250,
-		},
-		{
-			ID:        "task-002",
-			Timestamp: time.Now().Add(-2 * time.Hour),
-			Task:      "Add unit tests for user service",
-			Model:     "gpt-4o",
-			Cost:      0.045,
-			Tokens:    3200,
-		},
+	// For now, use placeholder data if no items
+	if len(m.items) == 0 {
+		m.items = []HistoryItem{
+			{
+				ID:        "task-001",
+				Timestamp: time.Now().Add(-time.Hour),
+				Task:      "Fix bug in authentication module",
+				Model:     "claude-sonnet-4",
+				Cost:      0.023,
+				Tokens:    1250,
+			},
+			{
+				ID:        "task-002",
+				Timestamp: time.Now().Add(-2 * time.Hour),
+				Task:      "Add unit tests for user service",
+				Model:     "gpt-4o",
+				Cost:      0.045,
+				Tokens:    3200,
+			},
+		}
 	}
+	m.applyFilter()
 }
 
 // LoadFromStorage loads task history from the storage context.
@@ -371,7 +652,25 @@ func (m *HistoryModel) SetStorageContext(storageCtx *storage.StorageContext) {
 // SetItems sets the history items.
 func (m *HistoryModel) SetItems(items []HistoryItem) {
 	m.items = items
+	m.filtered = items
 	m.cursor = 0
+	m.page = 1
+	m.calculateTotalPages()
+}
+
+// SetOnSelectTask sets the callback for task selection
+func (m *HistoryModel) SetOnSelectTask(callback func(string)) {
+	m.onSelectTask = callback
+}
+
+// GetSelectedTaskID returns the selected task ID
+func (m *HistoryModel) GetSelectedTaskID() string {
+	return m.selected
+}
+
+// IsPreviewMode returns whether preview mode is active
+func (m *HistoryModel) IsPreviewMode() bool {
+	return m.previewMode
 }
 
 // ShouldGoBack returns true if the user wants to go back.

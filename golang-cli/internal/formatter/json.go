@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cline/cline/golang-cli/internal/task"
@@ -50,14 +51,15 @@ func NewJSONFormatter(output, errOutput io.Writer, streaming bool) *JSONFormatte
 }
 
 // JSONMessage represents a complete JSON message matching TypeScript CLI format
+// Fields are ordered to match Node.js output format exactly
 type JSONMessage struct {
-	// Standard fields
+	// Standard fields (always first)
 	Ts      int64  `json:"ts"`
 	Type    string `json:"type"`
 	Text    string `json:"text,omitempty"`
 	Partial bool   `json:"partial,omitempty"`
 
-	// SAY message fields
+	// SAY/ASK type fields
 	Say string `json:"say,omitempty"`
 	Ask string `json:"ask,omitempty"`
 
@@ -91,12 +93,165 @@ type JSONMessage struct {
 	APIRequestStarted  *APIRequestInfo `json:"apiRequestStarted,omitempty"`
 	APIRequestFinished *APIRequestInfo `json:"apiRequestFinished,omitempty"`
 
-	// Error fields
+	// Error fields (must be in consistent order)
 	Error   string                 `json:"error,omitempty"`
 	Details map[string]interface{} `json:"details,omitempty"`
 
-	// Metadata for extensibility
+	// Metadata always last
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// OrderedJSONOutput produces JSON with fields in specific order for byte-for-byte matching
+type OrderedJSONOutput struct {
+	buf *strings.Builder
+}
+
+// NewOrderedJSONOutput creates a new ordered JSON output
+func NewOrderedJSONOutput() *OrderedJSONOutput {
+	return &OrderedJSONOutput{
+		buf: &strings.Builder{},
+	}
+}
+
+// WriteMessage writes a message with fields in specific order
+func (o *OrderedJSONOutput) WriteMessage(msg JSONMessage) error {
+	o.buf.WriteString("{")
+	
+	// Write fields in order
+	first := true
+	
+	// ts (required)
+	first = o.writeField(first, "ts", msg.Ts)
+	
+	// type (required)
+	first = o.writeField(first, "type", msg.Type)
+	
+	// text
+	if msg.Text != "" {
+		first = o.writeField(first, "text", msg.Text)
+	}
+	
+	// partial
+	if msg.Partial {
+		first = o.writeField(first, "partial", msg.Partial)
+	}
+	
+	// say
+	if msg.Say != "" {
+		first = o.writeField(first, "say", msg.Say)
+	}
+	
+	// ask
+	if msg.Ask != "" {
+		first = o.writeField(first, "ask", msg.Ask)
+	}
+	
+	// reasoning
+	if msg.Reasoning != "" {
+		first = o.writeField(first, "reasoning", msg.Reasoning)
+	}
+	
+	// images
+	if len(msg.Images) > 0 {
+		first = o.writeField(first, "images", msg.Images)
+	}
+	
+	// files
+	if len(msg.Files) > 0 {
+		first = o.writeField(first, "files", msg.Files)
+	}
+	
+	// commandCompleted
+	if msg.CommandCompleted {
+		first = o.writeField(first, "commandCompleted", msg.CommandCompleted)
+	}
+	
+	// lastCheckpointHash
+	if msg.LastCheckpointHash != "" {
+		first = o.writeField(first, "lastCheckpointHash", msg.LastCheckpointHash)
+	}
+	
+	// isCheckpointCheckedOut
+	if msg.IsCheckpointCheckedOut {
+		first = o.writeField(first, "isCheckpointCheckedOut", msg.IsCheckpointCheckedOut)
+	}
+	
+	// isOperationOutsideWorkspace
+	if msg.IsOperationOutsideWorkspace {
+		first = o.writeField(first, "isOperationOutsideWorkspace", msg.IsOperationOutsideWorkspace)
+	}
+	
+	// conversationHistoryIndex
+	if msg.ConversationHistoryIndex != 0 {
+		first = o.writeField(first, "conversationHistoryIndex", msg.ConversationHistoryIndex)
+	}
+	
+	// conversationHistoryDeletedRange
+	if len(msg.ConversationHistoryDeletedRange) > 0 {
+		first = o.writeField(first, "conversationHistoryDeletedRange", msg.ConversationHistoryDeletedRange)
+	}
+	
+	// toolName
+	if msg.ToolName != "" {
+		first = o.writeField(first, "toolName", msg.ToolName)
+	}
+	
+	// toolInput
+	if len(msg.ToolInput) > 0 {
+		first = o.writeField(first, "toolInput", msg.ToolInput)
+	}
+	
+	// toolResult
+	if msg.ToolResult != "" {
+		first = o.writeField(first, "toolResult", msg.ToolResult)
+	}
+	
+	// apiRequestStarted
+	if msg.APIRequestStarted != nil {
+		first = o.writeField(first, "apiRequestStarted", msg.APIRequestStarted)
+	}
+	
+	// apiRequestFinished
+	if msg.APIRequestFinished != nil {
+		first = o.writeField(first, "apiRequestFinished", msg.APIRequestFinished)
+	}
+	
+	// error
+	if msg.Error != "" {
+		first = o.writeField(first, "error", msg.Error)
+	}
+	
+	// details
+	if len(msg.Details) > 0 {
+		first = o.writeField(first, "details", msg.Details)
+	}
+	
+	// metadata always last
+	if len(msg.Metadata) > 0 {
+		first = o.writeField(first, "metadata", msg.Metadata)
+	}
+	
+	o.buf.WriteString("}")
+	return nil
+}
+
+func (o *OrderedJSONOutput) writeField(first bool, name string, value interface{}) bool {
+	if !first {
+		o.buf.WriteString(",")
+	}
+	
+	data, err := json.Marshal(value)
+	if err != nil {
+		data = []byte("null")
+	}
+	
+	o.buf.WriteString(fmt.Sprintf(`"%s":%s`, name, string(data)))
+	return false
+}
+
+// String returns the accumulated JSON
+func (o *OrderedJSONOutput) String() string {
+	return o.buf.String()
 }
 
 // APIRequestInfo contains API request details
@@ -406,17 +561,61 @@ func (f *JSONFormatter) outputJSON(message JSONMessage) error {
 
 	// In streaming mode, output each message on a new line (JSON Lines format)
 	if f.streaming {
-		// For JSON Lines, we don't want indentation
-		data, err := json.Marshal(message)
-		if err != nil {
+		// Use ordered output for consistent field ordering
+		ordered := NewOrderedJSONOutput()
+		if err := ordered.WriteMessage(message); err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
-		_, err = fmt.Fprintln(f.output, string(data))
+		_, err := fmt.Fprintln(f.output, ordered.String())
 		return err
 	}
 
 	// Non-streaming mode: output as part of a JSON array or object
-	return f.encoder.Encode(message)
+	// Use ordered output for consistency
+	ordered := NewOrderedJSONOutput()
+	if err := ordered.WriteMessage(message); err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	
+	// In non-streaming mode, we need to output valid JSON array
+	_, err := fmt.Fprintln(f.output, ordered.String())
+	return err
+}
+
+// FormatErrorOutput formats an error as JSON output
+func (f *JSONFormatter) FormatErrorOutput(err error) error {
+	message := JSONMessage{
+		Ts:    f.getNextTimestamp(),
+		Type:  "error",
+		Error: err.Error(),
+		Details: map[string]interface{}{
+			"message": err.Error(),
+			"type":    "error",
+		},
+	}
+	return f.outputJSON(message)
+}
+
+// FormatWarningOutput formats a warning as JSON output
+func (f *JSONFormatter) FormatWarningOutput(message string) error {
+	msg := JSONMessage{
+		Ts:      f.getNextTimestamp(),
+		Type:    "warning",
+		Text:    message,
+		Partial: false,
+	}
+	return f.outputJSON(msg)
+}
+
+// FormatInfoOutput formats an info message as JSON output
+func (f *JSONFormatter) FormatInfoOutput(message string) error {
+	msg := JSONMessage{
+		Ts:      f.getNextTimestamp(),
+		Type:    "info",
+		Text:    message,
+		Partial: false,
+	}
+	return f.outputJSON(msg)
 }
 
 // getNextTimestamp generates a unique timestamp for message ordering

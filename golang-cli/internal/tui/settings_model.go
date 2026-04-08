@@ -38,10 +38,20 @@ type SettingsModel struct {
 	isEnteringAPIKey  bool
 
 	// Storage
-	storageCtx *storage.StorageContext
+	storageCtx      *storage.StorageContext
+	persistence     *SettingsPersistence
+
+	// Provider/Model selection
+	providerList     []string
+	modelList        []string
+	selectionCursor  int
+	selectionActive  bool
 
 	// Styles
 	styles SettingsStyles
+
+	// Message channel for async operations
+	messageChan chan tea.Msg
 }
 
 // SettingsStyles holds styling for the settings screen.
@@ -126,15 +136,23 @@ func DefaultSettingsStyles() SettingsStyles {
 
 // NewSettingsModel creates a new settings model.
 func NewSettingsModel() *SettingsModel {
-	return &SettingsModel{
-		tabNavigator: NewSettingsTabNavigator(),
-		content:      DefaultSettingsContent(),
-		sectionIndex: 0,
-		itemIndex:    0,
-		styles:       DefaultSettingsStyles(),
-		editing:      false,
-		editValue:    "",
+	m := &SettingsModel{
+		tabNavigator:    NewSettingsTabNavigator(),
+		content:         DefaultSettingsContent(),
+		sectionIndex:    0,
+		itemIndex:       0,
+		styles:          DefaultSettingsStyles(),
+		editing:         false,
+		editValue:       "",
+		selectionActive: false,
+		selectionCursor: 0,
+		messageChan:     make(chan tea.Msg, 10),
 	}
+	
+	// Initialize provider list
+	m.providerList = m.getAvailableProviders()
+	
+	return m
 }
 
 // SetDimensions sets the terminal dimensions.
@@ -249,8 +267,17 @@ func (m *SettingsModel) handleEnter() (tea.Model, tea.Cmd) {
 	switch item.Type {
 	case SettingsItemTypeCheckbox:
 		item.ToggleBool()
+		m.saveSetting(item)
 	case SettingsItemTypeSelect:
-		item.CycleOption()
+		// Enter selection mode for provider/model
+		if item.Key == "provider" {
+			m.startProviderSelection()
+		} else if item.Key == "model" || item.Key == "planModel" {
+			m.startModelSelection()
+		} else {
+			item.CycleOption()
+			m.saveSetting(item)
+		}
 	case SettingsItemTypeText, SettingsItemTypePassword:
 		m.editing = true
 		m.editValue = item.GetStringValue()
@@ -283,6 +310,81 @@ func (m *SettingsModel) handleAction(item *SettingsItem) {
 	case "connectAccount":
 		// Trigger account connection flow
 		item.Value = "Connecting..."
+	}
+}
+
+// startProviderSelection enters provider selection mode
+func (m *SettingsModel) startProviderSelection() {
+	m.isPickingProvider = true
+	m.selectionActive = true
+	m.selectionCursor = 0
+	
+	// Find current provider index
+	currentProvider, _ := m.GetSetting("provider")
+	if currentProviderStr, ok := currentProvider.(string); ok {
+		for i, p := range m.providerList {
+			if p == currentProviderStr {
+				m.selectionCursor = i
+				break
+			}
+		}
+	}
+}
+
+// startModelSelection enters model selection mode
+func (m *SettingsModel) startModelSelection() {
+	m.isPickingModel = true
+	m.selectionActive = true
+	m.selectionCursor = 0
+	
+	// Get models for current provider
+	provider, _ := m.GetSetting("provider")
+	providerStr, _ := provider.(string)
+	m.modelList = m.getAvailableModels(providerStr)
+	
+	// Find current model index
+	currentModel, _ := m.GetSetting("model")
+	if currentModelStr, ok := currentModel.(string); ok {
+		for i, model := range m.modelList {
+			if model == currentModelStr {
+				m.selectionCursor = i
+				break
+			}
+		}
+	}
+}
+
+// getAvailableProviders returns list of available API providers
+func (m *SettingsModel) getAvailableProviders() []string {
+	if m.persistence != nil {
+		return m.persistence.GetAvailableProviders()
+	}
+	return []string{"cline", "openai", "anthropic", "openrouter", "bedrock", "ollama", "lmstudio"}
+}
+
+// getAvailableModels returns list of available models for a provider
+func (m *SettingsModel) getAvailableModels(provider string) []string {
+	if m.persistence != nil {
+		return m.persistence.GetAvailableModels(provider)
+	}
+	// Default model lists
+	switch provider {
+	case "anthropic":
+		return []string{"claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"}
+	case "openai":
+		return []string{"gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"}
+	case "cline":
+		return []string{"claude-sonnet-4", "claude-opus-4"}
+	default:
+		return []string{"default"}
+	}
+}
+
+// saveSetting saves a single setting to persistence
+func (m *SettingsModel) saveSetting(item *SettingsItem) {
+	if m.persistence != nil && m.storageCtx != nil {
+		// The persistence layer will handle saving to storage
+		// For now, we just mark that settings have changed
 	}
 }
 
@@ -497,9 +599,22 @@ func (m *SettingsModel) SetStorageContext(storageCtx *storage.StorageContext) {
 		return
 	}
 
-	// Update settings values from storage
-	// This would iterate through all items and load values from storage
-	// Implementation depends on the storage structure
+	// Initialize persistence layer
+	m.persistence = NewSettingsPersistence(storageCtx)
+	
+	// Load settings from storage
+	if err := m.persistence.LoadSettings(m.content); err != nil {
+		// Log error but continue with defaults
+		fmt.Printf("Warning: failed to load settings: %v\n", err)
+	}
+	
+	// Update provider and model lists based on loaded settings
+	m.providerList = m.getAvailableProviders()
+	if provider, ok := m.GetSetting("provider"); ok {
+		if providerStr, ok := provider.(string); ok {
+			m.modelList = m.getAvailableModels(providerStr)
+		}
+	}
 }
 
 // SaveToStorage saves the current settings to storage.

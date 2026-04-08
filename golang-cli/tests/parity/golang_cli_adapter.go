@@ -63,6 +63,11 @@ func discoverGoLangCLI() (string, string, bool, error) {
 		filepath.Join(cwd, "dist", "cline"),
 		filepath.Join(cwd, "..", "golang-cli", "cline"),
 		filepath.Join(cwd, "..", "..", "golang-cli", "cline"),
+		// When running from tests/parity subdirectory
+		filepath.Join(cwd, "..", "..", "cline"),
+		filepath.Join(cwd, "..", "cline"),
+		// When running from tests subdirectory
+		filepath.Join(cwd, "..", "cline"),
 	}
 	
 	// Add OS-specific binary names
@@ -119,6 +124,11 @@ func findGoLangSource() string {
 		filepath.Join(cwd, "golang-cli", "cmd", "cline"),
 		filepath.Join(cwd, "..", "golang-cli", "cmd", "cline"),
 		filepath.Join(cwd, "..", "..", "golang-cli", "cmd", "cline"),
+		// When running from tests/parity subdirectory
+		filepath.Join(cwd, "..", "..", "cmd", "cline"),
+		filepath.Join(cwd, "..", "cmd", "cline"),
+		// When running from tests subdirectory
+		filepath.Join(cwd, "..", "cmd", "cline"),
 	}
 	
 	for _, dir := range checks {

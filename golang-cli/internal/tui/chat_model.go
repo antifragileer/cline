@@ -48,6 +48,10 @@ type ChatModel struct {
 	mode   string // "act" or "plan"
 	yolo   bool
 
+	// Telemetry
+	telemetryEnabled bool
+	telemetry        *Telemetry
+
 	// Styling
 	styles   ChatStyles
 	renderer *MarkdownRenderer
@@ -181,6 +185,18 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		// If in YOLO mode and waiting for approval, auto-approve
+		if m.yolo && m.state == ChatStateWaitingForApproval && m.pendingApproval != nil {
+			response := m.HandleYOLOApproval(m.pendingApproval.AskType, m.pendingApproval.Text)
+			if response != "" {
+				m.pendingApproval.Response <- response
+				m.pendingApproval = nil
+				m.state = ChatStateIdle
+				m.inputEnabled = true
+				m.updateButtonConfig()
+				return m, nil
+			}
+		}
 		cmds = append(cmds, m.handleKeyMsg(msg)...)
 
 	case ChatUpdateMsg:
@@ -588,6 +604,52 @@ func (m *ChatModel) SetMode(mode string) {
 // SetYolo sets yolo mode for auto-approve.
 func (m *ChatModel) SetYolo(yolo bool) {
 	m.yolo = yolo
+}
+
+// IsYOLO returns true if YOLO mode is enabled
+func (m *ChatModel) IsYOLO() bool {
+	return m.yolo
+}
+
+// SetTelemetryEnabled enables or disables telemetry
+func (m *ChatModel) SetTelemetryEnabled(enabled bool) {
+	m.telemetryEnabled = enabled
+	if enabled && m.telemetry == nil {
+		m.telemetry = NewTelemetry()
+	}
+}
+
+// ShouldAutoApprove returns true if the current operation should be auto-approved
+func (m *ChatModel) ShouldAutoApprove(askType string) bool {
+	// YOLO mode auto-approves all tools
+	if m.yolo {
+		return true
+	}
+
+	// Individual auto-approve settings can be checked here
+	return false
+}
+
+// HandleYOLOApproval handles auto-approval in YOLO mode
+func (m *ChatModel) HandleYOLOApproval(askType string, text string) string {
+	if !m.yolo {
+		return ""
+	}
+
+	// Capture telemetry for YOLO mode approval
+	if m.telemetryEnabled && m.telemetry != nil {
+		m.telemetry.RecordAutoApproval(askType, text)
+	}
+
+	// Return appropriate response based on ask type
+	switch askType {
+	case "tool", "command", "browser_action", "use_mcp_server":
+		return "yesButtonClicked"
+	case "followup":
+		return "messageResponse"
+	default:
+		return "yesButtonClicked"
+	}
 }
 
 // AddMessage adds a message to the chat.
