@@ -28,11 +28,11 @@ type CrossPlatformBuildResult struct {
 
 // CrossPlatformBuildReport contains all cross-platform build results
 type CrossPlatformBuildReport struct {
-	Success   bool                     `json:"success"`
-	Results   []CrossPlatformBuildResult `json:"results"`
-	Summary   string                   `json:"summary"`
-	ExitCode  int                      `json:"exitCode"`
-	BuildDir  string                   `json:"buildDir"`
+	Success  bool                       `json:"success"`
+	Results  []CrossPlatformBuildResult `json:"results"`
+	Summary  string                     `json:"summary"`
+	ExitCode int                        `json:"exitCode"`
+	BuildDir string                     `json:"buildDir"`
 }
 
 // Standard cross-platform targets to test

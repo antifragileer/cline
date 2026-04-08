@@ -60,7 +60,7 @@ func TestHomebrewFormulaGeneration(t *testing.T) {
 			}
 
 			formula := scripts.DefaultHomebrewFormula(tt.version)
-			
+
 			// Add a dummy platform for validation to pass
 			if !tt.expectErr {
 				formula.Platforms = []scripts.HomebrewPlatform{
@@ -72,7 +72,7 @@ func TestHomebrewFormulaGeneration(t *testing.T) {
 					},
 				}
 			}
-			
+
 			// Test validation
 			err := formula.Validate()
 			if tt.expectErr {
@@ -101,8 +101,8 @@ func TestHomebrewFormulaGeneration(t *testing.T) {
 
 			// Check version - formula uses the version from DefaultHomebrewFormula which may normalize it
 			expectedVersion := strings.TrimPrefix(tt.version, "v")
-			if !strings.Contains(content, fmt.Sprintf(`version "%s"`, expectedVersion)) && 
-			   !strings.Contains(content, fmt.Sprintf(`version "%s"`, tt.version)) {
+			if !strings.Contains(content, fmt.Sprintf(`version "%s"`, expectedVersion)) &&
+				!strings.Contains(content, fmt.Sprintf(`version "%s"`, tt.version)) {
 				t.Logf("Formula content:\n%s", content)
 				t.Errorf("Formula missing or incorrect version: expected %q or %q", expectedVersion, tt.version)
 			}
@@ -143,14 +143,14 @@ func TestHomebrewFormulaPlatformSupport(t *testing.T) {
 		t.Run(fmt.Sprintf("%s_%s", p.os, p.arch), func(t *testing.T) {
 			// In CI, use dummy SHA256 to avoid network calls
 			sha256 := "a" + strings.Repeat("0", 63) // 64 char hex string
-			
+
 			platform := scripts.HomebrewPlatform{
 				OS:     p.os,
 				Arch:   p.arch,
 				URL:    fmt.Sprintf("https://example.com/cline_1.0.0_%s_%s.tar.gz", p.os, p.arch),
 				SHA256: sha256,
 			}
-			
+
 			formula.Platforms = append(formula.Platforms, platform)
 
 			// Verify platform was added
@@ -181,7 +181,7 @@ func TestHomebrewTapStructure(t *testing.T) {
 	tempDir := t.TempDir()
 
 	tap := scripts.DefaultHomebrewTap()
-	
+
 	err := tap.CreateTapStructure(tempDir)
 	if err != nil {
 		t.Fatalf("Failed to create tap structure: %v", err)
@@ -254,7 +254,7 @@ func TestNPMWrapperPackageJSON(t *testing.T) {
 
 	// Read the package.json file
 	packagePath := filepath.Join("..", "..", "npm-wrapper", "package.json")
-	
+
 	// Skip if file doesn't exist (running in isolated test environment)
 	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
 		t.Skip("NPM wrapper package.json not found")
@@ -485,7 +485,7 @@ func TestDistributionCompletePipeline(t *testing.T) {
 
 	// Step 2: Generate a formula with test data
 	formula := scripts.DefaultHomebrewFormula(version)
-	
+
 	// Add test platforms (without actual SHA256 calculation)
 	platforms := scripts.HomebrewSupportedPlatforms()
 	for _, p := range platforms {
@@ -576,7 +576,7 @@ func TestDistributionCrossPlatformCompatibility(t *testing.T) {
 			// Verify URL generation
 			baseURL := "https://github.com/cline/cline/releases/download"
 			url := scripts.GenerateHomebrewReleaseURL(baseURL, version, "cline", p.os, p.arch)
-			
+
 			if !strings.Contains(url, p.os) {
 				t.Errorf("URL missing OS: %s", url)
 			}
@@ -599,7 +599,7 @@ func TestDistributionDocumentation(t *testing.T) {
 			t.Errorf("Failed to read npm-wrapper README: %v", err)
 		} else {
 			contentStr := string(content)
-			
+
 			requiredSections := []string{
 				"Installation",
 				"Usage",
@@ -623,7 +623,7 @@ func TestDistributionDocumentation(t *testing.T) {
 			t.Errorf("Failed to read main README: %v", err)
 		} else {
 			contentStr := string(content)
-			
+
 			// Should mention installation methods
 			if !strings.Contains(contentStr, "Installation") {
 				t.Error("Main README should mention Installation")
@@ -635,7 +635,7 @@ func TestDistributionDocumentation(t *testing.T) {
 // BenchmarkHomebrewFormulaGeneration benchmarks formula generation.
 func BenchmarkHomebrewFormulaGeneration(b *testing.B) {
 	formula := scripts.DefaultHomebrewFormula("1.0.0")
-	
+
 	// Add dummy platforms
 	platforms := scripts.HomebrewSupportedPlatforms()
 	for _, p := range platforms {

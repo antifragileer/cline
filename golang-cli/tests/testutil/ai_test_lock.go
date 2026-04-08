@@ -44,35 +44,35 @@ func getLockPath() string {
 // Returns a release function that must be called when the test completes.
 func AcquireAILock(t *testing.T) func() {
 	t.Helper()
-	
+
 	lockPath := getLockPath()
 	startTime := time.Now()
-	
+
 	// Try to acquire the lock with timeout
 	for {
 		// Check if we've exceeded the timeout
 		if time.Since(startTime) > LockTimeout {
 			t.Fatalf("Timeout waiting for AI test lock after %v. Another test may be stuck.", LockTimeout)
 		}
-		
+
 		// Try to create the lock file exclusively
 		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err == nil {
 			// Successfully acquired the lock
 			// Write the test name and PID for debugging
-			testInfo := fmt.Sprintf("Test: %s\nPID: %d\nStarted: %s\n", 
+			testInfo := fmt.Sprintf("Test: %s\nPID: %d\nStarted: %s\n",
 				t.Name(), os.Getpid(), time.Now().Format(time.RFC3339))
 			file.WriteString(testInfo)
 			file.Close()
-			
+
 			t.Logf("Acquired AI test lock: %s", lockPath)
-			
+
 			// Return the release function
 			return func() {
 				releaseLock(t, lockPath)
 			}
 		}
-		
+
 		// Lock is held by another test, wait and retry
 		time.Sleep(LockRetryInterval)
 	}
@@ -81,7 +81,7 @@ func AcquireAILock(t *testing.T) func() {
 // releaseLock releases the AI test lock.
 func releaseLock(t *testing.T, lockPath string) {
 	t.Helper()
-	
+
 	err := os.Remove(lockPath)
 	if err != nil && !os.IsNotExist(err) {
 		t.Logf("Warning: failed to remove AI test lock %s: %v", lockPath, err)
@@ -94,15 +94,15 @@ func releaseLock(t *testing.T, lockPath string) {
 // This is useful for tests that should fail fast rather than wait.
 func SkipIfParallelAI(t *testing.T) {
 	t.Helper()
-	
+
 	lockPath := getLockPath()
-	
+
 	// Try to acquire the lock without waiting
 	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		t.Skip("Skipping AI test: another AI test is currently running")
 	}
-	
+
 	// Acquired the lock, close and remove it immediately since we're skipping
 	file.Close()
 	os.Remove(lockPath)
@@ -112,13 +112,13 @@ func SkipIfParallelAI(t *testing.T) {
 // by crashed tests. This should be called in TestMain or setup functions.
 func CleanupStaleLocks() {
 	lockPath := getLockPath()
-	
+
 	// Check if lock file exists
 	info, err := os.Stat(lockPath)
 	if err != nil {
 		return // No lock file to clean up
 	}
-	
+
 	// If lock is older than the timeout, it's stale
 	if time.Since(info.ModTime()) > LockTimeout {
 		os.Remove(lockPath)

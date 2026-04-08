@@ -92,11 +92,11 @@ func TestTaskExecution(t *testing.T) {
 		// Create multiple test image files
 		imgPath1 := filepath.Join(tempDir, "test1.png")
 		imgPath2 := filepath.Join(tempDir, "test2.jpg")
-		
+
 		testImageData := []byte{0x89, 0x50, 0x4E, 0x47} // PNG header
 		err := os.WriteFile(imgPath1, testImageData, 0644)
 		require.NoError(t, err)
-		
+
 		// JPG header
 		jpgData := []byte{0xFF, 0xD8, 0xFF, 0xE0}
 		err = os.WriteFile(imgPath2, jpgData, 0644)
@@ -128,7 +128,7 @@ func TestTaskExecution(t *testing.T) {
 		cmd.Env = append(os.Environ(), "CLINE_DATA_DIR="+tempDir)
 
 		out, err := cmd.CombinedOutput()
-		
+
 		// Should return error for invalid image path
 		assert.Error(t, err, "Should fail with invalid image path")
 		assert.Contains(t, string(out), "error", "Error", "not found", "Not Found")

@@ -36,9 +36,9 @@ func TestPhase3_DevTools(t *testing.T) {
 		// Run dev doctor command
 		cmd := exec.Command(cliPath, "dev", "doctor", "--json")
 		cmd.Env = append(os.Environ(), fmt.Sprintf("CLINE_CONFIG_DIR=%s", tempDir))
-		
+
 		output, err := cmd.CombinedOutput()
-		
+
 		// Command should succeed
 		require.NoError(t, err, "dev doctor failed: %s", string(output))
 
@@ -64,7 +64,7 @@ func TestPhase3_DevTools(t *testing.T) {
 
 		cmd := exec.Command(cliPath, "dev", "doctor")
 		output, err := cmd.CombinedOutput()
-		
+
 		require.NoError(t, err, "dev doctor failed: %s", string(output))
 
 		// Verify human-readable format
@@ -84,15 +84,15 @@ func TestPhase3_DevTools(t *testing.T) {
 
 		cmd := exec.Command(cliPath, "dev", "log")
 		output, err := cmd.CombinedOutput()
-		
+
 		// Command may succeed (editor opened) or fail (no log file)
 		// In either case, it should provide information about the log
 		outputStr := string(output)
-		
+
 		// Check that output contains log-related information
 		// (either showing log path or indicating file not found)
-		assert.True(t, 
-			strings.Contains(outputStr, "Log file:") || 
+		assert.True(t,
+			strings.Contains(outputStr, "Log file:") ||
 				strings.Contains(outputStr, "log file not found") ||
 				strings.Contains(outputStr, "log") ||
 				err == nil,
@@ -327,7 +327,7 @@ func TestPhase3_WorkflowsManagement(t *testing.T) {
 		// Verify enabled
 		output, err := listWorkflowsJSON(ctx)
 		require.NoError(t, err)
-		
+
 		found := false
 		for _, wf := range output.Global {
 			if wf.Path == "/path/to/workflow1" {
@@ -381,7 +381,7 @@ func TestPhase3_RulesManagement(t *testing.T) {
 		// Verify enabled
 		output, err := listRulesJSON(ctx)
 		require.NoError(t, err)
-		
+
 		found := false
 		for _, rule := range output.Rules {
 			if rule.Path == "/path/to/rule1" {
@@ -523,7 +523,7 @@ func buildCLIBinary(t *testing.T) string {
 	// Build the CLI
 	cmd := exec.Command("go", "build", "-o", cliPath, "./cmd/cline")
 	cmd.Dir = getProjectRoot(t)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Logf("Build output: %s", string(output))
@@ -535,24 +535,32 @@ func buildCLIBinary(t *testing.T) string {
 
 func getProjectRoot(t *testing.T) string {
 	t.Helper()
-	
+
 	// Try to find project root from current directory
 	wd, err := os.Getwd()
 	require.NoError(t, err)
-	
-	// Walk up to find go.mod
+
+	// Walk up to find go.mod (could be in current dir or golang-cli/ subdirectory)
 	for {
-		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
-			return wd
+		// First check if this directory has golang-cli/go.mod (nested project structure)
+		if _, err := os.Stat(filepath.Join(wd, "golang-cli", "go.mod")); err == nil {
+			return filepath.Join(wd, "golang-cli")
 		}
-		
+		// Then check current dir for go.mod
+		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
+			// Verify this is the CLI project by checking for cmd/cline
+			if _, err := os.Stat(filepath.Join(wd, "cmd", "cline")); err == nil {
+				return wd
+			}
+		}
+
 		parent := filepath.Dir(wd)
 		if parent == wd {
 			break
 		}
 		wd = parent
 	}
-	
+
 	return ""
 }
 
@@ -577,13 +585,13 @@ type WorkspaceData struct {
 
 func listHooksJSON(ctx *storage.StorageContext) (*HookOutput, error) {
 	var output HookOutput
-	
+
 	if val, ok := ctx.GlobalState.Get("globalHooks"); ok {
 		if hooks, err := parseHooksData(val); err == nil {
 			output.Global = hooks
 		}
 	}
-	
+
 	if ctx.WorkspaceState != nil {
 		if val, ok := ctx.WorkspaceState.Get("workspaceHooks"); ok {
 			if wsHooks, err := parseWorkspaceHooksData(val); err == nil {
@@ -591,7 +599,7 @@ func listHooksJSON(ctx *storage.StorageContext) (*HookOutput, error) {
 			}
 		}
 	}
-	
+
 	return &output, nil
 }
 
@@ -600,12 +608,12 @@ func parseHooksData(data interface{}) ([]HookData, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var hooks []HookData
 	if err := json.Unmarshal(jsonData, &hooks); err != nil {
 		return nil, err
 	}
-	
+
 	return hooks, nil
 }
 
@@ -614,7 +622,7 @@ func parseWorkspaceHooksData(data interface{}) ([]WorkspaceData, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var wsHooks []WorkspaceData
 	if err := json.Unmarshal(jsonData, &wsHooks); err != nil {
 		// Try as single workspace
@@ -624,7 +632,7 @@ func parseWorkspaceHooksData(data interface{}) ([]WorkspaceData, error) {
 		}
 		return []WorkspaceData{single}, nil
 	}
-	
+
 	return wsHooks, nil
 }
 
@@ -676,7 +684,7 @@ type SkillData struct {
 
 func listSkillsJSON(ctx *storage.StorageContext) (*SkillsOutput, error) {
 	var output SkillsOutput
-	
+
 	if val, ok := ctx.GlobalState.Get("globalSkills"); ok {
 		if skills, err := parseSkillsData(val); err == nil {
 			for i := range skills {
@@ -685,7 +693,7 @@ func listSkillsJSON(ctx *storage.StorageContext) (*SkillsOutput, error) {
 			output.Global = skills
 		}
 	}
-	
+
 	if ctx.WorkspaceState != nil {
 		if val, ok := ctx.WorkspaceState.Get("localSkills"); ok {
 			if skills, err := parseSkillsData(val); err == nil {
@@ -696,7 +704,7 @@ func listSkillsJSON(ctx *storage.StorageContext) (*SkillsOutput, error) {
 			}
 		}
 	}
-	
+
 	return &output, nil
 }
 
@@ -705,12 +713,12 @@ func parseSkillsData(data interface{}) ([]SkillData, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var skills []SkillData
 	if err := json.Unmarshal(jsonData, &skills); err != nil {
 		return nil, err
 	}
-	
+
 	return skills, nil
 }
 
@@ -762,7 +770,7 @@ type WorkflowData struct {
 
 func listWorkflowsJSON(ctx *storage.StorageContext) (*WorkflowsOutput, error) {
 	var output WorkflowsOutput
-	
+
 	if val, ok := ctx.GlobalState.Get("globalWorkflowToggles"); ok {
 		if toggles, err := parseTogglesData(val); err == nil {
 			for path, enabled := range toggles {
@@ -775,7 +783,7 @@ func listWorkflowsJSON(ctx *storage.StorageContext) (*WorkflowsOutput, error) {
 			}
 		}
 	}
-	
+
 	if ctx.WorkspaceState != nil {
 		if val, ok := ctx.WorkspaceState.Get("localWorkflowToggles"); ok {
 			if toggles, err := parseTogglesData(val); err == nil {
@@ -790,7 +798,7 @@ func listWorkflowsJSON(ctx *storage.StorageContext) (*WorkflowsOutput, error) {
 			}
 		}
 	}
-	
+
 	return &output, nil
 }
 
@@ -799,7 +807,7 @@ func parseTogglesData(data interface{}) (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var toggles map[string]bool
 	if err := json.Unmarshal(jsonData, &toggles); err != nil {
 		// Try as map[string]interface{}
@@ -814,7 +822,7 @@ func parseTogglesData(data interface{}) (map[string]bool, error) {
 			}
 		}
 	}
-	
+
 	return toggles, nil
 }
 
@@ -845,7 +853,7 @@ type RuleData struct {
 
 func listRulesJSON(ctx *storage.StorageContext) (*RulesOutput, error) {
 	var output RulesOutput
-	
+
 	// Collect from all rule types
 	ruleTypes := []string{
 		"globalClineRulesToggles",
@@ -857,35 +865,35 @@ func listRulesJSON(ctx *storage.StorageContext) (*RulesOutput, error) {
 		"globalAgentsRulesToggles",
 		"localAgentsRulesToggles",
 	}
-	
+
 	ruleTypeMap := map[string]string{
-		"globalClineRulesToggles":   "cline",
-		"localClineRulesToggles":    "cline",
-		"globalCursorRulesToggles":  "cursor",
-		"localCursorRulesToggles":   "cursor",
+		"globalClineRulesToggles":    "cline",
+		"localClineRulesToggles":     "cline",
+		"globalCursorRulesToggles":   "cursor",
+		"localCursorRulesToggles":    "cursor",
 		"globalWindsurfRulesToggles": "windsurf",
 		"localWindsurfRulesToggles":  "windsurf",
-		"globalAgentsRulesToggles":  "agents",
-		"localAgentsRulesToggles":   "agents",
+		"globalAgentsRulesToggles":   "agents",
+		"localAgentsRulesToggles":    "agents",
 	}
-	
+
 	sourceMap := map[string]string{
-		"globalClineRulesToggles":   "global",
-		"localClineRulesToggles":    "local",
-		"globalCursorRulesToggles":  "global",
-		"localCursorRulesToggles":   "local",
+		"globalClineRulesToggles":    "global",
+		"localClineRulesToggles":     "local",
+		"globalCursorRulesToggles":   "global",
+		"localCursorRulesToggles":    "local",
 		"globalWindsurfRulesToggles": "global",
 		"localWindsurfRulesToggles":  "local",
-		"globalAgentsRulesToggles":  "global",
-		"localAgentsRulesToggles":   "local",
+		"globalAgentsRulesToggles":   "global",
+		"localAgentsRulesToggles":    "local",
 	}
-	
+
 	for _, key := range ruleTypes {
 		storage := ctx.GlobalState
 		if strings.HasPrefix(key, "local") && ctx.WorkspaceState != nil {
 			storage = ctx.WorkspaceState
 		}
-		
+
 		if val, ok := storage.Get(key); ok {
 			if toggles, err := parseTogglesData(val); err == nil {
 				for path, enabled := range toggles {
@@ -900,7 +908,7 @@ func listRulesJSON(ctx *storage.StorageContext) (*RulesOutput, error) {
 			}
 		}
 	}
-	
+
 	return &output, nil
 }
 
@@ -909,14 +917,14 @@ func listRulesByTypeJSON(ctx *storage.StorageContext, ruleType string) (*RulesOu
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var filtered RulesOutput
 	for _, rule := range allRules.Rules {
 		if rule.RuleType == ruleType {
 			filtered.Rules = append(filtered.Rules, rule)
 		}
 	}
-	
+
 	return &filtered, nil
 }
 
@@ -931,13 +939,13 @@ func enableRule(ctx *storage.StorageContext, path string) error {
 		"globalAgentsRulesToggles",
 		"localAgentsRulesToggles",
 	}
-	
+
 	for _, key := range ruleTypes {
 		storage := ctx.GlobalState
 		if strings.HasPrefix(key, "local") && ctx.WorkspaceState != nil {
 			storage = ctx.WorkspaceState
 		}
-		
+
 		if val, ok := storage.Get(key); ok {
 			if toggles, err := parseTogglesData(val); err == nil {
 				if _, exists := toggles[path]; exists {
@@ -947,7 +955,7 @@ func enableRule(ctx *storage.StorageContext, path string) error {
 			}
 		}
 	}
-	
+
 	return fmt.Errorf("rule '%s' not found", path)
 }
 
@@ -1028,7 +1036,7 @@ func BenchmarkPhase3_HooksOperations(b *testing.B) {
 		var h []map[string]interface{}
 		jsonData, _ := json.Marshal(val)
 		json.Unmarshal(jsonData, &h)
-		
+
 		// Find and toggle a hook
 		for j := range h {
 			if h[j]["name"] == "hook-50" {
@@ -1036,7 +1044,7 @@ func BenchmarkPhase3_HooksOperations(b *testing.B) {
 				break
 			}
 		}
-		
+
 		ctx.GlobalState.Set("globalHooks", h)
 	}
 }

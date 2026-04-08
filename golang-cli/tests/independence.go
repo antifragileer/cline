@@ -36,22 +36,22 @@ type VerificationReport struct {
 
 // Constants for verification checks
 const (
-	CheckNoEmbeddedJS      = "no_embedded_js"
-	CheckNoNodeDeps        = "no_node_dependencies"
-	CheckStaticBinary      = "static_binary"
-	CheckNoCLIImports      = "no_cli_src_imports"
-	CheckNoNPMDeps         = "no_npm_dependencies"
-	CheckNoTypeScript      = "no_typescript_files"
-	CheckNoPackageJSON     = "no_package_json"
-	CheckGoModIntegrity    = "go_mod_integrity"
+	CheckNoEmbeddedJS   = "no_embedded_js"
+	CheckNoNodeDeps     = "no_node_dependencies"
+	CheckStaticBinary   = "static_binary"
+	CheckNoCLIImports   = "no_cli_src_imports"
+	CheckNoNPMDeps      = "no_npm_dependencies"
+	CheckNoTypeScript   = "no_typescript_files"
+	CheckNoPackageJSON  = "no_package_json"
+	CheckGoModIntegrity = "go_mod_integrity"
 )
 
 // IndependenceVerifier performs all independence verification checks
 type IndependenceVerifier struct {
-	ProjectRoot   string
-	BinaryPath    string
-	Verbose       bool
-	Results       []VerificationResult
+	ProjectRoot string
+	BinaryPath  string
+	Verbose     bool
+	Results     []VerificationResult
 }
 
 // NewIndependenceVerifier creates a new verifier instance
@@ -139,21 +139,21 @@ func (v *IndependenceVerifier) verifyNoEmbeddedJS() VerificationResult {
 
 	// Check for common JS/TS patterns
 	jsPatterns := []string{
-		`function\s+\w+\s*\(`,           // function declarations
-		`const\s+\w+\s*=`,                // const declarations
-		`let\s+\w+\s*=`,                  // let declarations
-		`var\s+\w+\s*=`,                  // var declarations
-		`module\.exports`,                // CommonJS
-		`require\s*\(`,                   // require calls
-		`import\s+.*\s+from\s+`,          // ES6 imports
-		`export\s+(default\s+)?`,         // ES6 exports
-		`console\.(log|error|warn)`,      // console usage
-		`process\.env`,                   // process.env
-		`__dirname`,                      // __dirname
-		`__filename`,                     // __filename
-		`=>`,                             // arrow functions
-		`async\s+function`,               // async functions
-		`await\s+`,                       // await keyword
+		`function\s+\w+\s*\(`,       // function declarations
+		`const\s+\w+\s*=`,           // const declarations
+		`let\s+\w+\s*=`,             // let declarations
+		`var\s+\w+\s*=`,             // var declarations
+		`module\.exports`,           // CommonJS
+		`require\s*\(`,              // require calls
+		`import\s+.*\s+from\s+`,     // ES6 imports
+		`export\s+(default\s+)?`,    // ES6 exports
+		`console\.(log|error|warn)`, // console usage
+		`process\.env`,              // process.env
+		`__dirname`,                 // __dirname
+		`__filename`,                // __filename
+		`=>`,                        // arrow functions
+		`async\s+function`,          // async functions
+		`await\s+`,                  // await keyword
 	}
 
 	content := string(data)
@@ -673,13 +673,13 @@ func (v *IndependenceVerifier) verifyGoModIntegrity() VerificationResult {
 
 	// Check for JavaScript/TypeScript related Go packages that might indicate JS embedding
 	suspiciousPatterns := []string{
-		"github.com/robertkrimen/otto",        // JavaScript interpreter
-		"github.com/dop251/goja",              // JavaScript engine
-		"github.com/traefik/yaegi",            // Go interpreter (could be used for JS)
-		"esbuild",                             // JS bundler
-		"webpack",                             // JS bundler
-		"typescript",                          // TypeScript compiler
-		"babel",                               // JS transpiler
+		"github.com/robertkrimen/otto", // JavaScript interpreter
+		"github.com/dop251/goja",       // JavaScript engine
+		"github.com/traefik/yaegi",     // Go interpreter (could be used for JS)
+		"esbuild",                      // JS bundler
+		"webpack",                      // JS bundler
+		"typescript",                   // TypeScript compiler
+		"babel",                        // JS transpiler
 	}
 
 	found := make([]string, 0)

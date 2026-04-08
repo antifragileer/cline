@@ -21,21 +21,21 @@ import (
 // FunctionalDualTest represents a functional test case with state comparison
 type FunctionalDualTest struct {
 	DualTest
-	StateComparison   bool                    // Compare state files after execution
-	TaskExecution     bool                    // Test actual task execution flow
-	HistoryValidation bool                    // Validate history entries
-	ConfigValidation  bool                    // Validate config persistence
-	ExpectedState     map[string]interface{}  // Expected state after execution
+	StateComparison   bool                   // Compare state files after execution
+	TaskExecution     bool                   // Test actual task execution flow
+	HistoryValidation bool                   // Validate history entries
+	ConfigValidation  bool                   // Validate config persistence
+	ExpectedState     map[string]interface{} // Expected state after execution
 }
 
 // FunctionalTestResult extends DualTestResult with functional validation
 type FunctionalTestResult struct {
 	DualTestResult
-	StateFilesMatch    bool
-	HistoryValid       bool
-	ConfigValid        bool
-	TaskCompleted      bool
-	StateDifferences   []StateDifference
+	StateFilesMatch  bool
+	HistoryValid     bool
+	ConfigValid      bool
+	TaskCompleted    bool
+	StateDifferences []StateDifference
 }
 
 // StateDifference represents a difference in state files
@@ -50,10 +50,10 @@ type StateDifference struct {
 // FunctionalDualHarness extends DualTestHarness with functional testing capabilities
 type FunctionalDualHarness struct {
 	*DualTestHarness
-	TempDir          string
-	StateDir         string
+	TempDir           string
+	StateDir          string
 	FunctionalResults []FunctionalTestResult
-	mu               sync.RWMutex
+	mu                sync.RWMutex
 }
 
 // NewFunctionalDualHarness creates a new functional dual test harness
@@ -64,9 +64,9 @@ func NewFunctionalDualHarness(goPath, tsPath string) (*FunctionalDualHarness, er
 	}
 
 	return &FunctionalDualHarness{
-		DualTestHarness: NewDualTestHarness(goPath, tsPath),
-		TempDir:         tempDir,
-		StateDir:        filepath.Join(tempDir, "state"),
+		DualTestHarness:   NewDualTestHarness(goPath, tsPath),
+		TempDir:           tempDir,
+		StateDir:          filepath.Join(tempDir, "state"),
 		FunctionalResults: make([]FunctionalTestResult, 0),
 	}, nil
 }
@@ -96,11 +96,11 @@ func (h *FunctionalDualHarness) runFunctionalTest(ctx context.Context, test Func
 	baseResult := h.runTest(ctx, test.DualTest)
 
 	result := FunctionalTestResult{
-		DualTestResult: baseResult,
-		StateFilesMatch: true,
-		HistoryValid:    true,
-		ConfigValid:     true,
-		TaskCompleted:   false,
+		DualTestResult:   baseResult,
+		StateFilesMatch:  true,
+		HistoryValid:     true,
+		ConfigValid:      true,
+		TaskCompleted:    false,
 		StateDifferences: make([]StateDifference, 0),
 	}
 
@@ -127,7 +127,7 @@ func (h *FunctionalDualHarness) runFunctionalTest(ctx context.Context, test Func
 	}
 
 	// Update overall pass status
-	result.Passed = baseResult.Passed && 
+	result.Passed = baseResult.Passed &&
 		(!test.StateComparison || result.StateFilesMatch) &&
 		(!test.HistoryValidation || result.HistoryValid) &&
 		(!test.ConfigValidation || result.ConfigValid)
@@ -347,33 +347,33 @@ func (h *FunctionalDualHarness) generateFunctionalReport(startTime time.Time) *F
 	}
 
 	return &FunctionalTestReport{
-		Success:           failed == 0,
-		Results:           h.FunctionalResults,
-		TotalTests:        total,
-		PassedTests:       passed,
-		FailedTests:       failed,
-		SuccessRate:       successRate,
-		TotalDuration:     time.Since(startTime),
-		StateDir:          h.StateDir,
-		TempDir:           h.TempDir,
-		GoBinary:          h.GoBinary.Path,
-		TSBinary:          h.TSBinary.Path,
+		Success:       failed == 0,
+		Results:       h.FunctionalResults,
+		TotalTests:    total,
+		PassedTests:   passed,
+		FailedTests:   failed,
+		SuccessRate:   successRate,
+		TotalDuration: time.Since(startTime),
+		StateDir:      h.StateDir,
+		TempDir:       h.TempDir,
+		GoBinary:      h.GoBinary.Path,
+		TSBinary:      h.TSBinary.Path,
 	}
 }
 
 // FunctionalTestReport contains functional test results
 type FunctionalTestReport struct {
-	Success           bool
-	Results           []FunctionalTestResult
-	TotalTests        int
-	PassedTests       int
-	FailedTests       int
-	SuccessRate       float64
-	TotalDuration     time.Duration
-	StateDir          string
-	TempDir           string
-	GoBinary          string
-	TSBinary          string
+	Success       bool
+	Results       []FunctionalTestResult
+	TotalTests    int
+	PassedTests   int
+	FailedTests   int
+	SuccessRate   float64
+	TotalDuration time.Duration
+	StateDir      string
+	TempDir       string
+	GoBinary      string
+	TSBinary      string
 }
 
 // PrintReport prints a human-readable functional test report

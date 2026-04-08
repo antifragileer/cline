@@ -37,9 +37,9 @@ type DualTest struct {
 	Env            map[string]string
 	Stdin          string
 	Timeout        time.Duration
-	SkipOutput     bool   // Skip output comparison
-	SkipExitCode   bool   // Skip exit code comparison
-	ExpectFailure  bool   // Both should fail
+	SkipOutput     bool // Skip output comparison
+	SkipExitCode   bool // Skip exit code comparison
+	ExpectFailure  bool // Both should fail
 	OutputMatchers []OutputMatcher
 	PreHook        func() error
 	PostHook       func() error
@@ -56,28 +56,28 @@ type OutputMatcher struct {
 
 // DualTestResult represents the result of a dual test
 type DualTestResult struct {
-	TestName     string
-	Description  string
-	Passed       bool
-	GoResult     *ExecutionResult
-	TSResult     *ExecutionResult
-	Differences  []Difference
-	Warnings     []string
-	Duration     time.Duration
-	Timestamp    time.Time
+	TestName    string
+	Description string
+	Passed      bool
+	GoResult    *ExecutionResult
+	TSResult    *ExecutionResult
+	Differences []Difference
+	Warnings    []string
+	Duration    time.Duration
+	Timestamp   time.Time
 }
 
 // ExecutionResult represents the result of executing a CLI command
 type ExecutionResult struct {
-	Binary      string
-	Args        []string
-	ExitCode    int
-	Stdout      string
-	Stderr      string
-	Combined    string
-	Duration    time.Duration
-	StartTime   time.Time
-	EndTime     time.Time
+	Binary    string
+	Args      []string
+	ExitCode  int
+	Stdout    string
+	Stderr    string
+	Combined  string
+	Duration  time.Duration
+	StartTime time.Time
+	EndTime   time.Time
 }
 
 // Difference represents a difference between Go and TS outputs
@@ -710,10 +710,10 @@ func StandardDualTests() []DualTest {
 			Timeout:     5 * time.Second,
 		},
 		{
-			Name:        "invalid_command",
-			Description: "Invalid command handling",
-			Args:        []string{"invalid-command-that-does-not-exist"},
-			Timeout:     5 * time.Second,
+			Name:          "invalid_command",
+			Description:   "Invalid command handling",
+			Args:          []string{"invalid-command-that-does-not-exist"},
+			Timeout:       5 * time.Second,
 			ExpectFailure: true,
 		},
 	}

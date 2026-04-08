@@ -35,7 +35,7 @@ func TestGRPCConnectivity(t *testing.T) {
 		// Start the core extension if available
 		// For now, test that the CLI can start without crashing
 		cmd := exec.CommandContext(ctx, goPath, "version", "--short")
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("CLI version output: %s", string(out))
 
@@ -76,7 +76,7 @@ func TestGRPCConnectivity(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "version", "-v")
-		
+
 		start := time.Now()
 		out, err := cmd.CombinedOutput()
 		elapsed := time.Since(start)
@@ -99,7 +99,7 @@ func TestCoreExtensionIntegration(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "version", "--json")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "CLI should work standalone")
 
@@ -122,7 +122,7 @@ func TestCoreExtensionIntegration(t *testing.T) {
 		cmd1 := exec.CommandContext(ctx, goPath, "config", "set", "test.key", "test-value")
 		cmd1.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
 		out1, err1 := cmd1.CombinedOutput()
-		
+
 		if err1 == nil {
 			t.Logf("Config set succeeded: %s", string(out1))
 
@@ -155,7 +155,7 @@ func TestTaskFlowIntegration(t *testing.T) {
 		// This would normally connect to a running core extension
 		// For integration testing, we verify the CLI prepares correctly
 		cmd := exec.CommandContext(ctx, goPath, "task", "--help")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Task help should work")
 
@@ -191,7 +191,7 @@ func TestTaskFlowIntegration(t *testing.T) {
 
 		cmd := exec.CommandContext(ctx, goPath, "history")
 		cmd.Env = append(os.Environ(), "CLINE_DATA_DIR="+tempDir)
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("History output: %s", string(out))
 
@@ -218,7 +218,7 @@ func TestStreamingResponses(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "version", "--json")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err)
 
@@ -233,7 +233,7 @@ func TestStreamingResponses(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "config", "list")
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Config list output lines: %d", len(string(out)))
 
@@ -257,7 +257,7 @@ func TestErrorPropagation(t *testing.T) {
 
 		// Try invalid operation
 		cmd := exec.CommandContext(ctx, goPath, "invalid-command-xyz")
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Error output: %s", string(out))
 
@@ -271,7 +271,7 @@ func TestErrorPropagation(t *testing.T) {
 
 		// Set very short timeout
 		cmd := exec.CommandContext(ctx, goPath, "-t", "1", "version")
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Timeout error output: %s", string(out))
 
@@ -299,7 +299,7 @@ func TestConnectionPooling(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			cmd := exec.CommandContext(ctx, goPath, "version", "--short")
-			
+
 			out, err := cmd.CombinedOutput()
 			cancel()
 
@@ -319,13 +319,13 @@ func TestConnectionPooling(t *testing.T) {
 			wg.Add(1)
 			go func(index int) {
 				defer wg.Done()
-				
+
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 
 				cmd := exec.CommandContext(ctx, goPath, "version", "--short")
 				_, err := cmd.CombinedOutput()
-				
+
 				if err != nil {
 					errors <- fmt.Errorf("request %d failed: %w", index, err)
 				}
@@ -372,7 +372,7 @@ func TestMockGRPCServer(t *testing.T) {
 		// Test health check
 		healthClient := grpc_health_v1.NewHealthClient(conn)
 		resp, err := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
-		
+
 		if err != nil {
 			t.Logf("Health check error: %v", err)
 		} else {
@@ -394,7 +394,7 @@ func TestConfigurationViaGRPC(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "config", "get", "provider")
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Config get output: %s", string(out))
 
@@ -418,7 +418,7 @@ func TestConfigurationViaGRPC(t *testing.T) {
 
 		cmd := exec.CommandContext(ctx, goPath, "config", "set", "test.grpc.key", "grpc-value")
 		cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Config set output: %s", string(out))
 
@@ -432,7 +432,6 @@ func TestConfigurationViaGRPC(t *testing.T) {
 		assert.True(t, exitCode >= 0 && exitCode <= 255)
 	})
 }
-
 
 // Mock gRPC server for testing
 type mockHealthServer struct {

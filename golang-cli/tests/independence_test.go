@@ -12,7 +12,7 @@ import (
 func TestNewIndependenceVerifier(t *testing.T) {
 	t.Run("creates verifier with correct settings", func(t *testing.T) {
 		verifier := NewIndependenceVerifier("/project", "/binary", true)
-		
+
 		if verifier.ProjectRoot != "/project" {
 			t.Errorf("ProjectRoot = %s, want /project", verifier.ProjectRoot)
 		}
@@ -29,7 +29,7 @@ func TestNewIndependenceVerifier(t *testing.T) {
 
 	t.Run("creates verifier with empty paths", func(t *testing.T) {
 		verifier := NewIndependenceVerifier("", "", false)
-		
+
 		if verifier.ProjectRoot != "" {
 			t.Errorf("ProjectRoot = %s, want empty", verifier.ProjectRoot)
 		}
@@ -49,11 +49,11 @@ func TestIndependenceVerifier_Verify(t *testing.T) {
 	t.Run("returns report with all checks", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		report, err := verifier.Verify()
-		
+
 		if err != nil {
 			t.Fatalf("Verify() returned error: %v", err)
 		}
-		
+
 		if report == nil {
 			t.Fatal("Verify() returned nil report")
 		}
@@ -92,7 +92,7 @@ func TestIndependenceVerifier_Verify(t *testing.T) {
 	t.Run("report includes success status", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		report, err := verifier.Verify()
-		
+
 		if err != nil {
 			t.Fatalf("Verify() returned error: %v", err)
 		}
@@ -121,7 +121,7 @@ func TestIndependenceVerifier_verifyNoNodeDependencies(t *testing.T) {
 	t.Run("passes when no node files exist", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNodeDependencies()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass, got fail: %s", result.Message)
 		}
@@ -139,7 +139,7 @@ func TestIndependenceVerifier_verifyNoNodeDependencies(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNodeDependencies()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when node_modules exists")
 		}
@@ -157,7 +157,7 @@ func TestIndependenceVerifier_verifyNoNodeDependencies(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNodeDependencies()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when package.json exists")
 		}
@@ -174,7 +174,7 @@ func TestIndependenceVerifier_verifyNoNPMDependencies(t *testing.T) {
 	t.Run("passes when no npm files exist", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNPMDependencies()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass, got fail: %s", result.Message)
 		}
@@ -189,7 +189,7 @@ func TestIndependenceVerifier_verifyNoNPMDependencies(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNPMDependencies()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when package-lock.json exists")
 		}
@@ -204,7 +204,7 @@ func TestIndependenceVerifier_verifyNoNPMDependencies(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNPMDependencies()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when yarn.lock exists")
 		}
@@ -219,7 +219,7 @@ func TestIndependenceVerifier_verifyNoNPMDependencies(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNPMDependencies()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when pnpm-lock.yaml exists")
 		}
@@ -234,7 +234,7 @@ func TestIndependenceVerifier_verifyNoNPMDependencies(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoNPMDependencies()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when .npmrc exists")
 		}
@@ -257,7 +257,7 @@ func TestIndependenceVerifier_verifyNoTypeScriptFiles(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoTypeScriptFiles()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass, got fail: %s", result.Message)
 		}
@@ -272,7 +272,7 @@ func TestIndependenceVerifier_verifyNoTypeScriptFiles(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoTypeScriptFiles()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when .ts files exist")
 		}
@@ -290,7 +290,7 @@ func TestIndependenceVerifier_verifyNoTypeScriptFiles(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoTypeScriptFiles()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when .tsx files exist")
 		}
@@ -308,7 +308,7 @@ func TestIndependenceVerifier_verifyNoTypeScriptFiles(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoTypeScriptFiles()
-		
+
 		if !result.Passed {
 			t.Errorf("Should skip vendor directory, got fail: %s", result.Message)
 		}
@@ -325,7 +325,7 @@ func TestIndependenceVerifier_verifyNoPackageJSON(t *testing.T) {
 	t.Run("passes when no package.json exists", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoPackageJSON()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass, got fail: %s", result.Message)
 		}
@@ -340,7 +340,7 @@ func TestIndependenceVerifier_verifyNoPackageJSON(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoPackageJSON()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when package.json exists")
 		}
@@ -359,7 +359,7 @@ func TestIndependenceVerifier_verifyNoPackageJSON(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoPackageJSON()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when nested package.json exists")
 		}
@@ -389,7 +389,7 @@ require (
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyGoModIntegrity()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass, got fail: %s - %s", result.Message, result.Details)
 		}
@@ -411,7 +411,7 @@ require (
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyGoModIntegrity()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when go.mod contains otto")
 		}
@@ -436,7 +436,7 @@ require (
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyGoModIntegrity()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when go.mod contains goja")
 		}
@@ -445,7 +445,7 @@ require (
 	t.Run("fails when go.mod is missing", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyGoModIntegrity()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when go.mod is missing")
 		}
@@ -462,7 +462,7 @@ func TestIndependenceVerifier_verifyNoEmbeddedJS(t *testing.T) {
 	t.Run("fails when binary path is empty", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoEmbeddedJS()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when binary path is empty")
 		}
@@ -474,7 +474,7 @@ func TestIndependenceVerifier_verifyNoEmbeddedJS(t *testing.T) {
 	t.Run("fails when binary does not exist", func(t *testing.T) {
 		verifier := NewIndependenceVerifier(tempDir, "/nonexistent/binary", false)
 		result := verifier.verifyNoEmbeddedJS()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when binary does not exist")
 		}
@@ -490,7 +490,7 @@ func TestIndependenceVerifier_verifyNoEmbeddedJS(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, binaryPath, false)
 		result := verifier.verifyNoEmbeddedJS()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass for clean binary, got: %s - %s", result.Message, result.Details)
 		}
@@ -506,7 +506,7 @@ func TestIndependenceVerifier_verifyNoEmbeddedJS(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, binaryPath, false)
 		result := verifier.verifyNoEmbeddedJS()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when JS patterns are found")
 		}
@@ -526,7 +526,7 @@ func TestIndependenceVerifier_verifyNoCLIImports(t *testing.T) {
 
 		verifier := NewIndependenceVerifier(tempDir, "", false)
 		result := verifier.verifyNoCLIImports()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass when cli/src does not exist, got: %s", result.Message)
 		}
@@ -571,7 +571,7 @@ func main() {
 
 		verifier := NewIndependenceVerifier(projectDir, "", false)
 		result := verifier.verifyNoCLIImports()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass for clean imports, got: %s - %s", result.Message, result.Details)
 		}
@@ -616,7 +616,7 @@ func main() {
 
 		verifier := NewIndependenceVerifier(projectDir, "", false)
 		result := verifier.verifyNoCLIImports()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when cli/src import is found")
 		}

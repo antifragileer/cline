@@ -23,12 +23,12 @@ type CICDStage struct {
 
 // CICDPipelineReport contains the results of CI/CD pipeline tests
 type CICDPipelineReport struct {
-	Success    bool        `json:"success"`
-	Stages     []CICDStage `json:"stages"`
-	Summary    string      `json:"summary"`
-	ExitCode   int         `json:"exitCode"`
-	Duration   time.Duration `json:"totalDuration"`
-	BuildInfo  BuildInfo   `json:"buildInfo"`
+	Success   bool          `json:"success"`
+	Stages    []CICDStage   `json:"stages"`
+	Summary   string        `json:"summary"`
+	ExitCode  int           `json:"exitCode"`
+	Duration  time.Duration `json:"totalDuration"`
+	BuildInfo BuildInfo     `json:"buildInfo"`
 }
 
 // BuildInfo contains build metadata
@@ -83,7 +83,7 @@ func (c *CICDTester) RunAllStages() (*CICDPipelineReport, error) {
 		c.Stages = append(c.Stages, CICDStage{
 			Name:     stage.name,
 			Duration: duration,
-			Success:    success,
+			Success:  success,
 			Message:  message,
 		})
 
@@ -206,7 +206,7 @@ func (c *CICDTester) stageIndependenceCheck() (bool, string) {
 func (c *CICDTester) stageCrossPlatformBuild() (bool, string) {
 	buildDir := filepath.Join(c.ProjectRoot, "build", "ci-cd")
 	builder := NewCrossPlatformBuilder(c.ProjectRoot, buildDir, false)
-	
+
 	report, err := builder.BuildAll()
 	if err != nil {
 		return false, fmt.Sprintf("Cross-platform build error: %v", err)

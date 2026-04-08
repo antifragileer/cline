@@ -14,16 +14,16 @@ import (
 
 // TestRunnerConfig configures the test runner
 type TestRunnerConfig struct {
-	GoBinaryPath   string
-	TSBinaryPath   string
-	OutputFormat   string // "text", "json", "junit"
-	OutputPath     string
-	Parallel       bool
-	Verbose        bool
-	IncludeTests   []string
-	ExcludeTests   []string
-	StopOnFailure  bool
-	Timeout        time.Duration
+	GoBinaryPath  string
+	TSBinaryPath  string
+	OutputFormat  string // "text", "json", "junit"
+	OutputPath    string
+	Parallel      bool
+	Verbose       bool
+	IncludeTests  []string
+	ExcludeTests  []string
+	StopOnFailure bool
+	Timeout       time.Duration
 }
 
 // TestRunner executes dual tests
@@ -122,10 +122,10 @@ func (r *TestRunner) getFormatParityTests() []DualTest {
 			Timeout:     5 * time.Second,
 		},
 		{
-			Name:        "error_format_consistency",
-			Description: "Error format is consistent",
-			Args:        []string{"invalid-command"},
-			Timeout:     5 * time.Second,
+			Name:          "error_format_consistency",
+			Description:   "Error format is consistent",
+			Args:          []string{"invalid-command"},
+			Timeout:       5 * time.Second,
 			ExpectFailure: true,
 		},
 	}
@@ -263,10 +263,10 @@ func escapeXML(s string) string {
 
 // ComparisonTool provides detailed comparison between Go and TS CLI outputs
 type ComparisonTool struct {
-	GoBinary  string
-	TSBinary  string
-	Verbose   bool
-	DiffOnly  bool
+	GoBinary string
+	TSBinary string
+	Verbose  bool
+	DiffOnly bool
 }
 
 // NewComparisonTool creates a new comparison tool
@@ -356,8 +356,8 @@ func (c *CommandComparison) Print(w io.Writer, diffOnly bool) {
 
 // RegressionDetector detects potential regressions
 type RegressionDetector struct {
-	harness   *DualTestHarness
-	baseline  *DualTestReport
+	harness  *DualTestHarness
+	baseline *DualTestReport
 }
 
 // NewRegressionDetector creates a new regression detector
@@ -395,10 +395,10 @@ func (r *RegressionDetector) DetectRegressions(ctx context.Context, tests []Dual
 	}
 
 	report := &RegressionReport{
-		Timestamp:   time.Now(),
-		Baseline:    r.baseline,
-		Current:     current,
-		Regressions: make([]Regression, 0),
+		Timestamp:    time.Now(),
+		Baseline:     r.baseline,
+		Current:      current,
+		Regressions:  make([]Regression, 0),
 		Improvements: make([]Improvement, 0),
 	}
 

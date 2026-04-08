@@ -28,7 +28,7 @@ func TestCoreExtensionCommunication(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "version", "--json")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Should get version")
 
@@ -74,7 +74,7 @@ func TestCoreExtensionCommunication(t *testing.T) {
 
 		// Test that CLI can prepare to send task
 		cmd := exec.CommandContext(ctx, goPath, "task", "--help")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err)
 
@@ -99,7 +99,7 @@ func TestExtensionHostDiscovery(t *testing.T) {
 		cmd.Env = append(os.Environ(),
 			"CLINE_EXTENSION_HOST=127.0.0.1:50051",
 		)
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Output with custom host: %s", string(out))
 
@@ -123,7 +123,7 @@ func TestExtensionHostDiscovery(t *testing.T) {
 
 		cmd := exec.CommandContext(ctx, goPath, "config", "set", "extension.host", "127.0.0.1:50052")
 		cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Config set output: %s", string(out))
 
@@ -142,7 +142,7 @@ func TestExtensionHostDiscovery(t *testing.T) {
 
 		// Without any host configured, should use default
 		cmd := exec.CommandContext(ctx, goPath, "version", "--short")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Should work without explicit host")
 
@@ -163,7 +163,7 @@ func TestCoreExtensionOperations(t *testing.T) {
 
 		// Verify task command exists
 		cmd := exec.CommandContext(ctx, goPath, "task", "--help")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Task command should exist")
 
@@ -176,7 +176,7 @@ func TestCoreExtensionOperations(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "history", "--help")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "History command should exist")
 
@@ -189,7 +189,7 @@ func TestCoreExtensionOperations(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "config", "--help")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Config command should exist")
 
@@ -202,7 +202,7 @@ func TestCoreExtensionOperations(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "auth", "--help")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Auth command should exist")
 
@@ -215,7 +215,7 @@ func TestCoreExtensionOperations(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, goPath, "mcp", "--help")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "MCP command should exist")
 
@@ -237,7 +237,7 @@ func TestExtensionLifecycle(t *testing.T) {
 
 		// Test that CLI can start
 		cmd := exec.CommandContext(ctx, goPath, "version", "--short")
-		
+
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "CLI should start successfully")
 
@@ -252,7 +252,7 @@ func TestExtensionLifecycle(t *testing.T) {
 
 		// Run a command and ensure it exits cleanly
 		cmd := exec.CommandContext(ctx, goPath, "version", "--short")
-		
+
 		err := cmd.Run()
 		require.NoError(t, err, "CLI should exit cleanly")
 	})
@@ -262,7 +262,7 @@ func TestExtensionLifecycle(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			cmd := exec.CommandContext(ctx, goPath, "version", "--short")
-			
+
 			out, err := cmd.CombinedOutput()
 			cancel()
 
@@ -288,7 +288,7 @@ func TestCoreExtensionErrorHandling(t *testing.T) {
 
 		// Try an invalid operation
 		cmd := exec.CommandContext(ctx, goPath, "config", "invalid-subcommand-xyz")
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Invalid operation output: %s", string(out))
 
@@ -302,7 +302,7 @@ func TestCoreExtensionErrorHandling(t *testing.T) {
 
 		// Try with very short timeout
 		cmd := exec.CommandContext(ctx, goPath, "-t", "1", "version")
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Timeout output: %s", string(out))
 
@@ -325,7 +325,7 @@ func TestCoreExtensionErrorHandling(t *testing.T) {
 		cmd.Env = append(os.Environ(),
 			"CLINE_EXTENSION_HOST=invalid-host-xyz:99999",
 		)
-		
+
 		out, err := cmd.CombinedOutput()
 		t.Logf("Connection error output: %s", string(out))
 

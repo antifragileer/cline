@@ -102,7 +102,7 @@ func TestPhase1_GRPCIntegration(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		conn, err := grpc.DialContext(ctx, addr, 
+		conn, err := grpc.DialContext(ctx, addr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithBlock())
 		require.NoError(t, err)
@@ -118,10 +118,10 @@ func TestPhase1_GRPCIntegration(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
-		_, err := grpc.DialContext(ctx, "localhost:59999", 
+		_, err := grpc.DialContext(ctx, "localhost:59999",
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithBlock())
-		
+
 		// Should get a connection error
 		assert.Error(t, err)
 	})
@@ -196,10 +196,10 @@ func TestPhase1_MessageConversion(t *testing.T) {
 
 	t.Run("round-trip conversion preserves data", func(t *testing.T) {
 		original := &cline.ClineMessage{
-			Ts:      1234567890,
-			Type:    cline.ClineMessageType_SAY,
-			Say:     cline.ClineSay_TOOL_SAY,
-			Text:    "Tool executed",
+			Ts:   1234567890,
+			Type: cline.ClineMessageType_SAY,
+			Say:  cline.ClineSay_TOOL_SAY,
+			Text: "Tool executed",
 			SayTool: &cline.ClineSayTool{
 				Tool: cline.ClineSayToolType_READ_FILE,
 				Path: "/workspace/file.txt",
@@ -254,7 +254,7 @@ func TestPhase1_ErrorHandling(t *testing.T) {
 		}
 
 		for _, err := range retryableErrs {
-			assert.True(t, handler.IsRetryableError(err), 
+			assert.True(t, handler.IsRetryableError(err),
 				"Expected %v to be retryable", err)
 		}
 	})

@@ -20,25 +20,25 @@ const CoverageThreshold = 80.0
 
 // CoverageResult represents the coverage for a single package
 type CoverageResult struct {
-	Package     string  `json:"package"`
-	Coverage    float64 `json:"coverage"`
-	Statements  int     `json:"statements"`
-	Covered     int     `json:"covered"`
-	Uncovered   int     `json:"uncovered"`
-	Passes      bool    `json:"passes"`
+	Package    string  `json:"package"`
+	Coverage   float64 `json:"coverage"`
+	Statements int     `json:"statements"`
+	Covered    int     `json:"covered"`
+	Uncovered  int     `json:"uncovered"`
+	Passes     bool    `json:"passes"`
 }
 
 // CoverageReport contains coverage results for all packages
 type CoverageReport struct {
-	Success      bool             `json:"success"`
-	Results      []CoverageResult `json:"results"`
-	Overall      float64          `json:"overallCoverage"`
-	Threshold    float64          `json:"threshold"`
-	Summary      string           `json:"summary"`
-	ExitCode     int              `json:"exitCode"`
-	TotalPackages int             `json:"totalPackages"`
-	PassedPackages int            `json:"passedPackages"`
-	FailedPackages int            `json:"failedPackages"`
+	Success        bool             `json:"success"`
+	Results        []CoverageResult `json:"results"`
+	Overall        float64          `json:"overallCoverage"`
+	Threshold      float64          `json:"threshold"`
+	Summary        string           `json:"summary"`
+	ExitCode       int              `json:"exitCode"`
+	TotalPackages  int              `json:"totalPackages"`
+	PassedPackages int              `json:"passedPackages"`
+	FailedPackages int              `json:"failedPackages"`
 }
 
 // CoverageAnalyzer analyzes test coverage
@@ -114,15 +114,15 @@ func (c *CoverageAnalyzer) Analyze() (*CoverageReport, error) {
 	}
 
 	report := &CoverageReport{
-		Success:         success,
-		Results:         c.Results,
-		Overall:         overall,
-		Threshold:       c.Threshold,
-		Summary:         summary,
-		ExitCode:        exitCode,
-		TotalPackages:   len(c.Results),
-		PassedPackages:  passedCount,
-		FailedPackages:  failedCount,
+		Success:        success,
+		Results:        c.Results,
+		Overall:        overall,
+		Threshold:      c.Threshold,
+		Summary:        summary,
+		ExitCode:       exitCode,
+		TotalPackages:  len(c.Results),
+		PassedPackages: passedCount,
+		FailedPackages: failedCount,
 	}
 
 	return report, nil
@@ -131,7 +131,7 @@ func (c *CoverageAnalyzer) Analyze() (*CoverageReport, error) {
 // parseCoverageOutput parses the output of go tool cover -func
 func (c *CoverageAnalyzer) parseCoverageOutput(output string) {
 	lines := strings.Split(output, "\n")
-	
+
 	// Map to aggregate coverage by package
 	packageStats := make(map[string]*struct {
 		statements int
@@ -198,10 +198,10 @@ func (c *CoverageAnalyzer) extractPackage(file string) string {
 	// File path is relative to project root
 	// We want the package path (directory containing the file)
 	dir := filepath.Dir(file)
-	
+
 	// Remove leading ./ if present
 	dir = strings.TrimPrefix(dir, "./")
-	
+
 	// Skip test files and vendor
 	if strings.Contains(dir, "vendor") || strings.Contains(dir, "testdata") {
 		return ""
@@ -210,7 +210,7 @@ func (c *CoverageAnalyzer) extractPackage(file string) string {
 	// Convert to package import path
 	pkg := filepath.Join("github.com/cline/cline/golang-cli", dir)
 	pkg = strings.ReplaceAll(pkg, string(filepath.Separator), "/")
-	
+
 	return pkg
 }
 
@@ -228,13 +228,13 @@ func (r *CoverageReport) PrintReport() {
 	// Print failed packages first
 	fmt.Println("Package Coverage Details:")
 	fmt.Println(strings.Repeat("-", 72))
-	
+
 	for _, result := range r.Results {
 		status := "✓ PASS"
 		if !result.Passes {
 			status = "✗ FAIL"
 		}
-		fmt.Printf("[%s] %-50s %6.2f%% (%d/%d statements)\n", 
+		fmt.Printf("[%s] %-50s %6.2f%% (%d/%d statements)\n",
 			status, result.Package, result.Coverage, result.Covered, result.Statements)
 	}
 
@@ -368,18 +368,18 @@ func TestCoverageResult(t *testing.T) {
 func TestCoverageReport(t *testing.T) {
 	t.Run("report formatting", func(t *testing.T) {
 		report := &CoverageReport{
-			Success:         true,
-			Overall:         85.5,
-			Threshold:       80.0,
+			Success:   true,
+			Overall:   85.5,
+			Threshold: 80.0,
 			Results: []CoverageResult{
 				{Package: "pkg1", Coverage: 90.0, Passes: true},
 				{Package: "pkg2", Coverage: 75.0, Passes: false},
 			},
-			TotalPackages:   2,
-			PassedPackages:  1,
-			FailedPackages:  1,
-			Summary:         "Test summary",
-			ExitCode:        0,
+			TotalPackages:  2,
+			PassedPackages: 1,
+			FailedPackages: 1,
+			Summary:        "Test summary",
+			ExitCode:       0,
 		}
 
 		// Just verify it doesn't panic

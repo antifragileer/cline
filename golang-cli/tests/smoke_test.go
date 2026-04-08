@@ -24,27 +24,27 @@ type SmokeTestResult struct {
 
 // SmokeTestReport contains all smoke test results
 type SmokeTestReport struct {
-	Success      bool                `json:"success"`
-	Results      []SmokeTestResult   `json:"results"`
-	Summary      string              `json:"summary"`
-	ExitCode     int                 `json:"exitCode"`
-	BinaryPath   string              `json:"binaryPath"`
-	BinarySize   int64               `json:"binarySizeBytes"`
-	BinarySizeMB float64             `json:"binarySizeMB"`
-	Platform     string              `json:"platform"`
-	Timestamp    time.Time           `json:"timestamp"`
+	Success      bool              `json:"success"`
+	Results      []SmokeTestResult `json:"results"`
+	Summary      string            `json:"summary"`
+	ExitCode     int               `json:"exitCode"`
+	BinaryPath   string            `json:"binaryPath"`
+	BinarySize   int64             `json:"binarySizeBytes"`
+	BinarySizeMB float64           `json:"binarySizeMB"`
+	Platform     string            `json:"platform"`
+	Timestamp    time.Time         `json:"timestamp"`
 }
 
 // Constants for smoke test checks
 const (
-	TestBinaryExecution   = "binary_execution"
-	TestHelpText          = "help_text"
-	TestVersionOutput     = "version_output"
-	TestConfigCommand     = "config_command"
-	TestHistoryCommand    = "history_command"
-	TestBinarySize        = "binary_size"
-	TestNoExternalDeps    = "no_external_dependencies"
-	TestCrossPlatform     = "cross_platform_build"
+	TestBinaryExecution = "binary_execution"
+	TestHelpText        = "help_text"
+	TestVersionOutput   = "version_output"
+	TestConfigCommand   = "config_command"
+	TestHistoryCommand  = "history_command"
+	TestBinarySize      = "binary_size"
+	TestNoExternalDeps  = "no_external_dependencies"
+	TestCrossPlatform   = "cross_platform_build"
 )
 
 // BinarySizeLimit is the maximum allowed binary size in MB
@@ -143,7 +143,7 @@ func (s *SmokeTester) testBinaryExecution() SmokeTestResult {
 	// Try to execute the binary with --help (should always work)
 	cmd := exec.Command(s.BinaryPath, "--help")
 	cmd.Env = os.Environ()
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Check if it's an execution error
@@ -192,7 +192,7 @@ func (s *SmokeTester) testHelpText() SmokeTestResult {
 	}
 
 	outputStr := string(output)
-	
+
 	// Check for expected help elements
 	requiredElements := []string{
 		"Usage:",
@@ -254,7 +254,7 @@ func (s *SmokeTester) testVersionOutput() SmokeTestResult {
 	}
 
 	outputStr := strings.TrimSpace(string(output))
-	
+
 	// Check for version string
 	if !strings.Contains(outputStr, "version") && !strings.Contains(outputStr, "Version") {
 		result.Message = "Version output missing version info"
@@ -390,10 +390,10 @@ func (s *SmokeTester) testHistoryCommand() SmokeTestResult {
 	output, err = cmd.CombinedOutput()
 	// Command should succeed even with no history
 	outputStr = string(output)
-	
+
 	// Should either show entries or "No task history" message
-	if !strings.Contains(outputStr, "ID") && !strings.Contains(outputStr, "No task history") && 
-	   !strings.Contains(outputStr, "TASK") && !strings.Contains(outputStr, "TIMESTAMP") {
+	if !strings.Contains(outputStr, "ID") && !strings.Contains(outputStr, "No task history") &&
+		!strings.Contains(outputStr, "TASK") && !strings.Contains(outputStr, "TIMESTAMP") {
 		// Try JSON format
 		cmd = exec.Command(s.BinaryPath, "history", "--json")
 		output, err = cmd.CombinedOutput()
@@ -437,7 +437,7 @@ func (s *SmokeTester) testBinarySize() SmokeTestResult {
 	}
 
 	sizeMB := float64(info.Size()) / (1024 * 1024)
-	
+
 	if sizeMB > BinarySizeLimit {
 		result.Message = "Binary size exceeds limit"
 		result.Details = fmt.Sprintf("Size: %.2f MB, Limit: %d MB", sizeMB, BinarySizeLimit)
@@ -463,14 +463,14 @@ func (s *SmokeTester) testNoExternalDependencies() SmokeTestResult {
 
 	// Test that binary can run with minimal environment
 	cmd := exec.Command(s.BinaryPath, "version", "--short")
-	
+
 	// Clear most environment variables to test independence
 	minimalEnv := []string{
 		"PATH=/usr/bin:/bin",
 		"HOME=/tmp",
 	}
 	cmd.Env = minimalEnv
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		result.Message = "Binary requires external dependencies"
@@ -603,7 +603,7 @@ func findBinary() string {
 func TestNewSmokeTester(t *testing.T) {
 	t.Run("creates tester with correct settings", func(t *testing.T) {
 		tester := NewSmokeTester("/path/to/binary", true)
-		
+
 		if tester.BinaryPath != "/path/to/binary" {
 			t.Errorf("BinaryPath = %s, want /path/to/binary", tester.BinaryPath)
 		}
@@ -626,7 +626,7 @@ func TestSmokeTester_testBinarySize(t *testing.T) {
 	t.Run("fails when binary path is empty", func(t *testing.T) {
 		tester := NewSmokeTester("", false)
 		result := tester.testBinarySize()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when binary path is empty")
 		}
@@ -638,7 +638,7 @@ func TestSmokeTester_testBinarySize(t *testing.T) {
 	t.Run("fails when binary does not exist", func(t *testing.T) {
 		tester := NewSmokeTester("/nonexistent/binary", false)
 		result := tester.testBinarySize()
-		
+
 		if result.Passed {
 			t.Error("Expected fail when binary does not exist")
 		}
@@ -654,7 +654,7 @@ func TestSmokeTester_testBinarySize(t *testing.T) {
 
 		tester := NewSmokeTester(binaryPath, false)
 		result := tester.testBinarySize()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected pass for small binary, got: %s - %s", result.Message, result.Details)
 		}
@@ -670,7 +670,7 @@ func TestSmokeTester_testBinarySize(t *testing.T) {
 
 		tester := NewSmokeTester(binaryPath, false)
 		result := tester.testBinarySize()
-		
+
 		if result.Passed {
 			t.Error("Expected fail for oversized binary")
 		}
@@ -690,7 +690,7 @@ func TestSmokeTester_testHelpText(t *testing.T) {
 	t.Run("passes with valid binary", func(t *testing.T) {
 		tester := NewSmokeTester(binaryPath, false)
 		result := tester.testHelpText()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected help text test to pass, got: %s - %s", result.Message, result.Details)
 		}
@@ -707,7 +707,7 @@ func TestSmokeTester_testVersionOutput(t *testing.T) {
 	t.Run("passes with valid binary", func(t *testing.T) {
 		tester := NewSmokeTester(binaryPath, false)
 		result := tester.testVersionOutput()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected version test to pass, got: %s - %s", result.Message, result.Details)
 		}
@@ -724,7 +724,7 @@ func TestSmokeTester_testConfigCommand(t *testing.T) {
 	t.Run("passes with valid binary", func(t *testing.T) {
 		tester := NewSmokeTester(binaryPath, false)
 		result := tester.testConfigCommand()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected config test to pass, got: %s - %s", result.Message, result.Details)
 		}
@@ -741,7 +741,7 @@ func TestSmokeTester_testHistoryCommand(t *testing.T) {
 	t.Run("passes with valid binary", func(t *testing.T) {
 		tester := NewSmokeTester(binaryPath, false)
 		result := tester.testHistoryCommand()
-		
+
 		if !result.Passed {
 			t.Errorf("Expected history test to pass, got: %s - %s", result.Message, result.Details)
 		}

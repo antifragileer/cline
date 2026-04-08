@@ -251,7 +251,7 @@ func TestAPIKeyStorage(t *testing.T) {
 
 		for _, p := range providers {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			
+
 			cmd := exec.CommandContext(ctx, binary, "auth", "-p", p.name, "-k", p.apiKey)
 			cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
 
@@ -334,7 +334,7 @@ func TestOAuthFlow(t *testing.T) {
 
 		helpText := string(out)
 		// Verify OAuth-related help content exists
-		assert.True(t, 
+		assert.True(t,
 			containsAny(helpText, []string{"oauth", "OAuth", "login", "auth"}),
 			"Help should mention OAuth or authentication")
 	})
@@ -372,7 +372,7 @@ func TestOAuthFlow(t *testing.T) {
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, binary, "auth", "-p", "openai")
-		cmd.Env = append(os.Environ(), 
+		cmd.Env = append(os.Environ(),
 			"CLINE_CONFIG_DIR="+tempDir,
 			"BROWSER=echo", // Prevent actual browser opening
 		)

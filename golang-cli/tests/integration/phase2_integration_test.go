@@ -475,8 +475,8 @@ func TestPhase2_MessageConversion(t *testing.T) {
 			Say:  cline.ClineSay_TOOL_SAY,
 			Text: "Tool executed successfully",
 			SayTool: &cline.ClineSayTool{
-				Tool: cline.ClineSayToolType_READ_FILE,
-				Path: "/workspace/test.txt",
+				Tool:    cline.ClineSayToolType_READ_FILE,
+				Path:    "/workspace/test.txt",
 				Content: "file contents",
 			},
 		}
@@ -495,10 +495,10 @@ func TestPhase2_MessageConversion(t *testing.T) {
 			Type: cline.ClineMessageType_SAY,
 			Say:  cline.ClineSay_API_REQ_STARTED,
 			ApiReqInfo: &cline.ClineApiReqInfo{
-				TokensIn:   1000,
-				TokensOut:  500,
-				Cost:       0.002,
-				CacheReads: 50,
+				TokensIn:    1000,
+				TokensOut:   500,
+				Cost:        0.002,
+				CacheReads:  50,
 				CacheWrites: 25,
 			},
 		}

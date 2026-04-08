@@ -52,8 +52,8 @@ func TestStatePersistence(t *testing.T) {
 	t.Run("config_multiple_values", func(t *testing.T) {
 		// Set multiple config values
 		values := map[string]string{
-			"key1": "value1",
-			"key2": "value2",
+			"key1":       "value1",
+			"key2":       "value2",
 			"nested.key": "nested-value",
 		}
 
@@ -186,7 +186,7 @@ func TestTaskHistory(t *testing.T) {
 				"timestamp": time.Now().Add(-2 * time.Hour).UnixMilli(),
 				"prompt":    "Test task 2",
 				"status":    "failed",
-					},
+			},
 		}
 
 		historyData, _ := json.Marshal(mockHistory)
@@ -468,7 +468,7 @@ func TestStateFileCompatibility(t *testing.T) {
 		// Set global state via config
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cmd := exec.CommandContext(ctx, binary, "config", "set", "global.setting", "global-value")
-		cmd.Env = append(os.Environ(), 
+		cmd.Env = append(os.Environ(),
 			"CLINE_CONFIG_DIR="+tempDir,
 			"CLINE_DATA_DIR="+tempDir,
 		)
@@ -607,8 +607,8 @@ func TestStateEdgeCases(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			go func(index int) {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				cmd := exec.CommandContext(ctx, binary, "config", "set", 
-					fmt.Sprintf("concurrent.%d", index), 
+				cmd := exec.CommandContext(ctx, binary, "config", "set",
+					fmt.Sprintf("concurrent.%d", index),
 					fmt.Sprintf("value-%d", index))
 				cmd.Env = append(os.Environ(), "CLINE_CONFIG_DIR="+tempDir)
 				_, err := cmd.CombinedOutput()
