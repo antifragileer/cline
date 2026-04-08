@@ -120,9 +120,10 @@ test-race:
 	$(GOTEST) ./... $(RACE_FLAGS) -count=1
 
 # Run integration tests
+# NOTE: Integration tests with LLM commands use AI test lock for serialization.
 test-integration:
 	@echo "Running integration tests..."
-	@./scripts/test.sh --integration
+	$(GOTEST) -v ./tests/integration -count=1 -timeout=10m -parallel=1
 
 # Run parity tests
 test-parity:
@@ -130,14 +131,17 @@ test-parity:
 	$(GOTEST) -v ./tests/parity -count=1 -timeout=10m -parallel=2
 
 # Run functional tests (Phase 5)
+# NOTE: Functional tests use AI test lock for serialization.
+# Parallel=1 ensures tests within package also run serially.
 test-functional:
 	@echo "Running functional tests..."
-	$(GOTEST) -v ./tests/functional -count=1 -timeout=15m -parallel=2
+	$(GOTEST) -v ./tests/functional -count=1 -timeout=15m -parallel=1
 
 # Run dual testing framework (Phase 5)
+# NOTE: Dual tests may invoke LLM commands and use AI test lock.
 test-dual:
 	@echo "Running dual testing framework..."
-	$(GOTEST) -v ./tests/dual -count=1 -timeout=15m -parallel=2
+	$(GOTEST) -v ./tests/dual -count=1 -timeout=15m -parallel=1
 
 # Run comprehensive parity tests (Phase 5)
 test-comprehensive:
@@ -145,9 +149,10 @@ test-comprehensive:
 	$(GOTEST) -v ./tests/parity -run TestComprehensiveParity -count=1 -timeout=30m
 
 # Run E2E tests (requires built binary)
+# NOTE: E2E tests invoke real LLM commands and use AI test lock for serialization.
 test-e2e: build
 	@echo "Running E2E tests..."
-	@./scripts/test.sh --e2e
+	$(GOTEST) -v ./tests/e2e -count=1 -timeout=20m -parallel=1
 
 # Run regression tests
 test-regression:

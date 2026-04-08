@@ -1,5 +1,9 @@
 // Package functional provides comprehensive functional tests for authentication.
 // These tests verify authentication flows, API key management, and OAuth handling.
+//
+// IMPORTANT: Tests in this package may configure API authentication that could
+// be used for LLM commands. These tests use the AI test lock when appropriate
+// to ensure they don't run in parallel with other AI connection tests.
 package functional
 
 import (
@@ -14,12 +18,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cline/cline/golang-cli/tests/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestAuthFlow validates authentication flows
 func TestAuthFlow(t *testing.T) {
+	// Acquire AI lock for auth flow tests that configure providers
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")

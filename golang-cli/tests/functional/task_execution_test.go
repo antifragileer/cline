@@ -1,6 +1,10 @@
 // Package functional provides comprehensive functional tests for task execution.
 // These tests verify actual task behavior including execution, resumption,
 // image handling, and all flag combinations.
+//
+// IMPORTANT: Tests in this package invoke `cline task` which may execute real
+// LLM commands. These tests use the AI test lock to ensure they don't run in
+// parallel, preventing rate limiting and process accumulation.
 package functional
 
 import (
@@ -13,12 +17,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cline/cline/golang-cli/tests/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestTaskExecution validates task execution functionality
 func TestTaskExecution(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")
@@ -128,6 +137,10 @@ func TestTaskExecution(t *testing.T) {
 
 // TestTaskResumption validates task resumption functionality
 func TestTaskResumption(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")
@@ -197,6 +210,10 @@ func TestTaskResumption(t *testing.T) {
 
 // TestTaskModes validates act, plan, and yolo modes
 func TestTaskModes(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")
@@ -264,6 +281,10 @@ func TestTaskModes(t *testing.T) {
 
 // TestTaskFlags validates all task-related flags
 func TestTaskFlags(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")
@@ -369,6 +390,10 @@ func TestTaskFlags(t *testing.T) {
 
 // TestTaskYoloMode validates yolo mode auto-approval behavior
 func TestTaskYoloMode(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")
@@ -419,6 +444,10 @@ func TestTaskYoloMode(t *testing.T) {
 
 // TestTaskJSONOutput validates JSON output format
 func TestTaskJSONOutput(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")
@@ -462,6 +491,10 @@ func TestTaskJSONOutput(t *testing.T) {
 
 // TestTaskEdgeCases validates edge cases and error handling
 func TestTaskEdgeCases(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")
@@ -555,6 +588,10 @@ func TestTaskEdgeCases(t *testing.T) {
 
 // TestTaskTimeout validates timeout behavior
 func TestTaskTimeout(t *testing.T) {
+	// Acquire AI lock to prevent parallel execution of LLM tests
+	release := testutil.AcquireAILock(t)
+	defer release()
+
 	binary := findGoBinary()
 	if binary == "" {
 		t.Skip("Go CLI binary not found")

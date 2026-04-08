@@ -56,6 +56,88 @@ go test ./... -parallel=8
 go test ./... -parallel=1
 ```
 
+## AI Test Serialization
+
+Tests that execute real LLM commands (via `cline task`, `cline ask`, etc.) use a file-based locking mechanism to ensure they **never run in parallel**. This prevents:
+
+- **Rate limiting**: Multiple concurrent API calls hitting provider limits
+- **Process accumulation**: Too many long-running cline processes at once
+- **Resource exhaustion**: Memory/CPU issues from concurrent LLM execution
+
+### AI Connection Test Lock
+
+The `testutil` package provides `AcquireAILock()` for tests that invoke LLM commands:
+
+```go
+package functional
+
+import (
+    "testing"
+    "github.com/cline/cline/golang-cli/tests/testutil"
+)
+
+func TestTaskExecution(t *testing.T) {
+    // Acquire lock - blocks until available (up to 10 min timeout)
+    release := testutil.AcquireAILock(t)
+    defer release()  // Always defer release
+    
+    // Test code that invokes 'cline task'...
+}
+```
+
+### Test Classification
+
+**AI Connection Tests** (Use `AcquireAILock`):
+- `tests/functional/` - Task execution, authentication with API calls
+- `tests/e2e/` - End-to-end workflow tests with prompts
+- `tests/integration/` - Some integration tests with LLM commands
+- `tests/dual/` - Tests comparing Go/TypeScript that execute commands
+
+**Local Tests** (No lock needed):
+- `internal/*_test.go` - Unit tests
+- `tests/parity/` - Feature parity tests (no LLM execution)
+- `tests/regression/` - Regression tests
+- Tests using `cline version`, `cline config`, `cline --help`
+
+### Makefile Targets
+
+Tests that may invoke LLM commands run with `-parallel=1`:
+
+```bash
+# These run serially (no parallel execution)
+make test-functional    # Uses AI lock, parallel=1
+make test-e2e          # Uses AI lock, parallel=1
+make test-integration  # Uses AI lock, parallel=1
+make test-dual         # Uses AI lock, parallel=1
+
+# These can run in parallel (no LLM commands)
+make test              # Unit tests only, parallel=4
+make test-parity       # Parity tests, parallel=2
+make test-regression   # Regression tests, parallel=4
+```
+
+### Troubleshooting Lock Issues
+
+If you encounter lock-related issues:
+
+```bash
+# Check if a lock is held
+cat /tmp/cline_ai_test.lock
+
+# Remove stale lock (if tests crashed)
+rm /tmp/cline_ai_test.lock
+
+# Kill stuck test processes
+pkill -f "cline.*test"
+
+# Run with verbose output to see lock messages
+go test -v ./tests/functional -run TestTaskExecution
+```
+
+### Lock Timeout
+
+The default timeout for acquiring the AI lock is **10 minutes**. If your test needs longer, the lock acquisition will fail with a descriptive error message. This prevents indefinite hangs when tests are stuck.
+
 ### Memory Management
 
 To prevent tests from consuming too much memory:
