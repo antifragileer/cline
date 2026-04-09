@@ -16,27 +16,27 @@ import (
 
 // HistoryResume handles task resumption from history
 type HistoryResume struct {
-	historyDir   string
-	grpcClient   *MockGRPCClient
-	tasks        []TaskInfo
-	selectedIdx  int
-	loading      bool
-	error        error
-	styles       HistoryResumeStyles
-	width        int
-	height       int
+	historyDir  string
+	grpcClient  *MockGRPCClient
+	tasks       []TaskInfo
+	selectedIdx int
+	loading     bool
+	error       error
+	styles      HistoryResumeStyles
+	width       int
+	height      int
 }
 
 // TaskInfo represents a task from history that can be resumed
 type TaskInfo struct {
-	ID          string
-	Task        string
-	Timestamp   time.Time
-	Status      TaskStatus
+	ID           string
+	Task         string
+	Timestamp    time.Time
+	Status       TaskStatus
 	MessageCount int
-	Dir         string
-	Provider    string
-	Model       string
+	Dir          string
+	Provider     string
+	Model        string
 	LastModified time.Time
 }
 
@@ -53,19 +53,19 @@ const (
 
 // HistoryResumeStyles holds styles for history resume
 type HistoryResumeStyles struct {
-	containerStyle lipgloss.Style
-	titleStyle     lipgloss.Style
-	taskStyle      lipgloss.Style
-	selectedStyle  lipgloss.Style
-	statusActive   lipgloss.Style
+	containerStyle  lipgloss.Style
+	titleStyle      lipgloss.Style
+	taskStyle       lipgloss.Style
+	selectedStyle   lipgloss.Style
+	statusActive    lipgloss.Style
 	statusCompleted lipgloss.Style
-	statusFailed   lipgloss.Style
-	statusPaused   lipgloss.Style
-	timestampStyle lipgloss.Style
-	infoStyle      lipgloss.Style
-	helpStyle      lipgloss.Style
-	loadingStyle   lipgloss.Style
-	errorStyle     lipgloss.Style
+	statusFailed    lipgloss.Style
+	statusPaused    lipgloss.Style
+	timestampStyle  lipgloss.Style
+	infoStyle       lipgloss.Style
+	helpStyle       lipgloss.Style
+	loadingStyle    lipgloss.Style
+	errorStyle      lipgloss.Style
 }
 
 // DefaultHistoryResumeStyles returns default styles

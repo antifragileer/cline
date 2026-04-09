@@ -234,3 +234,207 @@ func TestDefaultAppStyles(t *testing.T) {
 		assert.NotZero(t, styles.titleStyle)
 	})
 }
+
+func TestAppModel_SetProgram(t *testing.T) {
+	t.Run("sets program reference", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+		// SetProgram should not panic with nil
+		model.SetProgram(nil)
+		// We can't test with a real program in unit tests
+	})
+}
+
+func TestAppModel_GetWidth(t *testing.T) {
+	t.Run("returns width after window resize", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+		msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+		model.Update(msg)
+
+		assert.Equal(t, 120, model.GetWidth())
+	})
+}
+
+func TestAppModel_GetHeight(t *testing.T) {
+	t.Run("returns height after window resize", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+		msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+		model.Update(msg)
+
+		assert.Equal(t, 40, model.GetHeight())
+	})
+}
+
+func TestAppModel_GetApproval_SetApproval(t *testing.T) {
+	t.Run("sets and gets approval model", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+		approval := NewApproval()
+
+		assert.Nil(t, model.GetApproval())
+
+		model.SetApproval(approval)
+
+		assert.Equal(t, approval, model.GetApproval())
+	})
+}
+
+func TestAppModel_GetApprovalState_SetApprovalState(t *testing.T) {
+	t.Run("sets and gets approval state", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+
+		state := model.GetApprovalState()
+		assert.Equal(t, ApprovalStateNone, state)
+
+		// Set to pending
+		model.SetApprovalState(ApprovalStatePending)
+		assert.Equal(t, ApprovalStatePending, model.GetApprovalState())
+
+		// Set to approved
+		model.SetApprovalState(ApprovalStateApproved)
+		assert.Equal(t, ApprovalStateApproved, model.GetApprovalState())
+
+		// Set to rejected
+		model.SetApprovalState(ApprovalStateRejected)
+		assert.Equal(t, ApprovalStateRejected, model.GetApprovalState())
+
+		// Set to timeout
+		model.SetApprovalState(ApprovalStateTimeout)
+		assert.Equal(t, ApprovalStateTimeout, model.GetApprovalState())
+	})
+}
+
+func TestAppModel_IsApprovalPending_ResetApproval(t *testing.T) {
+	t.Run("checks approval pending state", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+
+		// Initial state should not be pending
+		assert.False(t, model.IsApprovalPending())
+
+		// Set state to pending
+		model.SetApprovalState(ApprovalStatePending)
+
+		assert.True(t, model.IsApprovalPending())
+
+		// Reset should clear pending state
+		model.ResetApproval()
+
+		assert.False(t, model.IsApprovalPending())
+	})
+}
+
+func TestAppModel_GetStreamingHandler_SetStreamingHandler(t *testing.T) {
+	t.Run("sets and gets streaming handler", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+
+		assert.Nil(t, model.GetStreamingHandler())
+
+		handler := NewStreamingHandler(make(chan tea.Msg, 10))
+		model.SetStreamingHandler(handler)
+
+		assert.Equal(t, handler, model.GetStreamingHandler())
+	})
+}
+
+func TestAppModel_IsStreaming(t *testing.T) {
+	t.Run("returns streaming state", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+
+		assert.False(t, model.IsStreaming())
+
+		handler := NewStreamingHandler(make(chan tea.Msg, 10))
+		handler.StartStreaming("msg-1", "text")
+		model.SetStreamingHandler(handler)
+
+		assert.True(t, model.IsStreaming())
+
+		handler.EndStreaming()
+
+		assert.False(t, model.IsStreaming())
+	})
+}
+
+func TestAppModel_HandleApprovalRequest(t *testing.T) {
+	t.Run("handles approval request", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+		request := &ToolRequest{
+			ToolType: "tool",
+			ToolName: "write_file",
+		}
+
+		err := model.HandleApprovalRequest(request)
+
+		assert.NoError(t, err)
+		assert.True(t, model.IsApprovalPending())
+	})
+
+	t.Run("handles nil request by creating new approval", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+
+		// nil request doesn't cause error - it just doesn't set pending state
+		err := model.HandleApprovalRequest(nil)
+
+		// No error, but also not in pending state since there's no tool
+		assert.NoError(t, err)
+	})
+}
+
+func TestAppModel_ProcessApprovalInput(t *testing.T) {
+	t.Run("processes approval input", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+		approval := NewApproval()
+		approval.ShowPrompt(&ToolRequest{
+			ToolType: "tool",
+			ToolName: "test",
+		})
+		model.SetApproval(approval)
+		model.SetApprovalState(ApprovalStatePending)
+
+		approved, done, err := model.ProcessApprovalInput("y")
+
+		assert.NoError(t, err)
+		assert.True(t, approved)
+		assert.True(t, done)
+	})
+
+	t.Run("returns done when no approval pending", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+
+		// When no approval pending, returns done=true but no error
+		approved, done, err := model.ProcessApprovalInput("y")
+
+		assert.NoError(t, err)
+		assert.False(t, approved)
+		assert.True(t, done)
+	})
+}
+
+func TestAppModel_HandleStreamingChunk(t *testing.T) {
+	t.Run("handles streaming chunk", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+		handler := NewStreamingHandler(make(chan tea.Msg, 10))
+		model.SetStreamingHandler(handler)
+		handler.StartStreaming("msg-1", "text")
+
+		chunk := &MessageChunk{
+			Sequence: 0,
+			Content:  "test content",
+			IsLast:   false,
+		}
+
+		err := model.HandleStreamingChunk(chunk)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("returns error when no handler", func(t *testing.T) {
+		model := NewAppModel(nil, nil, nil)
+
+		chunk := &MessageChunk{
+			Sequence: 0,
+			Content:  "test",
+			IsLast:   false,
+		}
+		err := model.HandleStreamingChunk(chunk)
+
+		assert.Error(t, err)
+	})
+}

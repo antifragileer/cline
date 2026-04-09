@@ -170,10 +170,10 @@ func ShouldCaptureTelemetry() bool {
 
 // TelemetryConfig holds telemetry configuration
 type TelemetryConfig struct {
-	Enabled        bool   `json:"enabled"`
-	Endpoint       string `json:"endpoint,omitempty"`
-	IncludePII     bool   `json:"includePii,omitempty"`
-	AnonymousOnly  bool   `json:"anonymousOnly,omitempty"`
+	Enabled       bool   `json:"enabled"`
+	Endpoint      string `json:"endpoint,omitempty"`
+	IncludePII    bool   `json:"includePii,omitempty"`
+	AnonymousOnly bool   `json:"anonymousOnly,omitempty"`
 }
 
 // DefaultTelemetryConfig returns the default telemetry configuration

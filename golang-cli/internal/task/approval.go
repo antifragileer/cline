@@ -18,6 +18,7 @@ type ApprovalRequest struct {
 	ToolName    string            `json:"tool_name"`
 	Description string            `json:"description"`
 	Details     map[string]string `json:"details"`
+	Diff        string            `json:"diff,omitempty"` // For file edits
 }
 
 // ApprovalResponse represents the user's response to an approval request

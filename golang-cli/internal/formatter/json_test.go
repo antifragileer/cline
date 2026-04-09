@@ -9,6 +9,79 @@ import (
 	"testing"
 )
 
+// TestJSONOutputFormat tests that JSON output matches Node.js format exactly
+// This is the acceptance criteria test from the implementation plan
+func TestJSONOutputFormat(t *testing.T) {
+	tests := []struct {
+		name     string
+		message  JSONMessage
+		expected string
+	}{
+		{
+			name: "basic message with partial true",
+			message: JSONMessage{
+				Type:    "say",
+				Text:    "Hello",
+				Ts:      1234567890,
+				Partial: true,
+			},
+			expected: `{"ts":1234567890,"type":"say","text":"Hello","partial":true}`,
+		},
+		{
+			name: "message with all fields",
+			message: JSONMessage{
+				Ts:      1234567890,
+				Type:    "say",
+				Text:    "Hello",
+				Say:     "text",
+				Partial: true,
+			},
+			expected: `{"ts":1234567890,"type":"say","text":"Hello","partial":true,"say":"text"}`,
+		},
+		{
+			name: "partial false is omitted",
+			message: JSONMessage{
+				Ts:      1234567890,
+				Type:    "say",
+				Text:    "Hello",
+				Partial: false,
+			},
+			expected: `{"ts":1234567890,"type":"say","text":"Hello"}`,
+		},
+		{
+			name: "tool use message",
+			message: JSONMessage{
+				Ts:       1234567890,
+				Type:     "say",
+				Say:      "tool_use",
+				ToolName: "read_file",
+				ToolInput: map[string]interface{}{
+					"path": "/test.txt",
+				},
+				Partial: true,
+			},
+			expected: `{"ts":1234567890,"type":"say","partial":true,"say":"tool_use","toolName":"read_file","toolInput":{"path":"/test.txt"}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Build the message using the ordered output
+			ordered := NewOrderedJSONOutput()
+			err := ordered.WriteMessage(tt.message)
+			if err != nil {
+				t.Fatalf("WriteMessage failed: %v", err)
+			}
+
+			output := ordered.String()
+
+			if output != tt.expected {
+				t.Errorf("JSON output format mismatch:\nGot:      %s\nExpected: %s", output, tt.expected)
+			}
+		})
+	}
+}
+
 // TestJSONFieldOrdering tests that JSON fields appear in the correct order
 func TestJSONFieldOrdering(t *testing.T) {
 	tests := []struct {
@@ -147,13 +220,13 @@ func TestByteForByteComparison(t *testing.T) {
 
 			// Byte-for-byte comparison
 			if result != tc.expected {
-				t.Errorf("Byte mismatch:\nGot:      %s (%d bytes)\nExpected: %s (%d bytes)", 
+				t.Errorf("Byte mismatch:\nGot:      %s (%d bytes)\nExpected: %s (%d bytes)",
 					result, len(result), tc.expected, len(tc.expected))
-				
+
 				// Show first difference
 				for i := 0; i < min(len(result), len(tc.expected)); i++ {
 					if result[i] != tc.expected[i] {
-						t.Errorf("First difference at position %d: got %q, expected %q", 
+						t.Errorf("First difference at position %d: got %q, expected %q",
 							i, result[i], tc.expected[i])
 						break
 					}
@@ -200,6 +273,90 @@ func TestJSONLinesFormat(t *testing.T) {
 	}
 }
 
+// TestStreamingFlush verifies that streaming mode flushes immediately
+func TestStreamingFlush(t *testing.T) {
+	var buf bytes.Buffer
+	formatter := NewJSONFormatter(&buf, &buf, true)
+
+	// Write a message
+	err := formatter.FormatMessage("say", "test message", false)
+	if err != nil {
+		t.Fatalf("FormatMessage failed: %v", err)
+	}
+
+	// Verify output is immediately available (no buffering)
+	output := buf.String()
+	if output == "" {
+		t.Error("Expected immediate output in streaming mode, got empty buffer")
+	}
+
+	// Verify it's valid JSON with newline
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) != 1 {
+		t.Errorf("Expected 1 line, got %d", len(lines))
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[0]), &parsed); err != nil {
+		t.Errorf("Output is not valid JSON: %v", err)
+	}
+
+	// Verify message fields
+	if parsed["type"] != "say" {
+		t.Errorf("Expected type 'say', got %v", parsed["type"])
+	}
+	if parsed["text"] != "test message" {
+		t.Errorf("Expected text 'test message', got %v", parsed["text"])
+	}
+}
+
+// TestPartialFlagPropagation verifies partial flag is correctly propagated
+func TestPartialFlagPropagation(t *testing.T) {
+	tests := []struct {
+		name          string
+		partial       bool
+		expectPartial bool
+	}{
+		{
+			name:          "partial true is included",
+			partial:       true,
+			expectPartial: true,
+		},
+		{
+			name:          "partial false is omitted",
+			partial:       false,
+			expectPartial: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			formatter := NewJSONFormatter(&buf, &buf, true)
+
+			err := formatter.FormatMessage("say", "test", tt.partial)
+			if err != nil {
+				t.Fatalf("FormatMessage failed: %v", err)
+			}
+
+			output := buf.String()
+			var parsed map[string]interface{}
+			if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &parsed); err != nil {
+				t.Fatalf("Failed to parse JSON: %v", err)
+			}
+
+			_, hasPartial := parsed["partial"]
+			if hasPartial != tt.expectPartial {
+				t.Errorf("Expected partial field presence: %v, got: %v", tt.expectPartial, hasPartial)
+			}
+
+			if tt.expectPartial && parsed["partial"] != true {
+				t.Errorf("Expected partial=true, got: %v", parsed["partial"])
+			}
+		})
+	}
+}
+
 // TestErrorFormatting verifies error messages are properly formatted
 func TestErrorFormatting(t *testing.T) {
 	var buf bytes.Buffer
@@ -231,9 +388,9 @@ func TestErrorFormatting(t *testing.T) {
 // TestJSONStructureValidation validates JSON message structure matches TypeScript
 func TestJSONStructureValidation(t *testing.T) {
 	tests := []struct {
-		name        string
-		message     JSONMessage
-		shouldHave  []string
+		name          string
+		message       JSONMessage
+		shouldHave    []string
 		shouldNotHave []string
 	}{
 		{

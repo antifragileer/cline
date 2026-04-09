@@ -19,25 +19,21 @@ func TestExecute_VersionFlag(t *testing.T) {
 	// Reset flags before test
 	resetFlags()
 
-	// Capture output using command's output buffers
-	var stdoutBuf bytes.Buffer
-	var stderrBuf bytes.Buffer
-	rootCmd.SetOut(&stdoutBuf)
-	rootCmd.SetErr(&stderrBuf)
-
 	// Set args for version flag
 	rootCmd.SetArgs([]string{"--version"})
 
 	err := Execute()
-	// Cobra returns nil for --version when using SetVersionTemplate
-	if err != nil {
-		t.Errorf("Execute() with --version returned error: %v", err)
+	// --version flag is disabled to match Node.js CLI behavior
+	// The flag should return an error
+	if err == nil {
+		t.Error("Execute() with --version should return error (flag disabled for Node.js CLI parity)")
+		return
 	}
 
-	output := stdoutBuf.String() + stderrBuf.String()
-
-	if !strings.Contains(output, Version) {
-		t.Errorf("Expected output to contain version %q, got: %s", Version, output)
+	// Should show unknown flag error in the error message
+	errStr := err.Error()
+	if !strings.Contains(errStr, "unknown flag: --version") {
+		t.Errorf("Expected error to contain 'unknown flag: --version', got: %s", errStr)
 	}
 }
 
@@ -379,8 +375,9 @@ func TestExecute_Success(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Use version flag which always succeeds
-	rootCmd.SetArgs([]string{"--version"})
+	// Use version subcommand which always succeeds
+	// Note: --version flag is disabled to match Node.js CLI behavior
+	rootCmd.SetArgs([]string{"version"})
 
 	err := Execute()
 	if err != nil {
@@ -400,7 +397,9 @@ func TestExecute_Success(t *testing.T) {
 func BenchmarkExecute_Version(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		resetFlags()
-		rootCmd.SetArgs([]string{"--version"})
+		// Use version subcommand instead of --version flag
+		// --version flag is disabled to match Node.js CLI behavior
+		rootCmd.SetArgs([]string{"version"})
 
 		// Suppress output during benchmark
 		oldStdout := os.Stdout

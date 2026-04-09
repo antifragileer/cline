@@ -24,11 +24,11 @@ type ApprovalHistoryItem struct {
 
 // ApprovalHistory stores and displays approval decisions
 type ApprovalHistory struct {
-	items      []ApprovalHistoryItem
-	maxItems   int
-	styles     ApprovalHistoryStyles
-	width      int
-	height     int
+	items        []ApprovalHistoryItem
+	maxItems     int
+	styles       ApprovalHistoryStyles
+	width        int
+	height       int
 	scrollOffset int
 	showDetails  bool
 	selectedIdx  int
@@ -96,9 +96,9 @@ func DefaultApprovalHistoryStyles() ApprovalHistoryStyles {
 // NewApprovalHistory creates a new approval history
 func NewApprovalHistory() *ApprovalHistory {
 	return &ApprovalHistory{
-		items:      make([]ApprovalHistoryItem, 0),
-		maxItems:   100,
-		styles:     DefaultApprovalHistoryStyles(),
+		items:       make([]ApprovalHistoryItem, 0),
+		maxItems:    100,
+		styles:      DefaultApprovalHistoryStyles(),
 		showDetails: false,
 		selectedIdx: 0,
 	}
@@ -110,7 +110,7 @@ func (ah *ApprovalHistory) Add(item ApprovalHistoryItem) {
 	if item.Timestamp.IsZero() {
 		item.Timestamp = time.Now()
 	}
-	
+
 	// Generate ID if not set
 	if item.ID == "" {
 		item.ID = fmt.Sprintf("approval-%d", time.Now().UnixNano())
@@ -279,7 +279,7 @@ func (ah *ApprovalHistory) View() string {
 		line := ah.renderItem(item, i == ah.selectedIdx)
 		content.WriteString(line)
 		content.WriteString("\n")
-		
+
 		// Show details if selected and details mode is on
 		if i == ah.selectedIdx && ah.showDetails {
 			details := ah.renderItemDetails(item)
@@ -293,7 +293,7 @@ func (ah *ApprovalHistory) View() string {
 	// Scroll indicator
 	if len(ah.items) > maxVisible {
 		content.WriteString("\n")
-		scrollInfo := fmt.Sprintf("Showing %d-%d of %d", 
+		scrollInfo := fmt.Sprintf("Showing %d-%d of %d",
 			ah.scrollOffset+1, endIdx, len(ah.items))
 		content.WriteString(ah.styles.helpStyle.Render(scrollInfo))
 		content.WriteString("\n")
@@ -352,7 +352,7 @@ func (ah *ApprovalHistory) renderItemDetails(item ApprovalHistoryItem) string {
 	if item.ToolName != "" {
 		details = append(details, fmt.Sprintf("  Tool: %s", item.ToolName))
 	}
-	
+
 	if len(details) == 0 {
 		return ""
 	}

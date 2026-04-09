@@ -53,6 +53,13 @@ func TestParity(t *testing.T) {
 
 	suite, err := NewSuite(opts)
 	if err != nil {
+		// Skip if Node.js CLI is not available
+		if strings.Contains(err.Error(), "Node.js CLI not found") ||
+			strings.Contains(err.Error(), "failed to discover Node.js CLI") ||
+			strings.Contains(err.Error(), "failed to initialize Node.js CLI adapter") {
+			t.Skipf("Skipping parity tests: Node.js CLI not available: %v", err)
+			return
+		}
 		t.Fatalf("Failed to create parity suite: %v", err)
 	}
 
@@ -154,6 +161,13 @@ func testCategory(t *testing.T, cat Category) {
 
 	suite, err := NewSuite(opts)
 	if err != nil {
+		// Skip if Node.js CLI is not available
+		if strings.Contains(err.Error(), "Node.js CLI not found") ||
+			strings.Contains(err.Error(), "failed to discover Node.js CLI") ||
+			strings.Contains(err.Error(), "failed to initialize Node.js CLI adapter") {
+			t.Skipf("Skipping parity tests: Node.js CLI not available: %v", err)
+			return
+		}
 		t.Fatalf("Failed to create parity suite: %v", err)
 	}
 

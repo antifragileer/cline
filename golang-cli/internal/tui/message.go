@@ -26,6 +26,22 @@ const (
 	MessageTypeUser MessageType = "user"
 )
 
+// MessageStatus represents the status of a message
+type MessageStatus string
+
+const (
+	// MessageStatusPending indicates the message is waiting to be processed
+	MessageStatusPending MessageStatus = "pending"
+	// MessageStatusStreaming indicates the message is being streamed
+	MessageStatusStreaming MessageStatus = "streaming"
+	// MessageStatusComplete indicates the message is complete
+	MessageStatusComplete MessageStatus = "complete"
+	// MessageStatusFailed indicates the message failed
+	MessageStatusFailed MessageStatus = "failed"
+	// MessageStatusCancelled indicates the message was cancelled
+	MessageStatusCancelled MessageStatus = "cancelled"
+)
+
 // Message represents a chat message in the conversation.
 type Message struct {
 	// ID is the unique identifier for the message.
@@ -38,6 +54,8 @@ type Message struct {
 	Partial bool
 	// Timestamp is when the message was created.
 	Timestamp time.Time
+	// Status is the current status of the message
+	Status MessageStatus
 	// Metadata contains additional type-specific data.
 	Metadata map[string]interface{}
 	// ToolName is set for tool_use messages.
@@ -56,6 +74,14 @@ type Message struct {
 	HasOutput bool
 	// CommandCompleted indicates if a command has completed execution.
 	CommandCompleted bool
+	// SequenceNum is the sequence number for ordering
+	SequenceNum int
+	// ParentID is the ID of the parent message (for threaded conversations)
+	ParentID string
+	// IsEdited indicates if the message has been edited
+	IsEdited bool
+	// EditTimestamp is when the message was last edited
+	EditTimestamp time.Time
 }
 
 // NewMessage creates a new message with the given type and content.
@@ -250,4 +276,91 @@ func (s *MessageStore) Filter(msgType MessageType) []*Message {
 		}
 	}
 	return result
+}
+
+// FindByID finds a message by its ID.
+func (s *MessageStore) FindByID(id string) (*Message, bool) {
+	for _, msg := range s.messages {
+		if msg.ID == id {
+			return msg, true
+		}
+	}
+	return nil, false
+}
+
+// Update updates an existing message by ID.
+func (s *MessageStore) Update(id string, updater func(*Message)) bool {
+	for _, msg := range s.messages {
+		if msg.ID == id {
+			updater(msg)
+			return true
+		}
+	}
+	return false
+}
+
+// GetHistory returns the message history formatted for display.
+func (s *MessageStore) GetHistory(limit int) []*Message {
+	if limit <= 0 || limit > len(s.messages) {
+		return s.messages
+	}
+	return s.messages[len(s.messages)-limit:]
+}
+
+// GetMessagesByStatus returns messages with a specific status.
+func (s *MessageStore) GetMessagesByStatus(status MessageStatus) []*Message {
+	var result []*Message
+	for _, msg := range s.messages {
+		if msg.Status == status {
+			result = append(result, msg)
+		}
+	}
+	return result
+}
+
+// GetLastByType returns the most recent message of a specific type.
+func (s *MessageStore) GetLastByType(msgType MessageType) (*Message, bool) {
+	for i := len(s.messages) - 1; i >= 0; i-- {
+		if s.messages[i].Type == msgType {
+			return s.messages[i], true
+		}
+	}
+	return nil, false
+}
+
+// UpdateMessageStatus updates the status of a message by ID.
+func (s *MessageStore) UpdateMessageStatus(id string, status MessageStatus) bool {
+	return s.Update(id, func(msg *Message) {
+		msg.Status = status
+		if status == MessageStatusComplete || status == MessageStatusFailed {
+			msg.Partial = false
+		}
+	})
+}
+
+// GetMessageCount returns the total number of messages.
+func (s *MessageStore) GetMessageCount() int {
+	return len(s.messages)
+}
+
+// GetMessageCountByType returns the count of messages by type.
+func (s *MessageStore) GetMessageCountByType(msgType MessageType) int {
+	count := 0
+	for _, msg := range s.messages {
+		if msg.Type == msgType {
+			count++
+		}
+	}
+	return count
+}
+
+// Remove removes a message by ID.
+func (s *MessageStore) Remove(id string) bool {
+	for i, msg := range s.messages {
+		if msg.ID == id {
+			s.messages = append(s.messages[:i], s.messages[i+1:]...)
+			return true
+		}
+	}
+	return false
 }

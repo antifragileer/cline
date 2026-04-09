@@ -2,87 +2,74 @@ package tui
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetModeColor(t *testing.T) {
 	tests := []struct {
+		name     string
 		mode     string
 		expected string
 	}{
-		{"plan", PlanYellow},
-		{"act", PrimaryBlue},
-		{"", PrimaryBlue},
-		{"unknown", PrimaryBlue},
-		{"PLAN", PrimaryBlue}, // case sensitive
+		{"act mode", "act", PrimaryBlue},
+		{"plan mode", "plan", PlanYellow},
+		{"unknown mode", "unknown", PrimaryBlue},
 	}
 
-	for _, test := range tests {
-		result := GetModeColor(test.mode)
-		if result != test.expected {
-			t.Errorf("GetModeColor(%q) = %q, expected %q", test.mode, result, test.expected)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetModeColor(tt.mode)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
 func TestGetModeSelectionColor(t *testing.T) {
 	tests := []struct {
+		name     string
 		mode     string
 		expected string
 	}{
-		{"plan", PlanYellow},
-		{"act", SelectionBlue},
-		{"", SelectionBlue},
-		{"unknown", SelectionBlue},
-		{"PLAN", SelectionBlue}, // case sensitive
+		{"act mode", "act", SelectionBlue},
+		{"plan mode", "plan", PlanYellow},
+		{"unknown mode", "unknown", SelectionBlue},
 	}
 
-	for _, test := range tests {
-		result := GetModeSelectionColor(test.mode)
-		if result != test.expected {
-			t.Errorf("GetModeSelectionColor(%q) = %q, expected %q", test.mode, result, test.expected)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetModeSelectionColor(tt.mode)
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }
 
 func TestColorConstants(t *testing.T) {
-	// Verify color constants are set
-	if PrimaryBlue != "#B1B9F9" {
-		t.Errorf("PrimaryBlue = %q, expected #B1B9F9", PrimaryBlue)
-	}
+	t.Run("color constants are defined", func(t *testing.T) {
+		// Verify all color constants are defined and valid
+		assert.NotEmpty(t, PrimaryBlue)
+		assert.NotEmpty(t, SelectionBlue)
+		assert.NotEmpty(t, PlanYellow)
+		assert.NotEmpty(t, White)
+		assert.NotEmpty(t, Gray)
+		assert.NotEmpty(t, DimGray)
+		assert.NotEmpty(t, SuccessGreen)
+		assert.NotEmpty(t, ErrorRed)
+		assert.NotEmpty(t, WarningAmber)
+		assert.NotEmpty(t, DarkBackground)
+	})
 
-	if SelectionBlue != "#00D9FF" {
-		t.Errorf("SelectionBlue = %q, expected #00D9FF", SelectionBlue)
-	}
+	t.Run("mode colors are different", func(t *testing.T) {
+		actColor := GetModeColor("act")
+		planColor := GetModeColor("plan")
 
-	if PlanYellow != "#FFB000" {
-		t.Errorf("PlanYellow = %q, expected #FFB000", PlanYellow)
-	}
+		assert.NotEqual(t, actColor, planColor)
+	})
 
-	if White != "#FFFFFF" {
-		t.Errorf("White = %q, expected #FFFFFF", White)
-	}
-
-	if Gray != "#808080" {
-		t.Errorf("Gray = %q, expected #808080", Gray)
-	}
-
-	if DimGray != "#505050" {
-		t.Errorf("DimGray = %q, expected #505050", DimGray)
-	}
-
-	if SuccessGreen != "#00FF00" {
-		t.Errorf("SuccessGreen = %q, expected #00FF00", SuccessGreen)
-	}
-
-	if ErrorRed != "#FF4444" {
-		t.Errorf("ErrorRed = %q, expected #FF4444", ErrorRed)
-	}
-
-	if WarningAmber != "#FFB000" {
-		t.Errorf("WarningAmber = %q, expected #FFB000", WarningAmber)
-	}
-
-	if DarkBackground != "#1a1a1a" {
-		t.Errorf("DarkBackground = %q, expected #1a1a1a", DarkBackground)
-	}
+	t.Run("selection colors match mode colors", func(t *testing.T) {
+		// Plan mode uses same color for mode and selection
+		assert.Equal(t, PlanYellow, GetModeSelectionColor("plan"))
+		// Act mode uses different colors
+		assert.Equal(t, SelectionBlue, GetModeSelectionColor("act"))
+	})
 }

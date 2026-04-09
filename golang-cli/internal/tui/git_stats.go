@@ -11,6 +11,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// pluralize returns "s" if n != 1, otherwise empty string
+func pluralize(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
 // GitStats holds git repository statistics
 type GitStats struct {
 	Branch    string

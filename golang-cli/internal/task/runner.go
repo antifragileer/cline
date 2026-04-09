@@ -44,6 +44,11 @@ type Runner struct {
 	taskResult  string
 	taskError   error
 	completed   bool
+
+	// Approval workflow
+	approvalChan chan *ApprovalRequest
+	responseChan chan *ApprovalResponse
+	isPaused     bool
 }
 
 // NewRunner creates a new task runner
@@ -66,6 +71,8 @@ func NewRunner(
 		session:         session.Get(),
 		logger:          logger,
 		taskID:          generateTaskID(),
+		approvalChan:    make(chan *ApprovalRequest, 1),
+		responseChan:    make(chan *ApprovalResponse, 1),
 	}
 }
 
@@ -154,6 +161,89 @@ func (r *Runner) RequestApproval(toolName string, description string, details ma
 	}
 
 	return response, nil
+}
+
+// RequestApprovalWithCallback requests approval with a callback for interactive UI
+// This pauses task execution until the user responds
+func (r *Runner) RequestApprovalWithCallback(
+	toolName string,
+	description string,
+	details map[string]string,
+	diff string,
+	callback func(request *ApprovalRequest) (*ApprovalResponse, error),
+) (*ApprovalResponse, error) {
+	r.mu.Lock()
+	r.isPaused = true
+	r.mu.Unlock()
+
+	defer func() {
+		r.mu.Lock()
+		r.isPaused = false
+		r.mu.Unlock()
+	}()
+
+	request := &ApprovalRequest{
+		ToolName:    toolName,
+		Description: description,
+		Details:     details,
+		Diff:        diff,
+	}
+
+	r.logger.Info("Requesting approval", "tool", toolName, "description", description)
+
+	// Send request through channel for async handling
+	select {
+	case r.approvalChan <- request:
+		// Request sent successfully
+	default:
+		// Channel full, try direct handling
+	}
+
+	// Use callback if provided (for TUI integration)
+	if callback != nil {
+		response, err := callback(request)
+		if err != nil {
+			r.logger.Error("Approval callback failed", "error", err)
+			return nil, err
+		}
+		return response, nil
+	}
+
+	// Default: use approval handler
+	response, err := r.approvalHandler.HandleApproval(request)
+	if err != nil {
+		r.logger.Error("Failed to handle approval", "error", err)
+		return nil, err
+	}
+
+	// Record tool result for mistake tracking
+	if response.Approved {
+		_ = r.approvalHandler.RecordToolResult(true)
+	}
+
+	return response, nil
+}
+
+// GetApprovalChannel returns the approval request channel
+func (r *Runner) GetApprovalChannel() <-chan *ApprovalRequest {
+	return r.approvalChan
+}
+
+// SendApprovalResponse sends an approval response back to the runner
+func (r *Runner) SendApprovalResponse(response *ApprovalResponse) error {
+	select {
+	case r.responseChan <- response:
+		return nil
+	default:
+		return fmt.Errorf("response channel full")
+	}
+}
+
+// IsPaused returns whether the runner is waiting for approval
+func (r *Runner) IsPaused() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.isPaused
 }
 
 // CompleteTask completes the task and handles double-check mode
@@ -256,6 +346,9 @@ func (r *Runner) Run(ctx context.Context, config TaskConfig, handler MessageHand
 	if r.taskID == "" {
 		r.taskID = generateTaskID()
 	}
+
+	// Set the message handler
+	r.SetMessageHandler(handler)
 
 	// Start the task
 	return r.Start(ctx, config.Prompt)
@@ -510,3 +603,4 @@ func (r *Runner) DisconnectGRPC() error {
 	}
 	return nil
 }
+

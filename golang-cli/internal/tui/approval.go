@@ -4,6 +4,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -34,6 +36,286 @@ const (
 	// ApprovalAlways approves and remembers for future
 	ApprovalAlways ApprovalResponse = "always"
 )
+
+// ToolRequest represents a request for tool approval
+type ToolRequest struct {
+	// ToolType is the type of tool (command, file_edit, browser, etc.)
+	ToolType string
+	// ToolName is the name of the tool
+	ToolName string
+	// Description is a human-readable description of what the tool will do
+	Description string
+	// Command is the actual command to execute (for command tools)
+	Command string
+	// FilePath is the target file path (for file operations)
+	FilePath string
+	// Params contains additional tool parameters
+	Params map[string]interface{}
+	// IsDangerous indicates if this operation might be harmful
+	IsDangerous bool
+	// RequiresApproval indicates if this tool requires user approval
+	RequiresApproval bool
+}
+
+// SimpleApprovalHistory tracks approval decisions (simple version for basic approval tracking)
+type SimpleApprovalHistory struct {
+	mu        sync.RWMutex
+	decisions []SimpleApprovalDecision
+}
+
+// SimpleApprovalDecision represents a single approval decision
+type SimpleApprovalDecision struct {
+	Timestamp    time.Time
+	ToolType     string
+	ToolName     string
+	Approved     bool
+	AutoApproved bool
+}
+
+// NewSimpleApprovalHistory creates a new simple approval history tracker
+func NewSimpleApprovalHistory() *SimpleApprovalHistory {
+	return &SimpleApprovalHistory{
+		decisions: make([]SimpleApprovalDecision, 0),
+	}
+}
+
+// RecordDecision records an approval decision
+func (ah *SimpleApprovalHistory) RecordDecision(toolType, toolName string, approved, autoApproved bool) {
+	ah.mu.Lock()
+	defer ah.mu.Unlock()
+
+	ah.decisions = append(ah.decisions, SimpleApprovalDecision{
+		Timestamp:    time.Now(),
+		ToolType:     toolType,
+		ToolName:     toolName,
+		Approved:     approved,
+		AutoApproved: autoApproved,
+	})
+}
+
+// GetRecentDecisions returns the most recent approval decisions
+func (ah *SimpleApprovalHistory) GetRecentDecisions(limit int) []SimpleApprovalDecision {
+	ah.mu.RLock()
+	defer ah.mu.RUnlock()
+
+	if limit <= 0 || limit > len(ah.decisions) {
+		return ah.decisions
+	}
+	return ah.decisions[len(ah.decisions)-limit:]
+}
+
+// GetDecisionCount returns the total number of decisions
+func (ah *SimpleApprovalHistory) GetDecisionCount() int {
+	ah.mu.RLock()
+	defer ah.mu.RUnlock()
+	return len(ah.decisions)
+}
+
+// Approval handles approval workflows with support for keyboard shortcuts and auto-approve
+type Approval struct {
+	mu sync.RWMutex
+	
+	// Current request
+	currentRequest *ToolRequest
+	responseChan   chan<- string
+	
+	// State
+	isPending      bool
+	isAutoApprove  bool
+	decisionMade   bool
+	approved       bool
+	
+	// History
+	history *SimpleApprovalHistory
+	
+	// UI state
+	showDetails    bool
+	keyboardShortcuts map[string]string
+}
+
+// NewApproval creates a new approval handler
+func NewApproval() *Approval {
+	return &Approval{
+		history:           NewSimpleApprovalHistory(),
+		showDetails:       true,
+		keyboardShortcuts: map[string]string{
+			"y": "approve",
+			"Y": "approve",
+			"n": "reject",
+			"N": "reject",
+			"\r": "approve", // Enter key
+			"\n": "approve",
+		},
+	}
+}
+
+// ShowPrompt displays an approval prompt for a tool request
+func (a *Approval) ShowPrompt(tool *ToolRequest) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	
+	a.currentRequest = tool
+	a.isPending = true
+	a.decisionMade = false
+	a.approved = false
+	
+	return nil
+}
+
+// HandleInput processes keyboard input for approval
+// Returns (approved, done, error)
+func (a *Approval) HandleInput(key string) (bool, bool, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	
+	if !a.isPending {
+		return false, true, nil
+	}
+	
+	action, exists := a.keyboardShortcuts[key]
+	if !exists {
+		// Unknown key, still pending
+		return false, false, nil
+	}
+	
+	a.decisionMade = true
+	a.isPending = false
+	
+	switch action {
+	case "approve":
+		a.approved = true
+		if a.responseChan != nil {
+			a.responseChan <- "yesButtonClicked"
+		}
+		a.history.RecordDecision(a.currentRequest.ToolType, a.currentRequest.ToolName, true, false)
+		return true, true, nil
+		
+	case "reject":
+		a.approved = false
+		if a.responseChan != nil {
+			a.responseChan <- "noButtonClicked"
+		}
+		a.history.RecordDecision(a.currentRequest.ToolType, a.currentRequest.ToolName, false, false)
+		return false, true, nil
+		
+	default:
+		return false, false, fmt.Errorf("unknown action: %s", action)
+	}
+}
+
+// IsAutoApproveEnabled returns true if auto-approve (YOLO mode) is enabled
+func (a *Approval) IsAutoApproveEnabled() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.isAutoApprove
+}
+
+// SetAutoApprove enables or disables auto-approve mode
+func (a *Approval) SetAutoApprove(enabled bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.isAutoApprove = enabled
+}
+
+// AutoApprove approves the current request automatically (for YOLO mode)
+func (a *Approval) AutoApprove() (bool, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	
+	if !a.isPending || a.currentRequest == nil {
+		return false, fmt.Errorf("no pending approval request")
+	}
+	
+	// Don't auto-approve dangerous operations unless explicitly configured
+	if a.currentRequest.IsDangerous && !a.isAutoApprove {
+		return false, fmt.Errorf("dangerous operation requires manual approval")
+	}
+	
+	a.decisionMade = true
+	a.approved = true
+	a.isPending = false
+	
+	if a.responseChan != nil {
+		a.responseChan <- "yesButtonClicked"
+	}
+	
+	a.history.RecordDecision(a.currentRequest.ToolType, a.currentRequest.ToolName, true, true)
+	
+	return true, nil
+}
+
+// IsPending returns true if there's a pending approval request
+func (a *Approval) IsPending() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.isPending
+}
+
+// GetCurrentRequest returns the current pending request
+func (a *Approval) GetCurrentRequest() *ToolRequest {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.currentRequest
+}
+
+// GetHistory returns the approval history
+func (a *Approval) GetHistory() *SimpleApprovalHistory {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.history
+}
+
+// Reset clears the current approval state
+func (a *Approval) Reset() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	
+	a.currentRequest = nil
+	a.isPending = false
+	a.decisionMade = false
+	a.approved = false
+}
+
+// GetToolDetails returns formatted details about the current tool request
+func (a *Approval) GetToolDetails() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	
+	if a.currentRequest == nil {
+		return ""
+	}
+	
+	tool := a.currentRequest
+	var details strings.Builder
+	
+	details.WriteString(fmt.Sprintf("Tool: %s\n", tool.ToolName))
+	details.WriteString(fmt.Sprintf("Type: %s\n", tool.ToolType))
+	
+	if tool.Description != "" {
+		details.WriteString(fmt.Sprintf("Description: %s\n", tool.Description))
+	}
+	
+	if tool.Command != "" {
+		details.WriteString(fmt.Sprintf("Command: %s\n", tool.Command))
+	}
+	
+	if tool.FilePath != "" {
+		details.WriteString(fmt.Sprintf("File: %s\n", tool.FilePath))
+	}
+	
+	if tool.IsDangerous {
+		details.WriteString("\n⚠️  Warning: This operation may modify files or system state\n")
+	}
+	
+	return details.String()
+}
+
+// SetResponseChannel sets the channel for sending approval responses
+func (a *Approval) SetResponseChannel(ch chan<- string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.responseChan = ch
+}
 
 // ApprovalModel is the Bubble Tea model for approval prompts
 type ApprovalModel struct {

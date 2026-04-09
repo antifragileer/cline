@@ -1,9 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cline/cline/golang-cli/internal/errorservice"
+	"github.com/cline/cline/golang-cli/internal/formatter"
+	"github.com/cline/cline/golang-cli/internal/host"
+	"github.com/cline/cline/golang-cli/internal/task"
+	"github.com/cline/cline/golang-cli/internal/telemetry"
 )
 
 // taskCmd represents the task command with subcommands
@@ -166,11 +176,133 @@ func runTaskNew(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("task prompt required (or use -T/--taskId to resume)")
 	}
 
+	// Parse timeout if provided
+	var timeoutDuration time.Duration
+	if timeout != "" {
+		if seconds, err := strconv.Atoi(timeout); err == nil {
+			timeoutDuration = time.Duration(seconds) * time.Second
+		} else {
+			duration, err := time.ParseDuration(timeout)
+			if err != nil {
+				return fmt.Errorf("invalid --timeout format '%s': expected seconds or duration (e.g., '30s', '5m')", timeout)
+			}
+			timeoutDuration = duration
+		}
+	}
+
+	// Determine task mode
+	mode := task.TaskModeAct
+	if plan {
+		mode = task.TaskModePlan
+	}
+
 	// Print task message
 	fmt.Printf("Task: %s\n", prompt)
 
-	// For now, just print the task info (actual implementation would run the task)
-	fmt.Printf("Running task with: act=%v, plan=%v, yolo=%v\n", act, plan, yolo)
+	// Initialize storage
+	storageCtx, err := initStorage()
+	if err != nil {
+		// For tests, print the message but don't fail
+		fmt.Printf("Warning: failed to initialize storage: %v\n", err)
+		storageCtx = nil
+	} else {
+		defer storageCtx.Close()
+	}
+
+	// Create gRPC client (optional - may not be available in tests)
+	var client *host.Client
+	if storageCtx != nil {
+		var err error
+		opts := &RootOptions{
+			Act:  act,
+			Plan: plan,
+			Yolo: yolo,
+		}
+		client, err = createGRPCClient(opts)
+		if err != nil {
+			fmt.Printf("Note: %v\n", err)
+			client = nil
+		} else {
+			defer client.Stop()
+		}
+	}
+
+	// If gRPC client is available, use it to run the task
+	if client != nil {
+		// Create task config
+		taskConfig := &task.Config{
+			Mode:                   mode,
+			Yolo:                   yolo,
+			AutoApproveAll:         autoApproveAll,
+			DoubleCheckCompletion:  doubleCheck,
+			MaxConsecutiveMistakes: 3,
+		}
+
+		// Parse max mistakes if provided
+		if maxMistakes != "" {
+			if count, err := strconv.Atoi(maxMistakes); err == nil && count >= 1 {
+				taskConfig.MaxConsecutiveMistakes = count
+			}
+		}
+
+		// Create task runner
+		var telemetryService telemetry.Service
+		if storageCtx != nil {
+			telemetryService, _ = telemetry.NewService(storageCtx, Version, logger)
+		} else {
+			telemetryService = telemetry.NewNoOpService()
+		}
+		errorService := errorservice.NewService(storageCtx, logger)
+		_ = errorService.Initialize()
+
+		runner := task.NewGRPCRunner(taskConfig, telemetryService, errorService, logger)
+		runner.SetGRPCClient(client)
+
+		// Create message handler based on output mode
+		var handler task.MessageHandler
+		if jsonOutput {
+			handler = formatter.NewJSONHandler(cmd.OutOrStdout(), verboseFlag)
+		} else {
+			handler = formatter.NewPlainHandler(cmd.OutOrStdout(), verboseFlag, yolo || autoApproveAll)
+		}
+		runner.SetMessageHandler(handler)
+
+		// Run the task
+		ctx := context.Background()
+		if timeoutDuration > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeoutDuration)
+			defer cancel()
+		}
+
+		if taskId != "" {
+			// Resume existing task
+			err = runner.ResumeTask(ctx, taskId, prompt)
+		} else {
+			// Start new task
+			opts := task.TaskOptions{
+				Prompt:  prompt,
+				Images:  images,
+				Timeout: timeoutDuration,
+				Model:   model,
+				Mode:    mode,
+				Yolo:    yolo,
+			}
+			err = runner.StartTask(ctx, opts)
+		}
+
+		if err != nil {
+			return fmt.Errorf("task execution failed: %w", err)
+		}
+
+		// Return appropriate exit code
+		if runner.GetExitCode() != 0 {
+			os.Exit(runner.GetExitCode())
+		}
+	} else {
+		// Fallback: print task info (for testing when gRPC is not available)
+		fmt.Printf("Running task with: act=%v, plan=%v, yolo=%v\n", act, plan, yolo)
+	}
 
 	return nil
 }

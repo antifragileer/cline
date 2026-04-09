@@ -176,12 +176,12 @@ func (r *Registry) addVersionScenarios() {
 	r.scenarios = append(r.scenarios, []Scenario{
 		{
 			Name:           "version_flag",
-			Description:    "Version with --version flag",
+			Description:    "Version with --version flag (not supported, returns error)",
 			Category:       CategoryVersion,
 			Args:           []string{"--version"},
 			Timeout:        5 * time.Second,
 			Mode:           ExecutionModePlain,
-			ExpectExitCode: 0,
+			ExpectExitCode: 1, // Node.js CLI doesn't support --version flag
 			ExpectBaseline: true,
 		},
 		{
@@ -196,13 +196,14 @@ func (r *Registry) addVersionScenarios() {
 		},
 		{
 			Name:           "version_short",
-			Description:    "Version with -v short flag",
+			Description:    "Version with -v short flag (not supported as version, returns error)",
 			Category:       CategoryVersion,
 			Args:           []string{"-v"},
 			Timeout:        5 * time.Second,
 			Mode:           ExecutionModePlain,
-			ExpectExitCode: 0,
+			ExpectExitCode: 0, // -v is verbose flag, not version
 			ExpectBaseline: true,
+			SkipNormalization: []string{"version"}, // Don't normalize version numbers
 		},
 	}...)
 }

@@ -25,8 +25,8 @@ const (
 	ApprovalOptionNever ApprovalOption = "never"
 )
 
-// ApprovalState tracks approval preferences per session
-type ApprovalState struct {
+// ToolApprovalState tracks approval preferences per session for tools
+type ToolApprovalState struct {
 	mu sync.RWMutex
 
 	// approvedTools tracks tools the user chose to always approve
@@ -39,9 +39,9 @@ type ApprovalState struct {
 	toolHistory map[string]ApprovalOption
 }
 
-// NewApprovalState creates a new approval state
-func NewApprovalState() *ApprovalState {
-	return &ApprovalState{
+// NewToolApprovalState creates a new tool approval state
+func NewToolApprovalState() *ToolApprovalState {
+	return &ToolApprovalState{
 		approvedTools: make(map[string]bool),
 		rejectedTools: make(map[string]bool),
 		toolHistory:   make(map[string]ApprovalOption),
@@ -49,21 +49,21 @@ func NewApprovalState() *ApprovalState {
 }
 
 // IsToolApproved checks if a tool is permanently approved
-func (s *ApprovalState) IsToolApproved(toolName string) bool {
+func (s *ToolApprovalState) IsToolApproved(toolName string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.approvedTools[toolName]
 }
 
 // IsToolRejected checks if a tool is permanently rejected
-func (s *ApprovalState) IsToolRejected(toolName string) bool {
+func (s *ToolApprovalState) IsToolRejected(toolName string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.rejectedTools[toolName]
 }
 
 // ApproveTool permanently approves a tool
-func (s *ApprovalState) ApproveTool(toolName string) {
+func (s *ToolApprovalState) ApproveTool(toolName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.approvedTools[toolName] = true
@@ -72,7 +72,7 @@ func (s *ApprovalState) ApproveTool(toolName string) {
 }
 
 // RejectTool permanently rejects a tool
-func (s *ApprovalState) RejectTool(toolName string) {
+func (s *ToolApprovalState) RejectTool(toolName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.rejectedTools[toolName] = true
@@ -81,14 +81,14 @@ func (s *ApprovalState) RejectTool(toolName string) {
 }
 
 // RecordChoice records a one-time choice
-func (s *ApprovalState) RecordChoice(toolName string, option ApprovalOption) {
+func (s *ToolApprovalState) RecordChoice(toolName string, option ApprovalOption) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.toolHistory[toolName] = option
 }
 
 // GetLastChoice gets the last choice for a tool
-func (s *ApprovalState) GetLastChoice(toolName string) (ApprovalOption, bool) {
+func (s *ToolApprovalState) GetLastChoice(toolName string) (ApprovalOption, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	choice, ok := s.toolHistory[toolName]
@@ -96,7 +96,7 @@ func (s *ApprovalState) GetLastChoice(toolName string) (ApprovalOption, bool) {
 }
 
 // Clear clears all approval state
-func (s *ApprovalState) Clear() {
+func (s *ToolApprovalState) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.approvedTools = make(map[string]bool)
@@ -140,17 +140,17 @@ type approvalOption struct {
 }
 
 type approvalStyles struct {
-	modal         lipgloss.Style
-	title         lipgloss.Style
-	message       lipgloss.Style
-	details       lipgloss.Style
-	detailsHidden lipgloss.Style
-	button        lipgloss.Style
+	modal          lipgloss.Style
+	title          lipgloss.Style
+	message        lipgloss.Style
+	details        lipgloss.Style
+	detailsHidden  lipgloss.Style
+	button         lipgloss.Style
 	buttonSelected lipgloss.Style
 	buttonAlways   lipgloss.Style
 	buttonNever    lipgloss.Style
-	help          lipgloss.Style
-	warning       lipgloss.Style
+	help           lipgloss.Style
+	warning        lipgloss.Style
 }
 
 // NewEnhancedApprovalModel creates a new enhanced approval model

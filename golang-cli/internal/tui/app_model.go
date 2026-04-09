@@ -2,6 +2,8 @@
 package tui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -25,6 +27,10 @@ type AppModel struct {
 	chat     *ChatModel
 	diff     DiffModel
 
+	// Phase 2: Approval system
+	approval      *Approval
+	approvalState ApprovalState
+
 	// Current view state
 	state AppState
 
@@ -37,7 +43,26 @@ type AppModel struct {
 
 	// Program reference for sending messages
 	program *tea.Program
+	
+	// Streaming handler
+	streamingHandler *StreamingHandler
 }
+
+// ApprovalState represents the approval workflow state
+type ApprovalState int
+
+const (
+	// ApprovalStateNone means no approval is pending
+	ApprovalStateNone ApprovalState = iota
+	// ApprovalStatePending means waiting for user approval
+	ApprovalStatePending
+	// ApprovalStateApproved means the request was approved
+	ApprovalStateApproved
+	// ApprovalStateRejected means the request was rejected
+	ApprovalStateRejected
+	// ApprovalStateTimeout means the approval timed out
+	ApprovalStateTimeout
+)
 
 // AppState represents the current application view.
 type AppState int
@@ -295,6 +320,108 @@ func (m *AppModel) GetWidth() int {
 // GetHeight returns the current terminal height.
 func (m *AppModel) GetHeight() int {
 	return m.height
+}
+
+// GetApproval returns the approval handler
+func (m *AppModel) GetApproval() *Approval {
+	return m.approval
+}
+
+// SetApproval sets the approval handler
+func (m *AppModel) SetApproval(approval *Approval) {
+	m.approval = approval
+}
+
+// GetApprovalState returns the current approval state
+func (m *AppModel) GetApprovalState() ApprovalState {
+	return m.approvalState
+}
+
+// SetApprovalState sets the approval state
+func (m *AppModel) SetApprovalState(state ApprovalState) {
+	m.approvalState = state
+}
+
+// HandleApprovalRequest handles a new approval request
+func (m *AppModel) HandleApprovalRequest(tool *ToolRequest) error {
+	if m.approval == nil {
+		m.approval = NewApproval()
+		m.approval.SetAutoApprove(m.yolo)
+	}
+	
+	// If YOLO mode is enabled, auto-approve
+	if m.yolo {
+		m.approval.SetAutoApprove(true)
+		approved, err := m.approval.AutoApprove()
+		if err != nil {
+			return err
+		}
+		if approved {
+			m.approvalState = ApprovalStateApproved
+			return nil
+		}
+	}
+	
+	// Show approval prompt
+	m.approvalState = ApprovalStatePending
+	return m.approval.ShowPrompt(tool)
+}
+
+// ProcessApprovalInput processes keyboard input during approval
+func (m *AppModel) ProcessApprovalInput(key string) (bool, bool, error) {
+	if m.approval == nil || m.approvalState != ApprovalStatePending {
+		return false, true, nil
+	}
+	
+	approved, done, err := m.approval.HandleInput(key)
+	if done {
+		if approved {
+			m.approvalState = ApprovalStateApproved
+		} else {
+			m.approvalState = ApprovalStateRejected
+		}
+	}
+	
+	return approved, done, err
+}
+
+// IsApprovalPending returns true if waiting for approval
+func (m *AppModel) IsApprovalPending() bool {
+	return m.approvalState == ApprovalStatePending
+}
+
+// ResetApproval resets the approval state
+func (m *AppModel) ResetApproval() {
+	m.approvalState = ApprovalStateNone
+	if m.approval != nil {
+		m.approval.Reset()
+	}
+}
+
+// GetStreamingHandler returns the streaming handler
+func (m *AppModel) GetStreamingHandler() *StreamingHandler {
+	return m.streamingHandler
+}
+
+// SetStreamingHandler sets the streaming handler
+func (m *AppModel) SetStreamingHandler(handler *StreamingHandler) {
+	m.streamingHandler = handler
+}
+
+// HandleStreamingChunk handles a streaming message chunk
+func (m *AppModel) HandleStreamingChunk(chunk *MessageChunk) error {
+	if m.streamingHandler == nil {
+		return fmt.Errorf("streaming handler not initialized")
+	}
+	return m.streamingHandler.HandleChunk(chunk)
+}
+
+// IsStreaming returns true if currently streaming
+func (m *AppModel) IsStreaming() bool {
+	if m.streamingHandler == nil {
+		return false
+	}
+	return m.streamingHandler.IsStreaming()
 }
 
 // AppStyles holds application-wide styles.

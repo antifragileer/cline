@@ -199,7 +199,7 @@ func (sp *SettingsPersistence) saveAPISettings(content *SettingsContent) {
 		if modelStr, ok := model.(string); ok {
 			provider, _ := sp.getSettingValue(content, "provider")
 			providerStr, _ := provider.(string)
-			
+
 			switch providerStr {
 			case "openai":
 				sp.setGlobalState("openAiModelId", modelStr)
@@ -337,7 +337,7 @@ func (sp *SettingsPersistence) getGlobalStateBool(key string) (bool, bool) {
 	if !ok {
 		return false, false
 	}
-	
+
 	switch v := val.(type) {
 	case bool:
 		return v, true
@@ -357,7 +357,7 @@ func (sp *SettingsPersistence) getGlobalStateFloat(key string) (float64, bool) {
 	if !ok {
 		return 0, false
 	}
-	
+
 	switch v := val.(type) {
 	case float64:
 		return v, true
@@ -502,10 +502,10 @@ func (sp *SettingsPersistence) SaveAPIKey(provider, apiKey string) error {
 	// Store API key with provider-specific key
 	keyName := fmt.Sprintf("%sApiKey", provider)
 	sp.setSecret(keyName, apiKey)
-	
+
 	// Also store as generic apiKey for backward compatibility
 	sp.setSecret("apiKey", apiKey)
-	
+
 	return nil
 }
 

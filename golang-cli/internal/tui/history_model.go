@@ -35,10 +35,10 @@ type HistoryModel struct {
 	styles   HistoryStyles
 
 	// Search functionality
-	searchMode    bool
-	searchQuery   string
-	searchInput   string
-	isSearching   bool
+	searchMode  bool
+	searchQuery string
+	searchInput string
+	isSearching bool
 
 	// Pagination
 	page       int
@@ -46,8 +46,8 @@ type HistoryModel struct {
 	totalPages int
 
 	// Task preview
-	previewMode   bool
-	previewTask   *HistoryItem
+	previewMode bool
+	previewTask *HistoryItem
 
 	// Selection callback
 	onSelectTask func(string)
@@ -402,7 +402,7 @@ func (m HistoryModel) View() string {
 	}
 	content.WriteString(m.styles.dimStyle.Render(strings.Repeat("─", helpSepWidth)))
 	content.WriteString("\n")
-	
+
 	if m.previewMode {
 		content.WriteString(m.styles.helpStyle.Render("Space/v: close preview • Enter: select task • Esc/q: back"))
 	} else if m.searchMode {
@@ -421,11 +421,11 @@ func (m *HistoryModel) renderPreview() string {
 	}
 
 	var content strings.Builder
-	
+
 	// Task preview header
 	content.WriteString(m.styles.titleStyle.Render("Task Preview"))
 	content.WriteString("\n\n")
-	
+
 	// Task details
 	task := m.previewTask
 	content.WriteString(fmt.Sprintf("ID: %s\n", task.ID))
@@ -438,7 +438,7 @@ func (m *HistoryModel) renderPreview() string {
 	}
 	content.WriteString(fmt.Sprintf("Tokens: %d\n", task.Tokens))
 	content.WriteString("\n")
-	
+
 	// Task description
 	content.WriteString("Task:\n")
 	taskText := task.Task

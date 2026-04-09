@@ -401,11 +401,17 @@ func (r *Reporter) generateJUnit(result *SuiteResult) error {
 				tc.Skipped = &JUnitSkipped{Message: "Test skipped"}
 			} else if !tr.Passed {
 				suite.Failures++
+				var content string
+				if tr.Comparison != nil {
+					content = tr.Comparison.Diff
+				} else if tr.Error != "" {
+					content = tr.Error
+				}
 				tc.Failure = &JUnitFailure{
 					Message: fmt.Sprintf("Exit code mismatch: expected %d, got %d",
 						tr.Scenario.ExpectExitCode, tr.Actual.ExitCode),
 					Type:    "AssertionError",
-					Content: tr.Comparison.Diff,
+					Content: content,
 				}
 			}
 

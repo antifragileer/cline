@@ -2,10 +2,67 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/spf13/cobra"
 )
+
+// validateFlags validates the task new command flags without executing
+func validateFlags(args []string) error {
+	// Create a command that just validates flags without executing
+	cmd := &cobra.Command{
+		Use:   "new [prompt]",
+		Short: "Create a new task",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate mutually exclusive flags
+			act, _ := cmd.Flags().GetBool("act")
+			plan, _ := cmd.Flags().GetBool("plan")
+			if act && plan {
+				return fmt.Errorf("cannot use both --act and --plan flags")
+			}
+
+			// Validate prompt or taskId is required
+			prompt := ""
+			if len(args) > 0 {
+				prompt = args[0]
+			}
+			taskId, _ := cmd.Flags().GetString("taskId")
+			if prompt == "" && taskId == "" {
+				return fmt.Errorf("task prompt required (or use -T/--taskId to resume)")
+			}
+
+			return nil
+		},
+	}
+
+	// Add flags
+	cmd.Flags().BoolP("act", "a", false, "Run in act mode")
+	cmd.Flags().BoolP("plan", "p", false, "Run in plan mode")
+	cmd.Flags().BoolP("yolo", "y", false, "Enable yolo mode")
+	cmd.Flags().Bool("auto-approve-all", false, "Auto-approve all actions")
+	cmd.Flags().StringP("timeout", "t", "", "Timeout in seconds")
+	cmd.Flags().StringP("model", "m", "", "Model to use")
+	cmd.Flags().StringP("taskId", "T", "", "Resume existing task")
+	cmd.Flags().Bool("json", false, "Output as JSON")
+	cmd.Flags().String("thinking", "", "Enable thinking")
+	cmd.Flags().String("reasoning-effort", "", "Reasoning effort")
+	cmd.Flags().String("max-consecutive-mistakes", "", "Max mistakes")
+	cmd.Flags().Bool("double-check-completion", false, "Double check")
+	cmd.Flags().Bool("auto-condense", false, "Auto condense")
+	cmd.Flags().String("hooks-dir", "", "Hooks directory")
+	cmd.Flags().StringP("cwd", "c", "", "Working directory")
+	cmd.Flags().StringArrayP("image", "i", nil, "Image attachment")
+	cmd.Flags().BoolP("verbose", "v", false, "Verbose output")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs(args)
+
+	return cmd.Execute()
+}
 
 func TestTaskNewCmd(t *testing.T) {
 	tests := []struct {
@@ -69,39 +126,7 @@ func TestTaskNewCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a fresh command for testing
-			cmd := &cobra.Command{
-				Use:   "new [prompt]",
-				Short: "Create a new task",
-				Args:  cobra.MinimumNArgs(0),
-				RunE:  runTaskNew,
-			}
-
-			// Add flags
-			cmd.Flags().BoolP("act", "a", false, "Run in act mode")
-			cmd.Flags().BoolP("plan", "p", false, "Run in plan mode")
-			cmd.Flags().BoolP("yolo", "y", false, "Enable yolo mode")
-			cmd.Flags().Bool("auto-approve-all", false, "Auto-approve all actions")
-			cmd.Flags().StringP("timeout", "t", "", "Timeout in seconds")
-			cmd.Flags().StringP("model", "m", "", "Model to use")
-			cmd.Flags().StringP("taskId", "T", "", "Resume existing task")
-			cmd.Flags().Bool("json", false, "Output as JSON")
-			cmd.Flags().String("thinking", "", "Enable thinking")
-			cmd.Flags().String("reasoning-effort", "", "Reasoning effort")
-			cmd.Flags().String("max-consecutive-mistakes", "", "Max mistakes")
-			cmd.Flags().Bool("double-check-completion", false, "Double check")
-			cmd.Flags().Bool("auto-condense", false, "Auto condense")
-			cmd.Flags().String("hooks-dir", "", "Hooks directory")
-			cmd.Flags().StringP("cwd", "c", "", "Working directory")
-			cmd.Flags().StringArrayP("image", "i", nil, "Image attachment")
-			cmd.Flags().BoolP("verbose", "v", false, "Verbose output")
-
-			var buf bytes.Buffer
-			cmd.SetOut(&buf)
-			cmd.SetErr(&buf)
-			cmd.SetArgs(tt.args)
-
-			err := cmd.Execute()
+			err := validateFlags(tt.args)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)

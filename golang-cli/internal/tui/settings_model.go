@@ -38,14 +38,14 @@ type SettingsModel struct {
 	isEnteringAPIKey  bool
 
 	// Storage
-	storageCtx      *storage.StorageContext
-	persistence     *SettingsPersistence
+	storageCtx  *storage.StorageContext
+	persistence *SettingsPersistence
 
 	// Provider/Model selection
-	providerList     []string
-	modelList        []string
-	selectionCursor  int
-	selectionActive  bool
+	providerList    []string
+	modelList       []string
+	selectionCursor int
+	selectionActive bool
 
 	// Styles
 	styles SettingsStyles
@@ -148,10 +148,10 @@ func NewSettingsModel() *SettingsModel {
 		selectionCursor: 0,
 		messageChan:     make(chan tea.Msg, 10),
 	}
-	
+
 	// Initialize provider list
 	m.providerList = m.getAvailableProviders()
-	
+
 	return m
 }
 
@@ -318,7 +318,7 @@ func (m *SettingsModel) startProviderSelection() {
 	m.isPickingProvider = true
 	m.selectionActive = true
 	m.selectionCursor = 0
-	
+
 	// Find current provider index
 	currentProvider, _ := m.GetSetting("provider")
 	if currentProviderStr, ok := currentProvider.(string); ok {
@@ -336,12 +336,12 @@ func (m *SettingsModel) startModelSelection() {
 	m.isPickingModel = true
 	m.selectionActive = true
 	m.selectionCursor = 0
-	
+
 	// Get models for current provider
 	provider, _ := m.GetSetting("provider")
 	providerStr, _ := provider.(string)
 	m.modelList = m.getAvailableModels(providerStr)
-	
+
 	// Find current model index
 	currentModel, _ := m.GetSetting("model")
 	if currentModelStr, ok := currentModel.(string); ok {
@@ -601,13 +601,13 @@ func (m *SettingsModel) SetStorageContext(storageCtx *storage.StorageContext) {
 
 	// Initialize persistence layer
 	m.persistence = NewSettingsPersistence(storageCtx)
-	
+
 	// Load settings from storage
 	if err := m.persistence.LoadSettings(m.content); err != nil {
 		// Log error but continue with defaults
 		fmt.Printf("Warning: failed to load settings: %v\n", err)
 	}
-	
+
 	// Update provider and model lists based on loaded settings
 	m.providerList = m.getAvailableProviders()
 	if provider, ok := m.GetSetting("provider"); ok {

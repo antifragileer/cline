@@ -118,7 +118,7 @@ func (f *PlainFormatter) FormatSayMessage(sayType string, text string, partial b
 
 	switch sayType {
 	case "text":
-		f.printText(text)
+		f.printCline(text)
 	case "error":
 		f.printError(text)
 		if f.exitHandler != nil {
@@ -140,6 +140,10 @@ func (f *PlainFormatter) FormatSayMessage(sayType string, text string, partial b
 		f.printCommandOutput(text)
 	case "tool":
 		f.printTool(text)
+	case "tool_use":
+		f.printToolUse(text)
+	case "tool_result":
+		f.printToolResult(text)
 	case "completion_result":
 		f.printCompletionResult(text)
 	case "thinking", "reasoning":
@@ -314,7 +318,13 @@ func (f *PlainFormatter) Flush() error {
 	return nil
 }
 
-// printText prints plain text output
+// printCline prints AI message with [Cline] prefix
+func (f *PlainFormatter) printCline(text string) {
+	prefix := f.styleCline("[Cline]")
+	fmt.Fprintf(f.output, "%s %s\n", prefix, text)
+}
+
+// printText prints plain text output (legacy, use printCline for AI messages)
 func (f *PlainFormatter) printText(text string) {
 	fmt.Fprintln(f.output, text)
 }
@@ -340,7 +350,20 @@ func (f *PlainFormatter) printCommandOutput(output string) {
 
 // printTool prints a tool use message
 func (f *PlainFormatter) printTool(tool string) {
-	fmt.Fprintf(f.output, "%s %s\n", f.styleInfo("Tool:"), f.styleTool(tool))
+	prefix := f.styleTool("[Tool]")
+	fmt.Fprintf(f.output, "%s %s\n", prefix, tool)
+}
+
+// printToolUse prints a tool use message with [Tool] prefix
+func (f *PlainFormatter) printToolUse(tool string) {
+	prefix := f.styleTool("[Tool]")
+	fmt.Fprintf(f.output, "%s Using tool: %s\n", prefix, tool)
+}
+
+// printToolResult prints a tool result message
+func (f *PlainFormatter) printToolResult(result string) {
+	prefix := f.styleTool("[Tool]")
+	fmt.Fprintf(f.output, "%s Result: %s\n", prefix, result)
 }
 
 // printCompletionResult prints the final completion result
@@ -362,14 +385,16 @@ func (f *PlainFormatter) printPrompt(text string) {
 	fmt.Fprintf(f.output, "\n%s\n", f.styleQuestion(text))
 }
 
-// printError prints an error message
+// printError prints an error message with [Error] prefix
 func (f *PlainFormatter) printError(text string) {
-	fmt.Fprintf(f.errOutput, "%s: %s\n", f.styleError("Error"), text)
+	prefix := f.styleError("[Error]")
+	fmt.Fprintf(f.errOutput, "%s %s\n", prefix, text)
 }
 
 // printWarning prints a warning message
 func (f *PlainFormatter) printWarning(text string) {
-	fmt.Fprintf(f.errOutput, "%s: %s\n", f.styleWarning("Warning"), text)
+	prefix := f.styleWarning("[Warning]")
+	fmt.Fprintf(f.errOutput, "%s %s\n", prefix, text)
 }
 
 // printInfo prints an info message
@@ -396,6 +421,13 @@ func (f *PlainFormatter) renderProgressBar(current, total, width int) string {
 }
 
 // Color/style functions
+func (f *PlainFormatter) styleCline(text string) string {
+	if !f.useColor {
+		return text
+	}
+	return fmt.Sprintf("\033[36m%s\033[0m", text) // Cyan for Cline prefix
+}
+
 func (f *PlainFormatter) styleError(text string) string {
 	if !f.useColor {
 		return text
@@ -679,7 +711,7 @@ func (h *ScriptingHandler) OnSay(sayType string, text string, partial bool) {
 		// Final result
 		fmt.Fprintln(h.output, text)
 	case "error":
-		fmt.Fprintf(os.Stderr, "Error: %s\n", text)
+		fmt.Fprintf(os.Stderr, "[Error] %s\n", text)
 		if h.exitHandler != nil {
 			h.exitHandler.SetExitCode(exit.TaskFailed)
 		}

@@ -116,121 +116,121 @@ func NewOrderedJSONOutput() *OrderedJSONOutput {
 // WriteMessage writes a message with fields in specific order
 func (o *OrderedJSONOutput) WriteMessage(msg JSONMessage) error {
 	o.buf.WriteString("{")
-	
+
 	// Write fields in order
 	first := true
-	
+
 	// ts (required)
 	first = o.writeField(first, "ts", msg.Ts)
-	
+
 	// type (required)
 	first = o.writeField(first, "type", msg.Type)
-	
+
 	// text
 	if msg.Text != "" {
 		first = o.writeField(first, "text", msg.Text)
 	}
-	
-	// partial
+
+	// partial (only if true to match Node.js behavior)
 	if msg.Partial {
 		first = o.writeField(first, "partial", msg.Partial)
 	}
-	
+
 	// say
 	if msg.Say != "" {
 		first = o.writeField(first, "say", msg.Say)
 	}
-	
+
 	// ask
 	if msg.Ask != "" {
 		first = o.writeField(first, "ask", msg.Ask)
 	}
-	
+
 	// reasoning
 	if msg.Reasoning != "" {
 		first = o.writeField(first, "reasoning", msg.Reasoning)
 	}
-	
+
 	// images
 	if len(msg.Images) > 0 {
 		first = o.writeField(first, "images", msg.Images)
 	}
-	
+
 	// files
 	if len(msg.Files) > 0 {
 		first = o.writeField(first, "files", msg.Files)
 	}
-	
+
 	// commandCompleted
 	if msg.CommandCompleted {
 		first = o.writeField(first, "commandCompleted", msg.CommandCompleted)
 	}
-	
+
 	// lastCheckpointHash
 	if msg.LastCheckpointHash != "" {
 		first = o.writeField(first, "lastCheckpointHash", msg.LastCheckpointHash)
 	}
-	
+
 	// isCheckpointCheckedOut
 	if msg.IsCheckpointCheckedOut {
 		first = o.writeField(first, "isCheckpointCheckedOut", msg.IsCheckpointCheckedOut)
 	}
-	
+
 	// isOperationOutsideWorkspace
 	if msg.IsOperationOutsideWorkspace {
 		first = o.writeField(first, "isOperationOutsideWorkspace", msg.IsOperationOutsideWorkspace)
 	}
-	
+
 	// conversationHistoryIndex
 	if msg.ConversationHistoryIndex != 0 {
 		first = o.writeField(first, "conversationHistoryIndex", msg.ConversationHistoryIndex)
 	}
-	
+
 	// conversationHistoryDeletedRange
 	if len(msg.ConversationHistoryDeletedRange) > 0 {
 		first = o.writeField(first, "conversationHistoryDeletedRange", msg.ConversationHistoryDeletedRange)
 	}
-	
+
 	// toolName
 	if msg.ToolName != "" {
 		first = o.writeField(first, "toolName", msg.ToolName)
 	}
-	
+
 	// toolInput
 	if len(msg.ToolInput) > 0 {
 		first = o.writeField(first, "toolInput", msg.ToolInput)
 	}
-	
+
 	// toolResult
 	if msg.ToolResult != "" {
 		first = o.writeField(first, "toolResult", msg.ToolResult)
 	}
-	
+
 	// apiRequestStarted
 	if msg.APIRequestStarted != nil {
 		first = o.writeField(first, "apiRequestStarted", msg.APIRequestStarted)
 	}
-	
+
 	// apiRequestFinished
 	if msg.APIRequestFinished != nil {
 		first = o.writeField(first, "apiRequestFinished", msg.APIRequestFinished)
 	}
-	
+
 	// error
 	if msg.Error != "" {
 		first = o.writeField(first, "error", msg.Error)
 	}
-	
+
 	// details
 	if len(msg.Details) > 0 {
 		first = o.writeField(first, "details", msg.Details)
 	}
-	
+
 	// metadata always last
 	if len(msg.Metadata) > 0 {
 		first = o.writeField(first, "metadata", msg.Metadata)
 	}
-	
+
 	o.buf.WriteString("}")
 	return nil
 }
@@ -239,12 +239,12 @@ func (o *OrderedJSONOutput) writeField(first bool, name string, value interface{
 	if !first {
 		o.buf.WriteString(",")
 	}
-	
+
 	data, err := json.Marshal(value)
 	if err != nil {
 		data = []byte("null")
 	}
-	
+
 	o.buf.WriteString(fmt.Sprintf(`"%s":%s`, name, string(data)))
 	return false
 }
@@ -542,15 +542,29 @@ func (f *JSONFormatter) FormatProgress(current, total int, message string) error
 	return f.outputJSON(msg)
 }
 
-// Flush flushes any buffered output
+// Flush flushes any buffered output immediately
+// This is critical for streaming to ensure messages are sent immediately
 func (f *JSONFormatter) Flush() error {
+	// Try to flush the underlying writer if it supports flushing
 	if flusher, ok := f.output.(interface{ Flush() error }); ok {
-		return flusher.Flush()
+		if err := flusher.Flush(); err != nil {
+			return fmt.Errorf("failed to flush output: %w", err)
+		}
 	}
+
+	// For file writers, we may need to sync
+	if syncer, ok := f.output.(interface{ Sync() error }); ok {
+		if err := syncer.Sync(); err != nil {
+			// Sync errors are non-fatal for many writers
+			// Just log and continue
+			return nil
+		}
+	}
+
 	return nil
 }
 
-// outputJSON outputs a JSON message
+// outputJSON outputs a JSON message and flushes immediately for streaming
 func (f *JSONFormatter) outputJSON(message JSONMessage) error {
 	// Track processed messages
 	if f.processedMessages[message.Ts] {
@@ -566,8 +580,17 @@ func (f *JSONFormatter) outputJSON(message JSONMessage) error {
 		if err := ordered.WriteMessage(message); err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
-		_, err := fmt.Fprintln(f.output, ordered.String())
-		return err
+		if _, err := fmt.Fprintln(f.output, ordered.String()); err != nil {
+			return fmt.Errorf("failed to write JSON: %w", err)
+		}
+
+		// CRITICAL: Flush immediately after each message in streaming mode
+		// This ensures the message is sent to the client immediately
+		if err := f.Flush(); err != nil {
+			return fmt.Errorf("failed to flush output: %w", err)
+		}
+
+		return nil
 	}
 
 	// Non-streaming mode: output as part of a JSON array or object
@@ -576,10 +599,13 @@ func (f *JSONFormatter) outputJSON(message JSONMessage) error {
 	if err := ordered.WriteMessage(message); err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	
+
 	// In non-streaming mode, we need to output valid JSON array
-	_, err := fmt.Fprintln(f.output, ordered.String())
-	return err
+	if _, err := fmt.Fprintln(f.output, ordered.String()); err != nil {
+		return fmt.Errorf("failed to write JSON: %w", err)
+	}
+
+	return nil
 }
 
 // FormatErrorOutput formats an error as JSON output

@@ -225,9 +225,11 @@ func init() {
 	// Bind flags to viper
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 
-	// Version flag handling
-	rootCmd.SetVersionTemplate(fmt.Sprintf("Cline CLI version %s\n", Version))
-	rootCmd.Version = Version
+	// NOTE: Disabling --version flag to match Node.js CLI behavior
+	// The Node.js CLI only supports the "version" subcommand, not the --version flag
+	// Version flag handling is disabled for parity
+	// rootCmd.SetVersionTemplate(fmt.Sprintf("Cline CLI version %s\n", Version))
+	// rootCmd.Version = Version
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -877,49 +879,43 @@ func runTaskWithGRPC(opts *RootOptions) error {
 		defer cancel()
 	}
 
-	// Resolve gRPC endpoint
-	resolver := host.NewEndpointResolver("")
-	endpointConfig, err := resolver.Resolve()
+	// Create gRPC client
+	client, err := createGRPCClient(opts)
 	if err != nil {
-		return fmt.Errorf("failed to resolve gRPC endpoint: %w", err)
+		return fmt.Errorf("failed to create gRPC client: %w", err)
+	}
+	defer client.Stop()
+
+	// Determine task mode
+	mode := getTaskModeAsTaskMode(opts)
+
+	// Create task config
+	taskConfig := &task.Config{
+		Mode:                   mode,
+		Yolo:                   opts.Yolo,
+		AutoApproveAll:         opts.AutoApproveAll,
+		DoubleCheckCompletion:  opts.DoubleCheckCompletion,
+		MaxConsecutiveMistakes: 3,
 	}
 
-	// Create connection manager
-	cm := host.NewConnectionManager(endpointConfig)
-	if err := cm.ConnectWithRetry(ctx, 3); err != nil {
-		return fmt.Errorf("failed to connect to Cline core extension at %s: %w", endpointConfig.Address, err)
-	}
-	defer cm.Close()
-
-	// Verify connection is healthy
-	if err := cm.HealthCheck(ctx); err != nil {
-		return fmt.Errorf("health check failed: %w", err)
-	}
-
-	if verbose {
-		fmt.Fprintf(os.Stderr, "Connected to Cline core extension at %s\n", endpointConfig.Address)
+	// Parse max mistakes if provided
+	if opts.MaxConsecutiveMistakes != nil {
+		taskConfig.MaxConsecutiveMistakes = *opts.MaxConsecutiveMistakes
 	}
 
 	// Create task runner
-	taskConfig := &task.Config{
-		Mode: getTaskModeAsTaskMode(opts),
-		Yolo: opts.Yolo,
+	var telemetryService telemetry.Service
+	storageCtx, _ := initStorage()
+	if storageCtx != nil {
+		telemetryService, _ = telemetry.NewService(storageCtx, Version, logger)
+	} else {
+		telemetryService = telemetry.NewNoOpService()
 	}
-	runner := task.NewRunner(taskConfig, telemetry.NewNoOpService(), errorservice.NewService(nil, logger), logger)
+	errorService := errorservice.NewService(storageCtx, logger)
+	_ = errorService.Initialize()
 
-	// Build task config
-	config := task.TaskConfig{
-		Mode:     getTaskModeAsTaskMode(opts),
-		Yolo:     opts.Yolo,
-		Timeout:  opts.Timeout,
-		Model:    opts.Model,
-		Images:   opts.Images,
-		Verbose:  verbose,
-		Cwd:      opts.Cwd,
-		Thinking: opts.Thinking != nil,
-		TaskID:   opts.TaskID,
-		Prompt:   opts.Prompt,
-	}
+	runner := task.NewGRPCRunner(taskConfig, telemetryService, errorService, logger)
+	runner.SetGRPCClient(client)
 
 	// Create message handler based on output mode and interactivity
 	var handler task.MessageHandler
@@ -933,10 +929,33 @@ func runTaskWithGRPC(opts *RootOptions) error {
 		// Non-interactive or auto-approve mode - use PlainHandler with auto-approve
 		handler = formatter.NewPlainHandler(os.Stdout, verbose, opts.Yolo || opts.AutoApproveAll)
 	}
+	runner.SetMessageHandler(handler)
 
 	// Run the task
-	if err := runner.Run(ctx, config, handler); err != nil {
-		return fmt.Errorf("task execution failed: %w", err)
+	var runErr error
+	if opts.TaskID != "" {
+		// Resume existing task
+		runErr = runner.ResumeTask(ctx, opts.TaskID, opts.Prompt)
+	} else {
+		// Start new task
+		taskOpts := task.TaskOptions{
+			Prompt:  opts.Prompt,
+			Images:  opts.Images,
+			Timeout: opts.Timeout,
+			Model:   opts.Model,
+			Mode:    mode,
+			Yolo:    opts.Yolo,
+		}
+		runErr = runner.StartTask(ctx, taskOpts)
+	}
+
+	if runErr != nil {
+		return fmt.Errorf("task execution failed: %w", runErr)
+	}
+
+	// Return appropriate exit code
+	if runner.GetExitCode() != 0 {
+		return fmt.Errorf("task completed with exit code %d", runner.GetExitCode())
 	}
 
 	return nil

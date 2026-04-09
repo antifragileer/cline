@@ -9,8 +9,8 @@ import (
 
 // SettingsValidator provides validation for settings values
 type SettingsValidator struct {
-	errors   map[string]string
-	rules    map[string][]ValidationRule
+	errors      map[string]string
+	rules       map[string][]ValidationRule
 	highlighter *SyntaxHighlighter
 }
 
@@ -31,8 +31,8 @@ type ValidationResult struct {
 // NewSettingsValidator creates a new settings validator
 func NewSettingsValidator() *SettingsValidator {
 	v := &SettingsValidator{
-		errors:   make(map[string]string),
-		rules:    make(map[string][]ValidationRule),
+		errors:      make(map[string]string),
+		rules:       make(map[string][]ValidationRule),
 		highlighter: NewSyntaxHighlighter(true, "dark"),
 	}
 	v.setupDefaultRules()
@@ -262,7 +262,7 @@ func (v *SettingsValidator) AddCustomRule(key string, rule ValidationRule) {
 // ValidateSettingsModel validates a SettingsModel's current state
 func ValidateSettingsModel(model *SettingsModel) ValidationResult {
 	validator := NewSettingsValidator()
-	
+
 	if model.content == nil {
 		return ValidationResult{
 			Valid:   false,
