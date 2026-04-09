@@ -251,7 +251,9 @@ func (h *InteractiveHandler) OnSay(sayType string, content string, partial bool)
 	case "text":
 		return h.OnText(content, partial)
 	case "error":
-		return h.OnError(fmt.Errorf("%s", content))
+		// Print error but don't return it - OnSay is for displaying messages
+		fmt.Fprintf(h.output, "\n❌ Error: %s\n", content)
+		return nil
 	case "command":
 		fmt.Fprintf(h.output, "\n🖥  %s\n", content)
 	case "tool":

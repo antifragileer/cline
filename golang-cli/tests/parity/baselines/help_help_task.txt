@@ -1,0 +1,27 @@
+Create, monitor, and manage Cline AI tasks.
+
+Usage:
+  cline task [command]
+
+Aliases:
+  task, t
+
+Available Commands:
+  chat        Chat with the current task in interactive mode
+  list        List recent task history
+  new         Create a new task
+  open        Open a task by ID
+  pause       Pause the current task
+  restore     Restore task to a specific checkpoint
+  send        Send a followup message to the current task and[PATH] update mode[PATH]
+  view        View task conversation
+
+Flags:
+  -h, --help   help for task
+
+Global Flags:
+      --address string         Cline Core gRPC address (default "localhost[PORT]")
+  -F, --output-format string   output format (rich|json|plain) (default "rich")
+  -v, --verbose                verbose output
+
+Use "cline task [command] --help" for more information about a command.

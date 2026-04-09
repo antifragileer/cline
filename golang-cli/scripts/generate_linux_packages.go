@@ -1,5 +1,42 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
-// This file implements the CLI tool for generating Linux packages (DEB/RPM).
+//
+// This file implements Linux package generators for DEB (Debian/Ubuntu) and
+// RPM (RHEL/CentOS/Fedora) distributions. These packages provide system-wide
+// installation with proper dependency management and integration with the
+// system's package manager.
+//
+// DEB Package Structure:
+//
+//	cline_1.0.0_amd64.deb
+//	├── DEBIAN/
+//	│   ├── control      # Package metadata
+//	│   ├── postinst     # Post-installation script
+//	│   └── prerm        # Pre-removal script
+//	└── usr/
+//	    └── bin/
+//	        └── cline    # Binary
+//
+// RPM Package Structure:
+//
+//	cline-1.0.0-1.x86_64.rpm
+//	├── /usr/bin/cline   # Binary
+//	└── metadata         # Embedded in RPM header
+//
+// Example usage:
+//
+//	// Generate all Linux packages
+//	err := scripts.GenerateLinuxPackages(
+//	    "1.0.0",
+//	    "./dist",
+//	    "./packages",
+//	    []string{"deb", "rpm"},
+//	)
+//
+//	// Generate only DEB packages
+//	err := scripts.GenerateDEBPackages("1.0.0", "./dist", "./packages")
+//
+//	// Generate only RPM packages
+//	err := scripts.GenerateRPMPackages("1.0.0", "./dist", "./packages")
 package scripts
 
 import (

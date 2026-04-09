@@ -1,7 +1,9 @@
 package audit
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -957,3 +959,450 @@ func TestEventType_Constants(t *testing.T) {
 		})
 	}
 }
+
+func TestEnsureDefaults(t *testing.T) {
+	t.Run("sets default values for empty config", func(t *testing.T) {
+		config := Config{}
+		ensureDefaults(&config)
+
+		if config.MaxFileSize != 10*1024*1024 {
+			t.Errorf("MaxFileSize = %d, want %d", config.MaxFileSize, 10*1024*1024)
+		}
+		if config.MaxBackups != 5 {
+			t.Errorf("MaxBackups = %d, want 5", config.MaxBackups)
+		}
+		if config.BufferSize != 1000 {
+			t.Errorf("BufferSize = %d, want 1000", config.BufferSize)
+		}
+	})
+
+	t.Run("preserves existing values", func(t *testing.T) {
+		config := Config{
+			MaxFileSize: 5 * 1024 * 1024,
+			MaxBackups:  10,
+			BufferSize:  500,
+		}
+		ensureDefaults(&config)
+
+		if config.MaxFileSize != 5*1024*1024 {
+			t.Errorf("MaxFileSize = %d, want %d", config.MaxFileSize, 5*1024*1024)
+		}
+		if config.MaxBackups != 10 {
+			t.Errorf("MaxBackups = %d, want 10", config.MaxBackups)
+		}
+		if config.BufferSize != 500 {
+			t.Errorf("BufferSize = %d, want 500", config.BufferSize)
+		}
+	})
+}
+
+func TestDefaultLoggerConfig(t *testing.T) {
+	config := DefaultLoggerConfig()
+
+	if config.Enabled != true {
+		t.Error("Enabled should be true")
+	}
+	if config.MaxFileSize != 10*1024*1024 {
+		t.Errorf("MaxFileSize = %d, want %d", config.MaxFileSize, 10*1024*1024)
+	}
+	if config.MaxBackups != 5 {
+		t.Errorf("MaxBackups = %d, want 5", config.MaxBackups)
+	}
+	if config.BufferSize != 1000 {
+		t.Errorf("BufferSize = %d, want 1000", config.BufferSize)
+	}
+	if config.SyncWrite != false {
+		t.Error("SyncWrite should be false")
+	}
+}
+
+func TestLogger_SetEnabled(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	config := Config{
+		Enabled:     true,
+		LogDir:      tempDir,
+		MaxFileSize: 1024 * 1024,
+		MaxBackups:  3,
+		BufferSize:  10,
+		SyncWrite:   true,
+	}
+
+	logger, err := NewLogger(config)
+	if err != nil {
+		t.Fatalf("NewLogger failed: %v", err)
+	}
+	defer logger.Close()
+
+	// Initially enabled
+	if !logger.IsEnabled() {
+		t.Error("Logger should be enabled initially")
+	}
+
+	// Disable logging
+	logger.SetEnabled(false)
+	if logger.IsEnabled() {
+		t.Error("Logger should be disabled after SetEnabled(false)")
+	}
+
+	// Re-enable
+	logger.SetEnabled(true)
+	if !logger.IsEnabled() {
+		t.Error("Logger should be enabled after SetEnabled(true)")
+	}
+}
+
+func TestLogger_Rotate(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	config := Config{
+		Enabled:     true,
+		LogDir:      tempDir,
+		MaxFileSize: 1024 * 1024,
+		MaxBackups:  3,
+		BufferSize:  10,
+		SyncWrite:   true,
+	}
+
+	logger, err := NewLogger(config)
+	if err != nil {
+		t.Fatalf("NewLogger failed: %v", err)
+	}
+
+	// Log some events
+	for i := 0; i < 3; i++ {
+		event := &Event{
+			EventType:   EventCommandExecution,
+			UserContext: "user",
+			TaskID:      "task",
+			SessionID:   "session",
+			Message:     fmt.Sprintf("Event %d", i),
+		}
+		if err := logger.Log(event); err != nil {
+			t.Fatalf("Log failed: %v", err)
+		}
+	}
+
+	// Rotate the log
+	if err := logger.Rotate(); err != nil {
+		t.Errorf("Rotate failed: %v", err)
+	}
+
+	// Log another event after rotation
+	event := &Event{
+		EventType:   EventFileRead,
+		UserContext: "user",
+		TaskID:      "task",
+		SessionID:   "session",
+		Message:     "After rotation",
+	}
+	if err := logger.Log(event); err != nil {
+		t.Fatalf("Log after rotation failed: %v", err)
+	}
+
+	logger.Close()
+
+	// Verify rotated file exists
+	rotatedPath := filepath.Join(tempDir, "audit.log.1")
+	if _, err := os.Stat(rotatedPath); os.IsNotExist(err) {
+		t.Error("Rotated log file should exist")
+	}
+
+	// Verify current log exists
+	currentPath := filepath.Join(tempDir, "audit.log")
+	if _, err := os.Stat(currentPath); os.IsNotExist(err) {
+		t.Error("Current log file should exist after rotation")
+	}
+}
+
+func TestLogger_CheckSize(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	config := Config{
+		Enabled:     true,
+		LogDir:      tempDir,
+		MaxFileSize: 1024, // Small size to trigger rotation
+		MaxBackups:  3,
+		BufferSize:  10,
+		SyncWrite:   true,
+	}
+
+	logger, err := NewLogger(config)
+	if err != nil {
+		t.Fatalf("NewLogger failed: %v", err)
+	}
+
+	// Log a large event to exceed MaxFileSize
+	largeData := make([]byte, 1500)
+	for i := range largeData {
+		largeData[i] = 'x'
+	}
+	event := &Event{
+		EventType:   EventCommandExecution,
+		UserContext: "user",
+		TaskID:      "task",
+		SessionID:   "session",
+		Message:     string(largeData),
+	}
+	if err := logger.Log(event); err != nil {
+		t.Fatalf("Log failed: %v", err)
+	}
+
+	// CheckSize should trigger rotation
+	if err := logger.CheckSize(); err != nil {
+		t.Errorf("CheckSize failed: %v", err)
+	}
+
+	logger.Close()
+
+	// Verify rotation occurred (audit.log.1 should exist)
+	rotatedPath := filepath.Join(tempDir, "audit.log.1")
+	if _, err := os.Stat(rotatedPath); os.IsNotExist(err) {
+		t.Error("Log should have been rotated due to size")
+	}
+}
+
+func TestLogger_CheckSize_NoRotation(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	config := Config{
+		Enabled:     true,
+		LogDir:      tempDir,
+		MaxFileSize: 1024 * 1024, // Large size, no rotation expected
+		MaxBackups:  3,
+		BufferSize:  10,
+		SyncWrite:   true,
+	}
+
+	logger, err := NewLogger(config)
+	if err != nil {
+		t.Fatalf("NewLogger failed: %v", err)
+	}
+	defer logger.Close()
+
+	// Log a small event
+	event := &Event{
+		EventType:   EventCommandExecution,
+		UserContext: "user",
+		TaskID:      "task",
+		SessionID:   "session",
+		Message:     "Small event",
+	}
+	if err := logger.Log(event); err != nil {
+		t.Fatalf("Log failed: %v", err)
+	}
+
+	// CheckSize should not rotate
+	if err := logger.CheckSize(); err != nil {
+		t.Errorf("CheckSize failed: %v", err)
+	}
+
+	// Verify no rotation occurred
+	rotatedPath := filepath.Join(tempDir, "audit.log.1")
+	if _, err := os.Stat(rotatedPath); !os.IsNotExist(err) {
+		t.Error("Log should not have been rotated")
+	}
+}
+
+func TestContextualLogger(t *testing.T) {
+	t.Run("logs with context values", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		config := Config{
+			Enabled:     true,
+			LogDir:      tempDir,
+			MaxFileSize: 1024 * 1024,
+			MaxBackups:  3,
+			BufferSize:  10,
+			SyncWrite:   true,
+		}
+
+		logger, err := NewLogger(config)
+		if err != nil {
+			t.Fatalf("NewLogger failed: %v", err)
+		}
+		defer logger.Close()
+
+		ctx := context.WithValue(context.Background(), "task_id", "ctx-task-123")
+		ctx = context.WithValue(ctx, "session_id", "ctx-session-456")
+		ctx = context.WithValue(ctx, "user_id", "ctx-user")
+
+		cl := logger.ContextualLogger(ctx)
+
+		// Event with empty fields should be filled from context
+		event := &Event{
+			EventType:   EventCommandExecution,
+			UserContext: "", // Will be filled from context
+			TaskID:      "", // Will be filled from context
+			SessionID:   "", // Will be filled from context
+			Message:     "Context test",
+		}
+
+		if err := cl.Log(event); err != nil {
+			t.Errorf("ContextualLogger.Log failed: %v", err)
+		}
+
+		// Read log file and verify context values were used
+		logData, err := os.ReadFile(logger.GetLogPath())
+		if err != nil {
+			t.Fatalf("Failed to read log file: %v", err)
+		}
+
+		logContent := string(logData)
+		if !strings.Contains(logContent, "ctx-task-123") {
+			t.Error("Log should contain task_id from context")
+		}
+		if !strings.Contains(logContent, "ctx-session-456") {
+			t.Error("Log should contain session_id from context")
+		}
+		if !strings.Contains(logContent, "ctx-user") {
+			t.Error("Log should contain user_id from context")
+		}
+	})
+
+	t.Run("preserves existing event values", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		config := Config{
+			Enabled:     true,
+			LogDir:      tempDir,
+			MaxFileSize: 1024 * 1024,
+			MaxBackups:  3,
+			BufferSize:  10,
+			SyncWrite:   true,
+		}
+
+		logger, err := NewLogger(config)
+		if err != nil {
+			t.Fatalf("NewLogger failed: %v", err)
+		}
+		defer logger.Close()
+
+		ctx := context.WithValue(context.Background(), "task_id", "ctx-task")
+		cl := logger.ContextualLogger(ctx)
+
+		// Event with existing values should not be overwritten
+		event := &Event{
+			EventType:   EventFileRead,
+			UserContext: "existing-user",
+			TaskID:      "existing-task",
+			SessionID:   "existing-session",
+			Message:     "Preserve test",
+		}
+
+		if err := cl.Log(event); err != nil {
+			t.Errorf("ContextualLogger.Log failed: %v", err)
+		}
+
+		// Read log file and verify existing values were preserved
+		logData, err := os.ReadFile(logger.GetLogPath())
+		if err != nil {
+			t.Fatalf("Failed to read log file: %v", err)
+		}
+
+		logContent := string(logData)
+		if !strings.Contains(logContent, "existing-user") {
+			t.Error("Log should contain existing user_context")
+		}
+		if !strings.Contains(logContent, "existing-task") {
+			t.Error("Log should contain existing task_id")
+		}
+		if !strings.Contains(logContent, "existing-session") {
+			t.Error("Log should contain existing session_id")
+		}
+		// The context task_id should NOT be in this specific log entry since event has its own
+		// Note: We can't easily verify this without parsing JSON, but the test above verifies
+		// that existing values are preserved
+	})
+
+	t.Run("handles nil context", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		config := Config{
+			Enabled:     true,
+			LogDir:      tempDir,
+			MaxFileSize: 1024 * 1024,
+			MaxBackups:  3,
+			BufferSize:  10,
+			SyncWrite:   true,
+		}
+
+		logger, err := NewLogger(config)
+		if err != nil {
+			t.Fatalf("NewLogger failed: %v", err)
+		}
+		defer logger.Close()
+
+		cl := logger.ContextualLogger(nil)
+
+		event := &Event{
+			EventType:   EventAPICall,
+			UserContext: "user",
+			TaskID:      "task",
+			SessionID:   "session",
+			Message:     "Nil context test",
+		}
+
+		if err := cl.Log(event); err != nil {
+			t.Errorf("ContextualLogger.Log with nil context failed: %v", err)
+		}
+	})
+
+	t.Run("handles nil event", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "audit-log-test-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		config := Config{
+			Enabled:     true,
+			LogDir:      tempDir,
+			MaxFileSize: 1024 * 1024,
+			MaxBackups:  3,
+			BufferSize:  10,
+			SyncWrite:   true,
+		}
+
+		logger, err := NewLogger(config)
+		if err != nil {
+			t.Fatalf("NewLogger failed: %v", err)
+		}
+		defer logger.Close()
+
+		cl := logger.ContextualLogger(context.Background())
+
+		if err := cl.Log(nil); err == nil {
+			t.Error("Expected error for nil event")
+		}
+	})
+}
+

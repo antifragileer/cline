@@ -69,8 +69,9 @@ func discoverNodeCLI() (string, error) {
 
 	// 3. Check for npm exec cline
 	if _, err := exec.LookPath("npm"); err == nil {
-		// Test if we can run via npm exec
-		testCmd := exec.Command("npm", "exec", "--", "cline", "--version")
+		// Test if we can run via npm exec (use --silent to avoid prompts)
+		testCmd := exec.Command("npm", "exec", "--silent", "--", "cline", "--version")
+		testCmd.Stdin = strings.NewReader("")
 		if err := testCmd.Run(); err == nil {
 			// Return npm exec command as a special marker
 			return "npm:cline", nil
@@ -118,6 +119,24 @@ func findLocalNodeCLI() string {
 
 // isNodeCLI checks if the given path is a Node.js CLI
 func isNodeCLI(path string) bool {
+	// Check if it's in a node_modules directory (npm global install)
+	if strings.Contains(path, "node_modules") {
+		return true
+	}
+	
+	// Check if it's the 'cline' command (special case for npm-installed cline)
+	if filepath.Base(path) == "cline" {
+		// Additional check: see if it's linked to node_modules
+		if realPath, err := filepath.EvalSymlinks(path); err == nil {
+			if strings.Contains(realPath, "node_modules") {
+				return true
+			}
+		}
+		// If it's executable and named 'cline', assume it's valid
+		// (we already know it passed --version test in discoverNodeCLI)
+		return true
+	}
+	
 	// Read first line to check if it's a node script
 	file, err := os.Open(path)
 	if err != nil {
@@ -160,7 +179,8 @@ func (a *NodeCLIAdapter) Execute(ctx context.Context, args []string, stdin strin
 	// Handle special npm/npx markers
 	switch a.cliPath {
 	case "npm:cline":
-		cmd = exec.CommandContext(ctx, "npm", append([]string{"exec", "--", "cline"}, args...)...)
+		// Use --silent to suppress npm output and avoid interactive prompts
+		cmd = exec.CommandContext(ctx, "npm", append([]string{"exec", "--silent", "--", "cline"}, args...)...)
 	case "npx:cline":
 		cmd = exec.CommandContext(ctx, "npx", append([]string{"--yes", "cline"}, args...)...)
 	default:
@@ -185,9 +205,12 @@ func (a *NodeCLIAdapter) Execute(ctx context.Context, args []string, stdin strin
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 	
-	// Set stdin
+	// Set stdin - always provide a Reader to avoid hanging on stdin reads
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
+	} else {
+		// Provide empty stdin to prevent commands from waiting for input
+		cmd.Stdin = strings.NewReader("")
 	}
 	
 	// Capture stdout and stderr

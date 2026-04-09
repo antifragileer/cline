@@ -1,0 +1,46 @@
+A command-line interface for interacting with Cline AI coding assistant.
+
+Start a new task by providing a prompt:
+  cline "Create a new Python script that prints hello world"
+
+Or pipe a prompt via stdin:
+  echo "Create a todo app" | cline
+  cat prompt.txt | cline --yolo
+
+Or run with no arguments to enter interactive mode:
+  cline
+
+This CLI also provides task management, configuration, and monitoring capabilities.
+
+For detailed documentation including all commands, options, and examples,
+see the manual page: man cline
+
+Usage:
+  cline [prompt] [flags]
+  cline [command]
+
+Available Commands:
+  auth        Authenticate a provider and configure what model is used
+  completion  Generate the autocompletion script for the specified shell
+  config      Manage Cline configuration
+  help        Help about any command
+  instance    Manage Cline instances
+  logs        Manage Cline log files
+  task        Manage Cline tasks
+  version     Show version information
+
+Flags:
+      --address string         Cline Core gRPC address (default "localhost[PORT]")
+  -f, --file strings           attach files
+  -h, --help                   help for cline
+  -i, --image strings          attach image files
+  -m, --mode string            mode (act|plan) - defaults to plan (default "plan")
+      --no-interactive         enable yolo mode (non-interactive)
+  -o, --oneshot                full autonomous mode
+  -F, --output-format string   output format (rich|json|plain) (default "rich")
+  -s, --setting strings        task settings (key=value format)
+  -v, --verbose                verbose output
+  -w, --workspace strings      additional workspace paths (can be specified multiple times)
+  -y, --yolo                   enable yolo mode (non-interactive)
+
+Use "cline [command] --help" for more information about a command.

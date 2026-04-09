@@ -1,5 +1,30 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
-// This file implements the CLI tool for generating Scoop manifests.
+//
+// This file implements the Scoop manifest generator for Windows distribution.
+// Scoop is a command-line installer for Windows that simplifies software
+// installation and management.
+//
+// The Scoop manifest format is JSON-based and specifies:
+//   - Download URLs for each supported architecture
+//   - SHA256 checksums for verification
+//   - Installation instructions
+//   - Auto-update configuration
+//
+// Example manifest structure:
+//
+//	{
+//	    "version": "1.0.0",
+//	    "description": "AI-powered coding assistant CLI",
+//	    "homepage": "https://github.com/cline/cline",
+//	    "license": "Apache-2.0",
+//	    "architecture": {
+//	        "64bit": {
+//	            "url": "https://github.com/cline/cline/releases/download/v1.0.0/cline_1.0.0_windows_amd64.zip",
+//	            "hash": "sha256:..."
+//	        }
+//	    },
+//	    "bin": "cline.exe"
+//	}
 package scripts
 
 import (

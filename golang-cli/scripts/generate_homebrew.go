@@ -1,5 +1,37 @@
 // Package scripts provides build and distribution utilities for the Cline CLI.
-// This file implements the CLI tool for generating Homebrew formulas.
+//
+// This package contains tools for generating distribution packages including:
+//   - Homebrew formulas for macOS and Linux
+//   - Scoop manifests for Windows
+//   - DEB and RPM packages for Linux
+//
+// The scripts are designed to be used both as command-line tools and as
+// importable libraries for custom build pipelines.
+//
+// Example usage:
+//
+//	// Generate a Homebrew formula
+//	err := scripts.GenerateHomebrewFormulaFromLocalBinaries(
+//	    "1.0.0",
+//	    "./dist",
+//	    "./Formula/cline.rb",
+//	)
+//
+//	// Generate a Scoop manifest
+//	config := &scripts.ScoopConfig{
+//	    Version:    "1.0.0",
+//	    BinaryDir:  "./dist",
+//	    OutputPath: "./bucket/cline.json",
+//	}
+//	manifest, err := scripts.GenerateScoop(config)
+//
+//	// Generate Linux packages
+//	err := scripts.GenerateLinuxPackages(
+//	    "1.0.0",
+//	    "./dist",
+//	    "./packages",
+//	    []string{"deb", "rpm"},
+//	)
 package scripts
 
 import (

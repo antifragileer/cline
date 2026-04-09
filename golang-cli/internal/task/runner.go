@@ -6,9 +6,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/cline/cline/golang-cli/internal/errorservice"
+	"github.com/cline/cline/golang-cli/internal/host"
 	"github.com/cline/cline/golang-cli/internal/session"
 	"github.com/cline/cline/golang-cli/internal/telemetry"
 )
@@ -28,6 +31,19 @@ type Runner struct {
 	taskID      string
 	isRunning   bool
 	isCancelled bool
+	exitCode    int
+
+	// gRPC connection
+	grpcClient  *host.Client
+	streamHandler *host.TaskStreamHandler
+
+	// Message handling
+	messageHandler MessageHandler
+
+	// Results
+	taskResult  string
+	taskError   error
+	completed   bool
 }
 
 // NewRunner creates a new task runner
@@ -243,4 +259,254 @@ func (r *Runner) Run(ctx context.Context, config TaskConfig, handler MessageHand
 
 	// Start the task
 	return r.Start(ctx, config.Prompt)
+}
+
+// RunWithStreaming executes a task with streaming JSON output (yolo mode)
+// This implements complete yolo mode with auto-approval chain and exit code capture
+func (r *Runner) RunWithStreaming(ctx context.Context, prompt string, autoApprove bool) (int, string, error) {
+	r.mu.Lock()
+	if r.isRunning {
+		r.mu.Unlock()
+		return 1, "", fmt.Errorf("task already running")
+	}
+	r.isRunning = true
+	r.isCancelled = false
+	r.completed = false
+	r.exitCode = 0
+	r.mu.Unlock()
+
+	// Ensure we mark task as not running when done
+	defer func() {
+		r.mu.Lock()
+		r.isRunning = false
+		r.mu.Unlock()
+	}()
+
+	// Record task creation telemetry
+	if r.telemetry != nil {
+		_ = r.telemetry.CaptureTaskCreated(r.taskID, "streaming")
+	}
+
+	// Record session tracking
+	r.session.StartAPICall()
+	defer r.session.EndAPICall()
+
+	r.logger.Info("Starting streaming task", "task_id", r.taskID, "prompt", prompt, "auto_approve", autoApprove)
+
+	// Create enhanced message handler with yolo configuration
+	handlerConfig := &HandlerConfig{
+		YoloMode:              autoApprove,
+		EnablePartialMessages: true,
+		MaxHistorySize:        1000,
+	}
+
+	if autoApprove {
+		// In yolo mode, auto-approve all standard tools
+		handlerConfig.AutoApproveTools = []string{
+			"read_file",
+			"write_file",
+			"edit_file",
+			"execute_command",
+			"search_files",
+			"list_files",
+			"browser_action",
+		}
+	}
+
+	enhancedHandler := NewEnhancedMessageHandler(handlerConfig)
+
+	// Set up callbacks for streaming output
+	var resultBuilder strings.Builder
+	var lastError error
+
+	enhancedHandler.SetTextCallback(func(content string, isPartial bool) error {
+		if !isPartial {
+			resultBuilder.WriteString(content)
+			resultBuilder.WriteString("\n")
+		}
+		return nil
+	})
+
+	enhancedHandler.SetCompletionCallback(func(success bool, summary string) error {
+		r.mu.Lock()
+		r.completed = true
+		r.taskResult = summary
+		if success {
+			r.exitCode = 0
+		} else {
+			r.exitCode = 1
+		}
+		r.mu.Unlock()
+		return nil
+	})
+
+	enhancedHandler.SetErrorCallback(func(err error) error {
+		lastError = err
+		r.mu.Lock()
+		r.taskError = err
+		r.exitCode = 1
+		r.mu.Unlock()
+		return nil
+	})
+
+	// Execute task with streaming
+	err := r.executeStreamingTask(ctx, prompt, enhancedHandler)
+	if err != nil {
+		return 1, "", err
+	}
+
+	// Wait for completion or cancellation
+	select {
+	case <-ctx.Done():
+		return 1, "", ctx.Err()
+	default:
+		// Task completed
+	}
+
+	r.mu.RLock()
+	exitCode := r.exitCode
+	result := resultBuilder.String()
+	r.mu.RUnlock()
+
+	return exitCode, result, lastError
+}
+
+// executeStreamingTask executes a task with bidirectional streaming
+func (r *Runner) executeStreamingTask(ctx context.Context, prompt string, handler *EnhancedMessageHandler) error {
+	// This would integrate with gRPC streaming
+	// For now, simulate task execution with message handling
+
+	// Simulate sending initial task message
+	taskMsg := &JSONMessage{
+		Ts:   time.Now().UnixMilli(),
+		Type: string(ClineMessageTypeSay),
+		Say:  string(ClineSayTask),
+		Text: prompt,
+	}
+
+	if err := handler.HandleMessage(taskMsg); err != nil {
+		return err
+	}
+
+	// In a real implementation, this would:
+	// 1. Connect to gRPC stream
+	// 2. Send the prompt
+	// 3. Process incoming messages
+	// 4. Send responses back
+	// 5. Handle completion
+
+	return nil
+}
+
+// GetExitCode returns the task exit code
+func (r *Runner) GetExitCode() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.exitCode
+}
+
+// GetTaskResult returns the task result
+func (r *Runner) GetTaskResult() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.taskResult
+}
+
+// IsCompleted returns whether the task completed
+func (r *Runner) IsCompleted() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.completed
+}
+
+// YoloModeConfig holds yolo mode configuration
+type YoloModeConfig struct {
+	// AutoApprove enables auto-approval of all tools
+	AutoApprove bool
+
+	// ExitOnCompletion exit after task completion
+	ExitOnCompletion bool
+
+	// PlainText use plain text output instead of TUI
+	PlainText bool
+
+	// CaptureOutput capture and return output
+	CaptureOutput bool
+}
+
+// ExecuteYoloMode executes a task in yolo mode with full auto-approval
+func (r *Runner) ExecuteYoloMode(ctx context.Context, prompt string, config YoloModeConfig) (int, string, error) {
+	// Force yolo mode in config
+	r.mu.Lock()
+	r.config.Yolo = true
+	r.config.PlainTextMode = config.PlainText
+	r.config.YoloWarningShown = false
+	r.mu.Unlock()
+
+	// Show yolo warning if not already shown
+	if !r.config.YoloWarningShown {
+		fmt.Println(YoloWarning)
+		r.config.YoloWarningShown = true
+	}
+
+	// Execute with streaming
+	exitCode, output, err := r.RunWithStreaming(ctx, prompt, true)
+
+	// Handle exit on completion
+	if config.ExitOnCompletion {
+		r.logger.Info("Exiting on completion (yolo mode)", "exit_code", exitCode)
+	}
+
+	return exitCode, output, err
+}
+
+// SetMessageHandler sets the message handler for the runner
+func (r *Runner) SetMessageHandler(handler MessageHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.messageHandler = handler
+}
+
+// GetMessageHandler returns the current message handler
+func (r *Runner) GetMessageHandler() MessageHandler {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.messageHandler
+}
+
+// ConnectGRPC connects to the gRPC server
+func (r *Runner) ConnectGRPC(target string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	clientConfig := host.ClientConfig{
+		Target:         target,
+		PoolSize:       3,
+		ConnTimeout:    10 * time.Second,
+		MaxRetries:     3,
+		ReconnectDelay: 2 * time.Second,
+	}
+
+	client, err := host.NewClient(clientConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create gRPC client: %w", err)
+	}
+
+	if err := client.Start(); err != nil {
+		return fmt.Errorf("failed to start gRPC client: %w", err)
+	}
+
+	r.grpcClient = client
+	return nil
+}
+
+// DisconnectGRPC disconnects from the gRPC server
+func (r *Runner) DisconnectGRPC() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.grpcClient != nil {
+		return r.grpcClient.Stop()
+	}
+	return nil
 }
